@@ -267,7 +267,7 @@ img { max-width:100%; height:auto; display:block; }
 .card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
 .card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
 .card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
-.card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card h2, .card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
 .card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
 /* Cards go 2-col at 500px — gives each card enough width for readable text */
 @media(min-width:500px) {

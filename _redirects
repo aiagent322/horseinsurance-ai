@@ -1,1 +1,21 @@
+# Old monolith index.html
 /index.html / 301
+
+# Old section anchors → new pages
+/#coverage /coverage/ 301
+/#mortality /coverage/mortality.html 301
+/#medical /coverage/medical.html 301
+/#lossofuse /coverage/loss-of-use.html 301
+/#liability /coverage/liability.html 301
+/#transit /coverage/transit.html 301
+/#breeding /coverage/breeding.html 301
+/#claims /claims/ 301
+/#beforeyoubuy /before-you-buy/ 301
+/#premiums /premiums/ 301
+/#disciplines /disciplines/ 301
+/#lossprevention /loss-prevention/ 301
+/#qa /qa/ 301
+/#glossary /glossary/ 301
+/#ranch /ranch/ 301
+/#blog /blog/ 301
+/#partner /partner/ 301
