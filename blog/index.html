@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
+<title>Blog — HorseInsurance.ai</title>
+<meta name="description" content="In-depth articles on horse insurance — team roping coverage, claim mistakes, pre-existing conditions, transit insurance, and more.">
+<link rel="canonical" href="https://horseinsurance.ai/blog/">
+<meta property="og:title" content="Blog — HorseInsurance.ai">
+<meta property="og:description" content="In-depth articles on horse insurance — team roping coverage, claim mistakes, pre-existing conditions, transit insurance, and more.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://horseinsurance.ai/blog/">
+<meta property="og:image" content="https://horseinsurance.ai/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Blog — HorseInsurance.ai">
+<meta name="twitter:description" content="In-depth articles on horse insurance — team roping coverage, claim mistakes, pre-existing conditions, transit insurance, and more.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#003D79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   HorseInsurance.ai — Conservative Insurance Design System
+   MOBILE-FIRST: Base styles = phone (320px–599px)
+   Scale UP with min-width breakpoints.
+   Target audience: Arizona equestrian on phones.
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --primary: #0b3c5d;
+  --primary-light: #144e78;
+  --secondary: #1d6fa5;
+  --accent: #2a8fd4;
+  --gold: #b8860b;
+  --gold-light: #d4a017;
+  --bg: #ffffff;
+  --bg-alt: #f4f6f8;
+  --bg-warm: #faf9f7;
+  --text: #1f2933;
+  --text-mid: #4a5568;
+  --text-light: #6b7280;
+  --border: #e5e7eb;
+  --border-light: #f0f1f3;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --radius: 6px;
+  --max-w: 1100px;
+  --transition: 0.2s ease;
+}
+
+/* ── RESET & BASE (phone) ── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+/* Remove 300ms tap delay on all interactive elements */
+a, button, [onclick], .qa-question, .deep-dive-header, .blog-read-more, .blog-collapse, .qa-filter {
+  touch-action: manipulation;
+}
+html {
+  scroll-behavior:smooth; scroll-padding-top:100px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.65;
+  font-size: 16px; /* Prevents iOS zoom on input focus */
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: none; /* Prevents rubber-band bounce revealing white below footer */
+}
+a { color: var(--secondary); text-decoration:none; transition: color var(--transition); }
+a:hover { color: var(--primary); text-decoration:underline; }
+img { max-width:100%; height:auto; display:block; }
+
+/* ── Container (phone: 16px gutters) ── */
+.container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── Phone: hide verbose SEO subtitle, show compact version ── */
+.hero-sub-seo { display:none; }
+.hero-sub-short { display:block; }
+
+/* ── Phone: tighter body font for very small screens ── */
+@media(max-width:359px) {
+  body { font-size:15px; }
+  .hero h1 { font-size:1.3rem; }
+  .hero-btn { font-size:0.72rem; padding:7px 8px; }
+  .container { padding:0 12px; }
+}
+
+/* ── Focus styles — keyboard navigation ── */
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Suppress focus ring on mouse/touch — only show for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Reduced motion: respect system preference ── */
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .deep-dive-body, .qa-answer, .blog-article { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   HEADER — two-line: logo row + nav row
+   ═══════════════════════════════════════ */
+.site-header {
+  position: sticky; top:0; z-index:100;
+  background: rgba(255,255,255,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+.site-header.header-hidden { transform:translateY(-100%); }
+.header-top {
+  display:flex; justify-content:space-between; align-items:center;
+  max-width:var(--max-w); margin:0 auto; padding:8px 16px;
+}
+.site-logo {
+  font-weight:800; font-size:1.05rem; color:var(--primary);
+  letter-spacing:-0.02em;
+}
+.site-logo span { color:var(--secondary); }
+
+/* Phone: nav behind hamburger on line 2 */
+.nav-toggle {
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer;
+  padding:8px; min-width:44px; min-height:44px;
+}
+.nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
+.main-nav {
+  display:none; flex-direction:column; padding:4px 16px 12px; gap:2px;
+  border-top:1px solid var(--border-light);
+}
+.main-nav.open { display:flex; }
+.main-nav a {
+  padding:10px 16px; border-radius:var(--radius);
+  font-size:0.92rem; font-weight:500; color:var(--text-mid);
+  transition: background var(--transition), color var(--transition);
+  min-height:44px; display:flex; align-items:center;
+}
+.main-nav a:hover { background:var(--bg-alt); color:var(--primary); text-decoration:none; }
+.main-nav a.active { background:var(--primary); color:#fff; }
+
+/* ═══════════════════════════════════════
+   HERO — phone base, CENTERED
+   ═══════════════════════════════════════ */
+.hero {
+  background: #003D79; /* Deep Process Blue */
+  color: #fff;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+.hero-inner { max-width:var(--max-w); margin:0 auto; }
+.hero h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 auto;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.hero-sub {
+  font-size: 0.88rem;
+  margin: 8px auto 0;
+  opacity: 0.9;
+  line-height: 1.35;
+  max-width: 600px;
+}
+/* Hero buttons: 2×2 grid on phone, compact */
+.hero-buttons {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; margin-top:14px;
+  max-width:380px; margin-left:auto; margin-right:auto;
+}
+.hero-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  background:#EF3340; /* Process Red (PMS 032) */
+  border:1px solid rgba(255,255,255,0.3);
+  padding:8px 10px; border-radius:var(--radius);
+  font-size:0.78rem; font-weight:600; color:#fff;
+  text-decoration:none; transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  min-height:40px;
+}
+.hero-btn:hover {
+  background:#d42d38; border-color:rgba(255,255,255,0.5);
+  text-decoration:none; color:#fff;
+}
+@media(hover:hover) {
+  .hero-btn:hover { transform:translateY(-1px); }
+}
+.hero-btn:active { transform:translateY(0); background:#c0272f; }
+.hero-btn svg { width:14px; height:14px; flex-shrink:0; }
+
+/* ═══════════════════════════════════════
+   STATS BAR — phone: 2×2 grid
+   ═══════════════════════════════════════ */
+.stats-bar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+}
+.stats-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center;
+}
+.stat-item strong {
+  display:block; font-size:1.2rem; color:var(--primary); font-weight:800;
+}
+.stat-item span {
+  font-size:0.7rem; color:var(--text-light); text-transform:uppercase; letter-spacing:0.05em;
+}
+
+/* ═══════════════════════════════════════
+   SECTION NAV — phone: horizontal scroll + sticky
+   ═══════════════════════════════════════ */
+.section-nav {
+  position: sticky; top: var(--header-h, 44px); z-index: 90;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+  transition: top 0.3s ease;
+}
+.section-nav::-webkit-scrollbar { display:none; }
+.section-nav-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:flex; gap:0; padding:0 16px;
+}
+.section-nav a {
+  padding:11px 10px; font-size:0.72rem; font-weight:600;
+  color:var(--text-light); white-space:nowrap;
+  border-bottom:2px solid transparent; transition: color var(--transition), border-color var(--transition);
+  min-height:42px; display:flex; align-items:center;
+  scroll-snap-align:start;
+}
+.section-nav a:hover { color:var(--primary); text-decoration:none; border-bottom-color:var(--border); }
+.section-nav a.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* ═══════════════════════════════════════
+   CONTENT SECTIONS — phone base
+   ═══════════════════════════════════════ */
+.content-section { padding:22px 0; }
+.content-section:nth-of-type(even) { background:var(--bg-alt); }
+.content-section h2 {
+  font-size:1.3rem; font-weight:800; color:var(--primary);
+  margin-bottom:6px; letter-spacing:-0.01em;
+}
+.content-section .section-desc {
+  font-size:0.92rem; color:var(--text-mid); margin-bottom:20px;
+}
+#coverage { background:#d6dde6; }
+#coverage .section-desc { font-weight:700; }
+
+/* ═══════════════════════════════════════
+   CARDS — phone: single column
+   ═══════════════════════════════════════ */
+.cards-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:12px; margin-top:16px;
+}
+.card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  transition: box-shadow var(--transition);
+}
+.card:hover { box-shadow:var(--shadow-sm); }
+.card-icon {
+  width:38px; height:38px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:10px; flex-shrink:0;
+}
+.card-icon svg { width:20px; height:20px; }
+.card-icon.blue { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
+.card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
+/* Cards go 2-col at 500px — gives each card enough width for readable text */
+@media(min-width:500px) {
+  .cards-grid { grid-template-columns:1fr 1fr; gap:12px; }
+}
+
+/* ═══════════════════════════════════════
+   DEEP DIVES — phone: full-width, big touch targets
+   ═══════════════════════════════════════ */
+.deep-dive {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); margin-bottom:12px; overflow:hidden;
+}
+.deep-dive-header {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--bg); transition:background var(--transition);
+  min-height:52px; gap:10px; /* 52px for comfortable touch */
+}
+.deep-dive-header > div:first-child {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  min-width:0; flex:1;
+}
+.deep-dive-header:hover { background:var(--bg-alt); }
+.deep-dive-header h3 { font-size:0.95rem; color:var(--primary); margin:0; line-height:1.35; }
+.deep-dive-header .tag {
+  font-size:0.67rem; text-transform:uppercase; letter-spacing:0.06em;
+  padding:2px 6px; border-radius:3px; font-weight:700;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+  flex-shrink:0; white-space:nowrap;
+}
+.deep-dive-chevron {
+  width:20px; height:20px; transition:transform 0.3s ease; flex-shrink:0;
+  stroke:var(--text-light); min-width:20px;
+}
+.deep-dive.open .deep-dive-chevron { transform:rotate(180deg); }
+.deep-dive-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease-out; }
+.deep-dive.open .deep-dive-body { /* height set by JS */ }
+.deep-dive-content {
+  padding:0 16px 18px;
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.deep-dive-content h4 {
+  font-size:0.93rem; color:var(--primary); margin:16px 0 8px; font-weight:700;
+}
+.deep-dive-content p { margin-bottom:10px; }
+.deep-dive-content ul, .deep-dive-content ol {
+  margin:6px 0 14px 16px; color:var(--text-mid);
+}
+.deep-dive-content li { margin-bottom:5px; line-height:1.6; font-size:0.88rem; }
+
+/* ═══════════════════════════════════════
+   TABLES — phone: horizontal scroll
+   ═══════════════════════════════════════ */
+.compare-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.8rem;
+}
+.compare-table th {
+  background:var(--primary); color:#fff; padding:8px 10px;
+  text-align:left; font-weight:600; font-size:0.7rem;
+  text-transform:uppercase; letter-spacing:0.04em;
+  white-space:nowrap;
+}
+.compare-table td {
+  padding:8px 10px; border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.compare-table tr:nth-child(even) td { background:var(--bg-alt); }
+.compare-table .check { color:var(--success); font-weight:700; }
+.compare-table .cross { color:var(--danger); font-weight:700; }
+.compare-table .varies { color:var(--warning); font-weight:600; }
+.table-wrap {
+  overflow-x:auto; -webkit-overflow-scrolling:touch; margin:16px 0;
+  border-radius:var(--radius);
+  position:relative;
+}
+/* Fade hint — indicates horizontal scroll on phone */
+.table-wrap::after {
+  content:'';
+  position:absolute; top:0; right:0; bottom:0; width:32px;
+  background: linear-gradient(to left, var(--table-fade-bg, var(--bg)) 0%, transparent 100%);
+  pointer-events:none; border-radius:0 var(--radius) var(--radius) 0;
+}
+.content-section:nth-of-type(even) .table-wrap { --table-fade-bg: var(--bg-alt); }
+#coverage .table-wrap { --table-fade-bg: #d6dde6; }
+@media(min-width:900px) {
+  .table-wrap::after { display:none; }
+}
+
+/* ═══════════════════════════════════════
+   Q&A — phone: full-width, large touch targets
+   ═══════════════════════════════════════ */
+.qa-filters {
+  display:flex; flex-wrap:nowrap; gap:6px; margin-bottom:16px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; padding-bottom:4px;
+}
+.qa-filters::-webkit-scrollbar { display:none; }
+.qa-filter {
+  padding:8px 12px; border-radius:20px; font-size:0.8rem;
+  font-weight:500; border:1px solid var(--border);
+  background:var(--bg); color:var(--text-mid); cursor:pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  min-height:38px; /* comfortable touch */
+}
+.qa-filter:hover { border-color:var(--secondary); color:var(--secondary); }
+.qa-filter.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.qa-item {
+  border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden; background:var(--bg);
+}
+.qa-question {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  font-weight:600; font-size:0.9rem; color:var(--text);
+  transition:background var(--transition);
+  min-height:48px; gap:8px; /* 48px touch target */
+}
+.qa-question:hover { background:var(--bg-alt); }
+.qa-question > span:first-child { flex:1; line-height:1.4; }
+.qa-question .qa-cat {
+  font-size:0.67rem; background:var(--bg-alt); color:var(--text-light);
+  padding:2px 6px; border-radius:3px; white-space:nowrap;
+  text-transform:uppercase; letter-spacing:0.04em; font-weight:600;
+  flex-shrink:0; margin-top:3px;
+  display:none; /* hidden on phone — visible from 600px+ */
+}
+.qa-chevron {
+  width:16px; height:16px; flex-shrink:0; stroke:var(--text-light);
+  transition:transform 0.3s ease; min-width:16px; margin-top:3px;
+}
+.qa-item.open .qa-chevron { transform:rotate(180deg); }
+.qa-answer { max-height:0; overflow:hidden; transition:max-height 0.3s ease-out; }
+.qa-item.open .qa-answer { /* height set by JS */ }
+.qa-answer-inner {
+  padding:12px 16px 16px;
+  font-size:0.87rem; line-height:1.7; color:var(--text-mid);
+  border-top:1px solid var(--border-light);
+}
+.qa-count {
+  font-size:0.8rem; color:var(--text-light); margin-bottom:12px;
+}
+.qa-controls {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px; flex-wrap:wrap; gap:8px;
+}
+.qa-toggle-all {
+  font-size:0.8rem; font-weight:600; color:var(--secondary);
+  background:none; border:1px solid var(--border); border-radius:var(--radius);
+  padding:6px 14px; cursor:pointer; transition: background var(--transition), border-color var(--transition);
+  min-height:36px;
+}
+.qa-toggle-all:hover { background:var(--bg-alt); border-color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   BLOG — phone base
+   ═══════════════════════════════════════ */
+.blog-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:16px; margin-top:20px;
+}
+.blog-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  transition: box-shadow var(--transition);
+}
+.blog-card:hover { box-shadow:var(--shadow-md); }
+.blog-card-img {
+  width:100%; height:180px; object-fit:cover;
+  background:var(--bg-alt); display:block;
+}
+.blog-card-img-placeholder {
+  width:100%; height:160px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(255,255,255,0.55); font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.1em;
+}
+.blog-card-body { padding:18px; }
+.blog-card-meta {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.blog-card-date {
+  font-size:0.72rem; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:0.04em;
+}
+.blog-card-tag {
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; padding:2px 7px; border-radius:3px;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+}
+.blog-card-tag.red { background:rgba(239,51,64,0.1); color:#c0272f; }
+.blog-card-tag.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.blog-card-tag.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.blog-card h3 {
+  font-size:1.05rem; font-weight:700; color:var(--primary);
+  margin-bottom:8px; line-height:1.35;
+}
+.blog-card h3 a { color:inherit; text-decoration:none; }
+.blog-card h3 a:hover { color:var(--secondary); text-decoration:none; }
+.blog-title-link { color:inherit; cursor:pointer; }
+.blog-title-link:hover { color:var(--secondary); }
+.blog-card p {
+  font-size:0.86rem; color:var(--text-mid); line-height:1.6;
+  margin-bottom:12px;
+}
+.blog-card-keywords {
+  font-size:0.72rem; color:var(--text-light); line-height:1.5;
+  border-top:1px solid var(--border-light); padding-top:10px;
+  display:none; /* SEO metadata — hidden on phone */
+}
+.blog-card-keywords strong { color:var(--text-mid); }
+.blog-featured {
+  border:2px solid var(--primary);
+}
+.blog-featured-label {
+  display:inline-block; background:var(--primary); color:#fff;
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; padding:3px 10px; border-radius:0 0 var(--radius) 0;
+}
+.blog-cta {
+  text-align:center; margin-top:28px; padding:24px 16px;
+  background:var(--bg-alt); border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.blog-cta p { font-size:0.9rem; color:var(--text-mid); margin-bottom:10px; }
+.blog-cta strong { color:var(--primary); }
+.blog-read-more {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--secondary); cursor:pointer; padding:6px 0;
+  transition:color var(--transition);
+}
+.blog-read-more:hover { color:var(--primary); }
+.blog-article {
+  max-height:0; overflow:hidden; transition:max-height 0.5s ease-out;
+}
+.blog-card.blog-open .blog-article { /* height set by JS */ }
+.blog-card.blog-open .blog-read-more { display:none; }
+.blog-article-inner {
+  padding-top:16px; margin-top:14px;
+  border-top:1px solid var(--border-light);
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.blog-article-inner h4 {
+  font-size:0.95rem; color:var(--primary); font-weight:700;
+  margin:18px 0 8px;
+}
+.blog-article-inner h4:first-child { margin-top:0; }
+.blog-article-inner p { margin-bottom:12px; color:var(--text-mid); }
+.blog-article-inner ul {
+  margin:8px 0 16px 18px; color:var(--text-mid);
+}
+.blog-article-inner li { margin-bottom:5px; line-height:1.6; }
+.blog-collapse {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--text-light); cursor:pointer; padding:8px 0; margin-top:8px;
+  transition:color var(--transition);
+}
+.blog-collapse:hover { color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   GLOSSARY — phone: single column, full-width search
+   ═══════════════════════════════════════ */
+.glossary-search {
+  width:100%; padding:12px 16px;
+  border:1px solid var(--border); border-radius:var(--radius);
+  font-size:16px; /* 16px prevents iOS zoom on focus */
+  margin-bottom:16px;
+  transition:border-color var(--transition);
+  -webkit-appearance:none; appearance:none;
+}
+.glossary-search:focus { outline:none; border-color:var(--secondary); box-shadow:0 0 0 3px rgba(29,111,165,0.1); }
+.glossary-grid {
+  display:grid; grid-template-columns:1fr; gap:10px;
+}
+.glossary-term {
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; background:var(--bg);
+}
+.glossary-term:hover { box-shadow:var(--shadow-sm); }
+.glossary-term dt {
+  font-weight:700; color:var(--primary); font-size:0.9rem; margin-bottom:3px;
+}
+.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
+.glossary-tag {
+  display:inline-block; font-size:0.65rem; text-transform:uppercase;
+  letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
+  margin-left:4px; font-weight:700; vertical-align:middle;
+}
+.tag-coverage { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.tag-claims { background:rgba(4,120,87,0.1); color:var(--success); }
+.tag-underwriting { background:rgba(184,134,11,0.1); color:var(--gold); }
+.tag-contract { background:rgba(107,114,128,0.1); color:var(--text-light); }
+.tag-medical { background:rgba(185,28,28,0.1); color:var(--danger); }
+.tag-liability { background:rgba(109,40,217,0.1); color:#6d28d9; }
+.tag-western { background:rgba(184,134,11,0.15); color:#96710a; }
+.tag-english { background:rgba(29,111,165,0.15); color:#145e8a; }
+.hero-sub-gap { margin-top:4px; }
+.disclaimer-pad { padding-top:10px; }
+
+/* ═══════════════════════════════════════
+   CALLOUTS & DISCLAIMERS — phone
+   ═══════════════════════════════════════ */
+.callout {
+  border-left:4px solid var(--secondary); background:var(--bg-alt);
+  padding:12px 14px; border-radius:0 var(--radius) var(--radius) 0;
+  margin:14px 0; font-size:0.86rem;
+}
+.callout.warning { border-left-color:var(--warning); background:#fffbeb; }
+.callout.danger { border-left-color:var(--danger); background:#fef2f2; }
+.callout.success { border-left-color:var(--success); background:#ecfdf5; }
+.callout strong { color:var(--text); }
+
+.disclaimer-banner {
+  background:var(--bg-warm); border:1px solid #e5ddd0;
+  padding:14px 16px; border-radius:var(--radius); margin:16px 0;
+  font-size:0.83rem; color:var(--text-mid); line-height:1.6;
+}
+.disclaimer-banner strong { color:var(--text); }
+
+/* ═══════════════════════════════════════
+   ROTATING AD BANNER — mobile-first leaderboard
+   ═══════════════════════════════════════ */
+.ad-rotator {
+  width:100%; max-width:var(--max-w);
+  margin:0 auto; padding:6px 16px 8px;
+  position:relative;
+}
+.ad-rotator-inner {
+  display:flex; justify-content:center;
+  position:relative; width:100%; overflow:hidden;
+}
+.ad-slide {
+  display:none;
+}
+.ad-slide.active { display:block; }
+.ad-slide img {
+  display:block;
+  width:100%; max-width:320px; height:auto; aspect-ratio:320/100;
+  cursor:pointer;
+  border-radius:var(--radius);
+}
+.ad-slide a { display:block; line-height:0; }
+.ad-dots {
+  display:none;
+}
+.ad-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--border); cursor:pointer;
+  transition:background var(--transition);
+  border:none; padding:0;
+}
+.ad-dot.active { background:var(--primary); }
+
+/* ═══════════════════════════════════════
+   BACK TO TOP
+   ═══════════════════════════════════════ */
+.back-to-top {
+  position:fixed; bottom:20px; right:16px; z-index:200;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+  touch-action:manipulation;
+}
+.back-to-top.visible { opacity:1; pointer-events:auto; }
+.back-to-top:hover { background:var(--primary-light); }
+@media(hover:hover) { .back-to-top:hover { transform:translateY(-2px); } }
+.back-to-top svg { width:20px; height:20px; }
+
+/* ═══════════════════════════════════════
+   FOOTER — phone: single column
+   ═══════════════════════════════════════ */
+.site-footer {
+  background:var(--primary); color:rgba(255,255,255,0.8);
+  padding:28px 16px 20px;
+}
+.footer-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr; gap:20px;
+}
+.footer-brand { font-size:0.86rem; line-height:1.7; }
+.footer-brand p { margin-bottom:4px; }
+.footer-brand-detail { font-size:0.78rem; opacity:0.7; }
+.footer-brand .footer-logo { font-weight:800; font-size:1.05rem; color:#fff; margin-bottom:6px; }
+.footer-col h4 {
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
+  color:rgba(255,255,255,0.5); margin-bottom:8px;
+}
+.footer-col a {
+  display:flex; align-items:center;
+  color:rgba(255,255,255,0.75); font-size:0.86rem;
+  padding:6px 0; transition:color var(--transition);
+  min-height:40px; /* touch-friendly footer links */
+}
+.footer-col a:hover { color:#fff; text-decoration:none; }
+.footer-bottom {
+  max-width:var(--max-w); margin:20px auto 0;
+  padding-top:14px; border-top:1px solid rgba(255,255,255,0.1);
+  font-size:0.75rem; color:rgba(255,255,255,0.4);
+}
+.footer-disclaimer {
+  max-width:var(--max-w); margin:10px auto 0;
+  font-size:0.72rem; color:rgba(255,255,255,0.35); line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   LARGE PHONE — min-width: 480px (wider phones)
+   Footer 2-col, minor type bumps.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:480px) {
+  .footer-inner { grid-template-columns:1fr 1fr; gap:20px; }
+  .hero-buttons { max-width:400px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat-item strong { font-size:1.1rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TABLET — min-width: 600px
+   Two columns, bigger type, more breathing room.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:600px) {
+  .container { padding:0 24px; }
+  .header-top { padding:8px 24px; }
+  .site-logo { font-size:1.15rem; }
+  .hero { padding:32px 24px 24px; }
+  .hero h1 { font-size:1.85rem; max-width:680px; }
+  .hero-sub { font-size:0.95rem; max-width:620px; line-height:1.4; }
+  .hero-sub-short { display:none; }
+  .hero-sub-seo { display:block; }
+  .hero-buttons { max-width:440px; gap:10px; }
+  .hero-btn { font-size:0.82rem; padding:9px 14px; }
+  .stats-bar { padding:18px 24px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:16px; }
+  .stat-item strong { font-size:1.35rem; }
+  .section-nav-inner { padding:0 24px; }
+  .section-nav a { padding:12px 14px; font-size:0.8rem; }
+  .content-section { padding:40px 0; }
+  .content-section h2 { font-size:1.5rem; }
+  .content-section .section-desc { font-size:0.98rem; }
+  .cards-grid { grid-template-columns:1fr 1fr; gap:16px; }
+  .card { padding:22px; }
+  .deep-dive-header { padding:18px 20px; }
+  .deep-dive-header h3 { font-size:1rem; }
+  .deep-dive-content { padding:0 20px 22px; font-size:0.9rem; }
+  .compare-table { font-size:0.84rem; }
+  .compare-table th, .compare-table td { padding:10px 12px; }
+  .qa-question { font-size:0.92rem; }
+  .qa-answer-inner { font-size:0.9rem; }
+  .qa-filters { flex-wrap:wrap; overflow-x:visible; padding-bottom:0; }
+  .qa-question .qa-cat { display:inline-block; }
+  .glossary-grid { grid-template-columns:1fr 1fr; }
+  .blog-grid { grid-template-columns:1fr 1fr; }
+  .glossary-search { max-width:360px; }
+  .footer-inner { grid-template-columns:1fr 1fr; gap:28px; }
+  .disclaimer-banner { padding:18px 20px; font-size:0.86rem; }
+  .callout { padding:14px 18px; font-size:0.88rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   DESKTOP — min-width: 900px
+   Full nav bar, 3+ columns, hover effects.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:900px) {
+  html { scroll-padding-top:120px; }
+  .container { padding:0 24px; }
+  .header-top { padding:10px 24px; }
+  .site-logo { font-size:1.2rem; }
+
+  /* Desktop: show nav as visible second row */
+  .nav-toggle { display:none; }
+  .main-nav {
+    display:flex; flex-direction:row; flex-wrap:wrap;
+    justify-content:center; gap:2px;
+    padding:0 24px 8px; border-top:1px solid var(--border-light);
+    max-width:var(--max-w); margin:0 auto;
+  }
+  .main-nav a {
+    padding:6px 14px; font-size:0.84rem; min-height:auto;
+  }
+
+  .hero { padding:40px 24px 32px; }
+  .hero h1 { font-size:2.4rem; max-width:780px; }
+  .hero-sub { font-size:1rem; max-width:680px; margin-top:10px; line-height:1.4; }
+  .hero-buttons { grid-template-columns:repeat(4,1fr); max-width:620px; gap:12px; margin-top:18px; }
+  .hero-btn { font-size:0.84rem; padding:10px 14px; border-radius:var(--radius); }
+
+  .stats-bar { padding:20px 24px; }
+  .stats-inner { gap:20px; }
+  .stat-item strong { font-size:1.5rem; }
+
+  .section-nav { padding:0 24px; }
+  .section-nav a { padding:14px 18px; font-size:0.84rem; }
+
+  .content-section { padding:56px 0; }
+  .content-section h2 { font-size:1.75rem; }
+  .content-section .section-desc { font-size:1.05rem; max-width:700px; margin-bottom:32px; }
+
+  .cards-grid { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+  .card { padding:28px; }
+  .card:hover { box-shadow:var(--shadow-md); }
+  @media(hover:hover) { .card:hover { transform:translateY(-2px); } }
+
+  .deep-dive { margin-bottom:20px; }
+  .deep-dive-header { padding:22px 28px; }
+  .deep-dive-header h3 { font-size:1.1rem; }
+  .deep-dive-content { padding:0 28px 28px; font-size:0.95rem; }
+  .deep-dive-content h4 { font-size:1rem; margin:20px 0 8px; }
+  .deep-dive-content li { font-size:0.93rem; }
+
+  .compare-table { font-size:0.9rem; }
+  .compare-table th { padding:12px 16px; font-size:0.78rem; }
+  .compare-table td { padding:12px 16px; }
+
+  .qa-question { padding:16px 20px; font-size:0.95rem; }
+  .qa-answer-inner { padding:16px 20px 20px; font-size:0.93rem; }
+  .qa-filter { padding:8px 16px; font-size:0.84rem; }
+
+  .glossary-grid { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .blog-grid { grid-template-columns:repeat(3,1fr); gap:20px; }
+  .blog-card h3 { font-size:1.1rem; }
+  .blog-card p { font-size:0.9rem; }
+  .blog-card-img, .blog-card-img-placeholder { height:200px; }
+  .blog-card-keywords { display:block; }
+  .glossary-search { max-width:400px; }
+  .glossary-term { padding:16px 20px; }
+  .glossary-term dt { font-size:0.95rem; }
+  .glossary-term dd { font-size:0.9rem; }
+  .glossary-tag { font-size:0.62rem; }
+
+  .callout { padding:16px 20px; font-size:0.93rem; }
+  .disclaimer-banner { padding:20px 24px; font-size:0.88rem; }
+
+  .footer-inner { grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; }
+  .site-footer { padding:48px 24px 32px; }
+  .footer-col a { min-height:auto; padding:4px 0; }
+}
+
+</style>
+<style>
+.breadcrumb{background:var(--bg-alt);border-bottom:1px solid var(--border);padding:8px 0;font-size:0.8rem;color:var(--text-light)}
+.breadcrumb a{color:var(--secondary);text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+.page-nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.page-nav a{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;font-weight:500;color:var(--text-mid);text-decoration:none;min-height:40px;transition:background 0.2s,border-color 0.2s}
+.page-nav a:hover{background:var(--bg-alt);border-color:var(--secondary);color:var(--primary);text-decoration:none}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/claims/">Claims</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/qa/">Q&amp;A</a>
+    <a href="/glossary/">Glossary</a>
+    <a href="/blog/"  class="active">Blog</a>
+  </nav>
+</header>
+<nav class="breadcrumb"><div class="container"><a href="/">Home</a> &rsaquo; <span>Blog</span></div></nav>
+<section class="content-section" id="blog">
+  <div class="container">
+    <h2>Horse Insurance Blog</h2>
+    <p class="section-desc">
+      Expert articles on horse insurance, equine risk management, claims preparation, and coverage education. Written for horse owners, trainers, and equine professionals.
+    </p>
+
+    <div class="blog-grid">
+
+      <!-- BLOG POST 1 — Featured -->
+      <div class="blog-card blog-featured">
+        <div class="blog-featured-label">Featured</div>
+        <div class="blog-card-img-placeholder">Coverage</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag">Coverage</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Horse Insurance 101: What Every Horse Owner Needs to Know Before Buying a Policy</span></h3>
+          <p>A complete beginner's guide to horse insurance — what mortality insurance covers, the difference between major medical and surgical-only, how premiums are calculated, and the most common mistakes first-time buyers make. If you've never insured a horse before, start here.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse insurance for beginners, how to insure a horse, horse insurance cost, equine mortality insurance explained, first time horse insurance buyer guide</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>What Is Horse Insurance?</h4>
+            <p>Horse insurance protects your financial investment in your horse against loss from death, illness, injury, and liability. At its core, equine insurance works like any other insurance — you pay a premium, and the insurer agrees to pay for covered losses up to the policy limits. But horse insurance has its own terminology, structure, and rules that differ from auto, health, or homeowner's insurance. Understanding these differences before you buy is the single most important thing you can do as a first-time buyer.</p>
+
+            <h4>The Foundation: Mortality Insurance</h4>
+            <p>Mortality insurance is the starting point for most horse owners. It pays the agreed value of your horse if it dies from a covered cause — illness, injury, accident, or humane destruction authorized by the insurer. Unlike homeowner's insurance that depreciates, mortality uses an agreed value set when the policy is written. That number is what you get paid. This means establishing accurate value upfront matters enormously. A bill of sale, professional appraisal, competition earnings, or comparable sales data all help establish value. Over-insuring triggers scrutiny; under-insuring means you absorb the gap.</p>
+
+            <h4>Medical Coverage: Major Medical vs. Surgical-Only</h4>
+            <p>Medical coverage is where most first-time buyers get confused. Major medical covers a broad range of veterinary expenses — diagnostics, hospitalization, medications, emergency treatment. Surgical-only covers expenses tied directly to surgical procedures. The practical difference is enormous: if your horse colics and resolves with medical treatment (no surgery), major medical covers it. Surgical-only does not. This single distinction is the most common source of claims frustration in the entire equine insurance industry.</p>
+
+            <h4>What Affects Your Premium</h4>
+            <p>Premiums are driven by the horse's insured value, age, breed, discipline, location, and health history. Mortality typically runs 2.5%–4% of insured value per year. Adding major medical costs $150–$500 more per year. Choosing a higher deductible lowers your premium. Insuring multiple horses may qualify for a discount. The cheapest policy is not always the best value — compare what's actually covered, not just the price.</p>
+
+            <h4>Common First-Time Buyer Mistakes</h4>
+            <ul>
+              <li>Choosing surgical-only to save money without understanding what it doesn't cover</li>
+              <li>Not disclosing the horse's full health history on the application</li>
+              <li>Listing the wrong discipline (saying "pleasure" when the horse competes)</li>
+              <li>Never reading the actual policy — just the summary</li>
+              <li>Waiting until after an injury to buy coverage</li>
+            </ul>
+            <p>Read your policy before you need it. That thirty minutes is the most valuable investment in your horse's insurance protection.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 2 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Premiums</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag red">Premiums</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">How Much Does Horse Insurance Cost in 2026? A Real-World Premium Breakdown</span></h3>
+          <p>What does horse insurance actually cost? We break down mortality premiums by horse value, medical coverage pricing, liability rates, and the factors that make your premium go up or down. Real numbers, no sales pitch.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse insurance cost 2026, how much is horse insurance, horse insurance premium rates, affordable horse insurance, cheapest horse insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Real Numbers: What Horse Insurance Costs in 2026</h4>
+            <p>Horse insurance premiums are not one-size-fits-all, but understanding the general ranges helps you budget and evaluate quotes. Mortality insurance — the foundational coverage — typically costs 2.5% to 4% of the horse's insured value per year. That means a $10,000 horse costs roughly $250–$400 per year for mortality alone. A $50,000 reining horse runs $1,250–$2,000. A $150,000 cutting horse could be $3,750–$6,000 annually for mortality coverage.</p>
+
+            <h4>Medical Coverage Add-On Costs</h4>
+            <p>Major medical coverage adds $150–$500 per year depending on the annual limit and deductible you select. A $7,500 annual limit with a $250 deductible might add $250–$350 to your annual premium. Surgical-only is less expensive — typically $75–$250 per year — but covers far fewer scenarios. The premium difference between major medical and surgical-only is often $100–$200 per year. For context, a single non-surgical colic treatment can cost $1,000–$3,000. The math favors major medical for most horse owners.</p>
+
+            <h4>Other Coverage Costs</h4>
+            <ul>
+              <li>Loss of Use: adds 1%–2% of insured value per year</li>
+              <li>Personal equine liability: $200–$600 per year for $500K–$1M coverage</li>
+              <li>Commercial equine liability: $500–$2,000+ per year depending on operations</li>
+              <li>Care, Custody & Control: $300–$1,500+ per year depending on number of horses in care</li>
+            </ul>
+
+            <h4>What Makes Premiums Go Up</h4>
+            <p>Age is the biggest driver — premiums increase as horses age because mortality risk increases. Discipline matters: eventing and racing cost more than trail riding. Claims history affects renewal pricing. Health conditions may trigger exclusions or rate increases. Location plays a role — proximity to equine hospitals, regional disease prevalence, and climate risk all factor in.</p>
+
+            <h4>How to Get the Most Affordable Coverage</h4>
+            <p>Shop multiple carriers through an independent equine agent. Choose appropriate deductibles — raising from $150 to $500 meaningfully reduces premiums. Insure multiple horses on one account for volume discounts. Pay annually instead of quarterly to avoid installment fees. Most importantly, don't reduce coverage below what you need just to save premium — the point of insurance is to be protected when you need it.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 3 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Medical</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag green">Medical</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Major Medical vs. Surgical-Only Horse Insurance: Which Coverage Do You Actually Need?</span></h3>
+          <p>The #1 source of horse insurance frustration is owners who thought they had medical coverage and didn't. This guide explains the critical difference, walks through real-world claim scenarios, and helps you decide which level of protection fits your horse and budget.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse medical insurance, surgical only horse insurance, equine major medical coverage, horse insurance colic surgery, compare horse medical insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The Coverage Decision That Matters Most</h4>
+            <p>If you only understand one thing about horse medical insurance, understand this: the difference between major medical and surgical-only is the difference between being covered for most veterinary emergencies and being covered for only a fraction of them. This single choice generates more claims frustration, more denied expectations, and more policyholder disappointment than any other decision in equine insurance.</p>
+
+            <h4>What Major Medical Covers</h4>
+            <p>Major medical reimburses eligible veterinary expenses for illness and injury across a broad spectrum: diagnostics (X-rays, ultrasound, MRI, bloodwork), hospitalization, medications, emergency treatment, colic — whether surgical or medical — lameness workups, eye injuries, lacerations, respiratory illness, and more. It's comprehensive veterinary coverage subject to your deductible, co-pay, and annual limit.</p>
+
+            <h4>What Surgical-Only Covers</h4>
+            <p>Surgical-only covers expenses directly related to covered surgical procedures: the surgery itself, anesthesia, and directly related post-surgical care. It does not cover diagnostics that don't lead to surgery, non-surgical emergencies, medical colic treatment, lameness workups, eye infections treated with medication, or hospitalization for non-surgical conditions.</p>
+
+            <h4>The Colic Scenario: Why It Matters</h4>
+            <p>Colic is the most common equine emergency. Here's where the rubber meets the road: approximately 90% of colic episodes resolve with medical management — IV fluids, pain management, monitoring. Only about 10% require surgery. Under surgical-only coverage, that 90% of colic episodes that resolve medically generate zero reimbursement. You pay the entire $1,000–$3,000 medical colic bill out of pocket. Major medical covers both the surgical and non-surgical colic scenarios.</p>
+
+            <h4>Making the Decision</h4>
+            <p>Ask yourself: can I absorb a $2,000–$5,000 non-surgical veterinary bill without financial stress? If yes, surgical-only may be adequate. If a surprise $3,000 vet bill would hurt, major medical is worth the additional $100–$200 per year in premium. For performance horses with higher injury exposure, major medical is almost always the better value.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 4 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Mortality</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag gold">Disciplines</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Insuring Your Team Roping Horse: What Ropers Need to Know About Coverage and Claims</span></h3>
+          <p>Team roping horses face specific injury patterns — hock stress, suspensory injuries, soft tissue damage from hard stops. This guide covers how to insure a rope horse, what underwriters look for, why accurate use disclosure matters, and how to prepare for the claim you hope never comes.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> team roping horse insurance, insure rope horse, roping horse injury insurance, team roping horse value, western performance horse insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Why Rope Horse Insurance Requires Specific Attention</h4>
+            <p>Team roping horses are athletes performing under intense, repetitive physical stress. Every run involves explosive acceleration, hard stops, rapid directional changes, and the physical forces of a roped animal on the other end. Headers absorb cervical and shoulder stress during the dally and stop. Heelers load their hocks and stifles during the lateral positioning and rating work. This creates injury patterns that are specific, predictable, and relevant to how your horse is underwritten and how claims are evaluated.</p>
+
+            <h4>Common Rope Horse Injuries and Insurance Implications</h4>
+            <ul>
+              <li>Suspensory ligament injuries — progressive, often career-threatening, covered under medical</li>
+              <li>Hock and stifle arthritis — especially in heel horses, may become a named exclusion if pre-existing</li>
+              <li>Bowed tendons — acute injury, typically covered under both major medical and surgical</li>
+              <li>Navicular syndrome — chronic, often excluded at renewal if documented during the policy period</li>
+              <li>Cervical injuries — from hard stops, particularly in heading horses</li>
+            </ul>
+
+            <h4>Getting the Application Right</h4>
+            <p>The most important thing you can do when insuring a rope horse is accurately describe its use. List "team roping" — not "western pleasure," not "ranch work," not "trail riding." If your horse ropes three times a week at practice and competes on weekends, the insurer needs to know that. If you describe the horse as "pleasure" and it's injured during a roping, the claim can be denied for material misrepresentation. A policy that accurately reflects your horse's use — even at a slightly higher premium — is worth infinitely more than a cheaper policy that won't pay when you need it.</p>
+
+            <h4>Valuing a Rope Horse</h4>
+            <p>Rope horse values range from $5,000 for a solid practice horse to $50,000–$200,000+ for a proven, high-numbered competition horse. Documentation matters: purchase price, USTRC or other organization records, competition earnings, trainer assessments, and comparable sales all support your insured value. If your horse wins a major roping and its value jumps, update your coverage immediately — the old agreed value is all you'll collect on a claim.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 5 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Claims</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag">Claims</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Horse Insurance Claims: 10 Mistakes That Get Claims Denied and How to Avoid Them</span></h3>
+          <p>Late notification, unauthorized euthanasia, social media posts, incomplete records — these common mistakes turn covered claims into denied ones. Learn the 10 most frequent errors horse owners make during the claims process and exactly how to avoid each one.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse insurance claim denied, equine insurance claims process, horse insurance claim mistakes, how to file horse insurance claim, horse insurance claim documentation</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Why Claims Get Denied — and How to Prevent It</h4>
+            <p>Most horse insurance claims that get denied aren't denied because the policy was bad. They're denied because the owner made a procedural mistake that the policy clearly addresses. The frustrating truth is that these denials are almost entirely preventable. Here are the ten most common mistakes and exactly how to avoid each one.</p>
+
+            <h4>1. Late Notification</h4>
+            <p>Most policies require notification within 24–48 hours for emergencies. Waiting days or weeks gives the insurer grounds to question the claim. Fix: call your insurer the same day as the incident, even before you have all the details.</p>
+
+            <h4>2. Unauthorized Euthanasia</h4>
+            <p>Putting a horse down without insurer authorization — except in extreme emergency — can void the entire mortality claim. Fix: call the insurer before euthanasia. If you truly cannot wait, document the emergency thoroughly with your veterinarian.</p>
+
+            <h4>3. Disposing of Remains</h4>
+            <p>Some carriers require the option for necropsy. Disposing of the horse before the insurer authorizes it can complicate or void the claim. Fix: never dispose of remains without insurer approval.</p>
+
+            <h4>4. Incomplete Veterinary Records</h4>
+            <p>Gaps in records raise red flags during claims investigation. Fix: maintain continuous veterinary care and keep all records organized.</p>
+
+            <h4>5. Social Media Disclosure</h4>
+            <p>Posting about the incident, the injury, or your frustration with the insurer before the claim is settled can be used against you. Fix: no social media posts about the horse's condition until the claim is fully resolved.</p>
+
+            <h4>6–10: More Critical Mistakes</h4>
+            <ul>
+              <li><strong>6. Non-disclosure on application</strong> — undisclosed health history can void the entire policy, not just the current claim</li>
+              <li><strong>7. Wrong discipline listed</strong> — claiming "pleasure" while competing in roping or barrels</li>
+              <li><strong>8. Self-treating without vet involvement</strong> — no documentation means no reimbursable claim</li>
+              <li><strong>9. Skipping follow-up appointments</strong> — gaps in treatment records weaken the claim</li>
+              <li><strong>10. Assuming coverage</strong> — filing claims for things the policy explicitly excludes because you never read it</li>
+            </ul>
+            <p>The single best prevention for all ten mistakes: read your policy before you need it.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 6 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Exclusions</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag red">Critical</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Pre-Existing Conditions in Horse Insurance: Why Full Disclosure Saves Your Coverage</span></h3>
+          <p>Pre-existing conditions are the #1 reason equine insurance claims are denied. This article explains what counts as pre-existing, why non-disclosure can void your entire policy, and how honest reporting at application actually protects you better than hiding anything.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse insurance pre-existing conditions, equine insurance exclusions, horse insurance claim denied pre-existing, horse insurance application disclosure, horse health history insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The #1 Reason Equine Claims Are Denied</h4>
+            <p>Pre-existing conditions are the single most frequent reason horse insurance claims are denied. A pre-existing condition is any illness, injury, or clinical sign that existed before the policy effective date — whether the owner knew about it or not. If it's in the veterinary records, it's pre-existing. If the horse was treated for it before coverage started, it's pre-existing. If clinical signs were present even without a formal diagnosis, the insurer may argue it was pre-existing.</p>
+
+            <h4>Why Non-Disclosure Destroys Coverage</h4>
+            <p>Insurance applications ask for complete health history. Material misrepresentation — intentional or not — can void the entire policy through rescission. This doesn't just mean the undisclosed condition isn't covered. It means nothing is covered. The insurer can rescind the policy from inception, deny all claims, and potentially return your premiums as if the policy never existed. A horse owner who hides a history of navicular disease and later files a colic claim can lose both claims — the navicular and the colic — because the policy was obtained through misrepresentation.</p>
+
+            <h4>How Full Disclosure Actually Protects You</h4>
+            <p>When you disclose a known condition, the insurer has three options: (1) decline to insure — which at least tells you where you stand, (2) insure with a named exclusion for that condition — everything else is still covered, or (3) insure without exclusion if the condition is minor or resolved. Option 2 is the most common outcome, and it's far better than the alternative. A policy that excludes navicular but covers everything else is infinitely more valuable than a voided policy that covers nothing.</p>
+
+            <h4>Practical Steps</h4>
+            <ul>
+              <li>Request your complete veterinary records before applying — know what's in them</li>
+              <li>Disclose everything, even conditions you think are minor or resolved</li>
+              <li>Accept named exclusions rather than hiding conditions</li>
+              <li>Keep the pre-purchase exam report permanently — it's your baseline</li>
+              <li>If a condition improves, ask at renewal whether the exclusion can be reviewed</li>
+            </ul>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 7 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Transit</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag green">Transit</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Horse Trailer Insurance and Transit Coverage: Protecting Your Horse on the Road</span></h3>
+          <p>Does your mortality policy cover transport? What about shipping fever? What if the hauler is at fault? This guide untangles the overlapping coverage questions horse owners face every time they load a horse on a trailer — whether it's a 30-minute haul to a roping or a cross-country move.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse trailer insurance, horse transit insurance, shipping horse insurance, horse transport coverage, hauling horse insurance, horse shipping fever insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The Transit Coverage Gap Most Horse Owners Don't Know About</h4>
+            <p>Many horse owners assume their mortality policy covers their horse during transport. Some policies do. Many don't — or they cover transport with significant limitations. Before you load your horse on a trailer for a weekend roping, a show, or a cross-country move, you need to know exactly what your policy says about transit.</p>
+
+            <h4>Does Your Mortality Policy Cover Transit?</h4>
+            <p>Check your policy for transit-specific language. Key questions: Does it explicitly include transit? Are there distance or duration limitations? Does it cover commercial hauling or only owner-transported horses? Is international transport excluded? Does the policy require notification before long-distance transport? If your mortality policy is silent on transit or explicitly excludes it, you have a coverage gap every time your horse leaves the property.</p>
+
+            <h4>What Transit Coverage Protects</h4>
+            <p>Standalone or endorsed transit coverage typically includes injury or death during loading and unloading, during transport itself, during overnight layovers at transit facilities, and from shipping fever (pleuropneumonia) that develops during or shortly after transport. Shipping fever is a particularly important coverage — it's a respiratory infection caused by transport stress that can be life-threatening, costing $3,000–$10,000+ to treat.</p>
+
+            <h4>When the Hauler Is at Fault</h4>
+            <p>Professional haulers carry their own insurance, but collecting from it may require proving negligence, which is difficult and time-consuming. The hauler's contract may include liability waivers or limitations. Their coverage limits may be inadequate for your horse's value. Having your own transit coverage means you're protected regardless of fault, and your insurer can pursue the hauler through subrogation if negligence existed.</p>
+
+            <h4>Pre-Trip Risk Reduction</h4>
+            <p>Before every trip: inspect trailer floors for rot or corrosion, check tire age and pressure, verify hitch and safety chains, ensure adequate ventilation, confirm your insurance covers the trip. A ten-minute inspection prevents the claim that costs thousands.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 8 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Ranch &amp; Home</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag gold">Ranch</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Farm and Ranch Insurance for Horse Owners: What Your Homeowner's Policy Doesn't Cover</span></h3>
+          <p>If you keep horses on your property, your standard homeowner's policy probably isn't enough. This guide explains the gaps in homeowner's coverage, when to upgrade to a farm/ranch policy, and how to build a complete protection package for your property, barn, and horses.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse farm insurance, ranch insurance for horses, barn insurance, horse property insurance, homeowners insurance horses, equine farm coverage</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Your Homeowner's Policy Probably Isn't Enough</h4>
+            <p>If you keep horses on your property and rely on a standard homeowner's insurance policy, you likely have significant coverage gaps. Standard homeowner's policies were designed for residential properties — not agricultural operations with barns, arenas, livestock, and equine activities. Understanding where the gaps are is the first step toward closing them.</p>
+
+            <h4>Common Homeowner's Policy Gaps for Horse Owners</h4>
+            <ul>
+              <li><strong>Livestock exclusion:</strong> Most homeowner's policies exclude or severely limit coverage for livestock, including horses</li>
+              <li><strong>Outbuilding limits:</strong> Standard policies cap outbuilding coverage at 10% of dwelling value — a $30,000+ barn may be insured for far less than replacement cost</li>
+              <li><strong>Business activity exclusion:</strong> If you give lessons, board horses, or train for any compensation, your homeowner's policy likely excludes the liability</li>
+              <li><strong>Liability limits:</strong> Standard $100,000–$300,000 limits are insufficient for a serious horse-related injury lawsuit</li>
+              <li><strong>Equipment gaps:</strong> Tack rooms full of $5,000 saddles may exceed personal property sub-limits</li>
+            </ul>
+
+            <h4>When to Upgrade to Farm and Ranch</h4>
+            <p>Consider a farm and ranch policy if you keep two or more horses on the property, have a barn or arena, conduct any commercial equine activity, store significant tack or equipment, or your property exceeds typical residential acreage. Farm and ranch policies combine dwelling coverage, outbuilding coverage, equipment coverage, farm liability, and often include optional livestock coverage — all designed for properties with agricultural use.</p>
+
+            <h4>Building the Complete Protection Package</h4>
+            <p>Most horse property owners need layered coverage: farm/ranch policy for the property and premises liability, separate equine mortality and medical for the horses themselves, an umbrella policy for additional liability above base limits, and potentially commercial equine liability if any business activities occur on the property. These aren't redundant — they cover different risks and work together as a complete shield.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 9 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Liability</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag">Liability</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Horse Liability Insurance: Why Every Owner, Trainer, and Barn Needs It</span></h3>
+          <p>Your horse kicks a bystander. Your horse escapes and causes a car accident. A student falls during a lesson. A boarder's horse is injured on your property. Each of these scenarios can generate a six-figure lawsuit. This guide covers personal liability, commercial liability, Care Custody & Control, and how they work together.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse liability insurance, equine liability coverage, horse trainer insurance, horse boarding stable insurance, care custody control horse insurance, horse owner liability</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Why Every Horse Person Needs Liability Coverage</h4>
+            <p>Horses are large, powerful, unpredictable animals. Even well-trained horses spook, kick, bite, escape, and cause accidents. When a horse injures a person or damages property, the owner, trainer, or facility operator may be personally liable for medical bills, lost wages, pain and suffering, and legal defense costs. A single serious injury can generate a six-figure lawsuit. Liability insurance is not optional — it's essential.</p>
+
+            <h4>Personal vs. Commercial Liability</h4>
+            <p>Personal equine liability covers individual horse owners for incidents involving their own horses — your horse kicks a bystander at the trailhead, escapes and causes a car accident, or injures a visitor at your property. Commercial equine liability covers business activities — lessons, boarding, training, breeding services, event hosting. The distinction is critical because personal liability policies exclude commercial activities. If you charge money for anything horse-related, you need commercial coverage.</p>
+
+            <h4>Care, Custody & Control: The Coverage Most Professionals Miss</h4>
+            <p>Here's the gap that catches trainers, boarders, and haulers: standard liability policies exclude property in your care, custody, or control. If a boarding client's horse colics under your watch and dies, your general liability doesn't cover the horse's value. If a trainer's horse in training tears a suspensory in the arena, standard liability won't pay the owner. CCC coverage fills this gap specifically — it protects you when other people's horses are in your care and something goes wrong. If you handle anyone else's horse professionally, CCC is non-negotiable.</p>
+
+            <h4>Waivers Are Not Enough</h4>
+            <p>Signed waivers reduce liability exposure but do not eliminate it. Enforceability varies by state. Waivers don't protect against gross negligence. Waivers involving minors are often unenforceable. A waiver is one layer of protection — liability insurance is the layer that actually pays when a claim occurs.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 10 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Loss Prevention</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag red">Loss Prevention</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Barn Fire Prevention: The Insurance Claim You Never Want to File</span></h3>
+          <p>Barn fires are the most catastrophic equine loss event — and they are overwhelmingly preventable. This guide covers electrical safety, rodent control, fire extinguisher placement, evacuation planning, and the documentation practices that protect you before and after a fire.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> barn fire prevention horses, horse barn fire insurance, equine fire safety, barn fire evacuation plan, horse barn electrical safety, prevent barn fire</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The Most Catastrophic Preventable Loss</h4>
+            <p>Barn fires kill more horses in a single event than any other cause. A barn fire can destroy multiple horses, the building itself, stored feed and hay, tack and equipment, and vehicles — all in minutes. Total losses from a barn fire routinely exceed $500,000 and can reach into the millions for large operations. The devastating truth is that the vast majority of barn fires are preventable.</p>
+
+            <h4>The Top Causes of Barn Fires</h4>
+            <ul>
+              <li><strong>Electrical failure:</strong> The #1 cause. Rodent-damaged wiring, overloaded circuits, old or improper electrical installations. Rodents chew through insulation, creating exposed wire that arcs and ignites surrounding hay dust or bedding.</li>
+              <li><strong>Hay combustion:</strong> Hay baled too wet generates internal heat through bacterial activity and can spontaneously combust. Hay stored at over 20% moisture content is a fire risk.</li>
+              <li><strong>Space heaters:</strong> Portable heaters in barns or near hay are a fire waiting to happen. Heat lamps for foaling or wash stalls are also high-risk if not properly secured.</li>
+              <li><strong>Smoking:</strong> A discarded cigarette in a barn aisle with hay dust, shavings, and dry wood is exactly the combination needed for ignition.</li>
+              <li><strong>Arson and lightning:</strong> Less common but worth addressing with security measures and lightning rods on metal-roofed structures.</li>
+            </ul>
+
+            <h4>Your 10-Point Prevention Plan</h4>
+            <p>Post and enforce a no-smoking policy. Schedule annual electrical inspections by a licensed electrician. Implement continuous rodent control. Eliminate space heaters from barn areas. Mount fire extinguishers at both ends of every aisle and in the tack room — inspect annually. Install smoke or heat detectors. Write and post an evacuation plan with halter and lead rope placement at each stall. Practice evacuations at least once per year. Maintain clear access for fire trucks. Store hay in a separate structure when possible.</p>
+
+            <h4>The Insurance Connection</h4>
+            <p>Document your fire prevention practices — inspection logs, electrical certificates, extinguisher inspection records. This documentation strengthens both property claims and liability defense if a fire occurs despite your precautions. It demonstrates due diligence, which matters in both insurance and legal contexts.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 11 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Underwriting</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag">Underwriting</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">How to Compare Horse Insurance: Rates, Coverage, and What the Fine Print Actually Means</span></h3>
+          <p>Not all horse insurance is created equal. This comparison guide teaches you how to evaluate carriers, read policy language, compare deductibles and co-pays, understand what exclusions mean, and ask the right questions — so you're comparing real protection, not just premium price.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> compare horse insurance, best horse insurance companies, horse insurance reviews, equine insurance comparison, horse insurance ratings, how to choose horse insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Price Is Not the Same as Value</h4>
+            <p>The cheapest horse insurance premium is meaningless if the policy doesn't pay when you need it. Comparing horse insurance requires looking beyond price to understand what's actually covered, what's excluded, how claims are handled, and who stands behind the policy. This guide teaches you how to evaluate and compare equine insurance like a professional.</p>
+
+            <h4>Step 1: Verify the Carrier</h4>
+            <p>Before comparing coverage, check the underwriting carrier's AM Best financial strength rating. An "A-" or better indicates strong ability to pay claims. A policy from a financially weak carrier is a risk itself — the cheapest premium means nothing if the company can't pay your claim. Also verify the carrier is licensed in your state (or properly operating as surplus lines).</p>
+
+            <h4>Step 2: Compare Coverage, Not Just Price</h4>
+            <p>Line up quotes side by side and compare: Is mortality all-risk or named-perils? What's the medical annual limit — $5,000, $7,500, $10,000? What's the deductible — per incident or per policy period? What's the co-insurance ratio — 80/20 or 70/30? Is Loss of Use included, and at what percentage? These details create the actual value of the policy. A policy with a $10,000 medical limit and $250 deductible at 80/20 is worth significantly more than one with a $5,000 limit and $500 deductible at 70/30 — even if the premium is slightly higher.</p>
+
+            <h4>Step 3: Read the Exclusions</h4>
+            <p>Every policy excludes certain things. Compare exclusion lists carefully. Does one carrier exclude colic? Does another exclude specific disciplines? Are alternative therapies excluded? Are there named exclusions specific to your horse? The exclusions define the boundaries of your protection — and those boundaries differ between carriers.</p>
+
+            <h4>Step 4: Evaluate the Agent</h4>
+            <p>A knowledgeable equine insurance agent is worth their weight in gold. Ask: How many equine policies do you manage? Which carriers do you access? Do you specialize in my discipline? How are claims handled? An independent agent who accesses multiple carriers can find better coverage than a captive agent limited to one company. The agent's expertise in equine insurance specifically — not just general insurance — matters enormously.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 12 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Disciplines</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag gold">Disciplines</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Insurance for Barrel Racing, Reining, and Cutting Horses: Western Performance Coverage Guide</span></h3>
+          <p>High-value western performance horses face discipline-specific risks that affect underwriting, premiums, and claims. This guide covers what insurers look for in barrel racing, reining, cutting, and working cow horses — and why accurate use disclosure is the most important thing you can do.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> barrel racing horse insurance, reining horse insurance, cutting horse insurance, western performance horse insurance, NRHA horse insurance, NCHA horse insurance value</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>High Value, High Risk, High Stakes</h4>
+            <p>Western performance horses represent some of the highest values in the equine industry. A proven cutting horse can be worth $100,000 to over $1 million. Top reining horses command $50,000–$500,000+. Elite barrel racing horses reach $100,000–$300,000. These values mean insurance decisions involve serious money — and the specific risks of each discipline create distinct insurance considerations.</p>
+
+            <h4>Barrel Racing Insurance Considerations</h4>
+            <p>Barrel racing combines sprint speed with tight turns, creating extreme torque on legs and joints. Common injuries include suspensory ligament damage, bowed tendons, navicular syndrome, and muscle strains from explosive starts. Barrel racers also haul extensively — increasing transit exposure. WPRA and NFR earnings establish value for top competitors. When insuring a barrel horse, disclose all competition levels (rodeo, futurities, jackpots) and hauling frequency.</p>
+
+            <h4>Reining Insurance Considerations</h4>
+            <p>Reining demands sliding stops, rapid spins, and flying lead changes that load hocks, stifles, and the lower back intensively. Hock arthritis, OCD, stifle injuries, and back pain are common. NRHA earnings and show records establish value. Joint maintenance programs are standard and expected — document them transparently rather than hiding them. Many reining horses have both performance and breeding value; declare both to ensure full protection.</p>
+
+            <h4>Cutting Horse Insurance Considerations</h4>
+            <p>Cutting horses make rapid lateral movements tracking cattle, creating intense stress on hocks, stifles, and front-end structures. NCHA earnings are the primary value documentation. Cutting horses are among the highest-value performance horses in any discipline, making adequate insurance coverage both more expensive and more essential. Loss of Use coverage is particularly relevant given the value-to-injury-risk ratio — a career-ending injury to a $200,000 cutting horse without Loss of Use coverage is a devastating financial blow.</p>
+
+            <h4>The Universal Rule</h4>
+            <p>Across all western performance disciplines, one rule applies: accurate use disclosure on the insurance application is the single most important thing you can do. Describe the actual discipline, the competition level, and the training frequency. A claim denied for use misrepresentation on a $100,000 horse is a $100,000 lesson in honesty.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 13 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Training</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag">Liability</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Insurance for Horse Training Businesses: Liability, CCC, and Protecting Your Operation</span></h3>
+          <p>Running a horse training business means other people's horses are in your care every day. One colic, one pasture injury, one escaped horse — and you're personally liable if you don't carry the right coverage. This guide covers the insurance stack every professional trainer needs: commercial equine liability, Care Custody &amp; Control, workers' comp, property coverage, and the gaps most trainers don't know they have until a claim hits.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse training business insurance, horse trainer liability insurance, horse trainer CCC coverage, professional horse trainer insurance, equine training facility insurance, horse trainer workers comp</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The Insurance Stack Every Professional Trainer Needs</h4>
+            <p>Running a horse training business means other people's most valuable animals are in your care every single day. A horse colics overnight in your barn. A client's horse tears a suspensory in the arena. A horse escapes your property and causes a car accident. A client's child is kicked while visiting. Each of these scenarios creates a different type of liability — and each requires a specific type of insurance coverage. No single policy covers all of them.</p>
+
+            <h4>Commercial Equine Liability</h4>
+            <p>This is your foundation. Commercial equine liability covers claims from clients, visitors, and the public arising from your training activities. If a client is injured while riding a horse you're training, if a visitor is kicked in the barn aisle, or if a spectator is hurt during a training session, this policy responds. Personal equine liability won't cover business activities — you need the commercial version. Typical limits range from $500,000 to $2 million per occurrence.</p>
+
+            <h4>Care, Custody & Control</h4>
+            <p>This is the coverage trainers most commonly lack — and most commonly need. Standard liability excludes property in your care. Every client horse in your barn is property in your care. If a client's $75,000 reining horse colics and dies under your watch, your general liability doesn't cover the horse's value. CCC does. If a horse in training is injured in a paddock accident at your facility, CCC responds. This is non-negotiable for any trainer with client horses.</p>
+
+            <h4>Additional Layers</h4>
+            <ul>
+              <li><strong>Workers' compensation:</strong> Required in most states if you have employees — barn help, assistant trainers, grooms</li>
+              <li><strong>Property coverage:</strong> Your barn, arena, fencing, equipment, and tack through a farm/ranch or commercial property policy</li>
+              <li><strong>Your own horses:</strong> Mortality and medical for horses you personally own</li>
+              <li><strong>Umbrella policy:</strong> Additional liability above base limits — affordable relative to the protection provided</li>
+              <li><strong>Inland marine:</strong> Covers your trailer and equipment that travels between locations</li>
+            </ul>
+            <p>A training business without proper insurance is one bad incident away from financial ruin. The cost of comprehensive coverage is a business expense — the cost of being uninsured is potentially everything you've built.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 14 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Events</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag red">Facility</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Equestrian Facility Insurance: Complete Coverage Guide for Barns, Arenas, and Training Centers</span></h3>
+          <p>An equestrian facility is a complex operation — barns, arenas, turnout, equipment, and dozens of horses owned by different people moving through your property every week. Standard farm insurance doesn't cover all of it. This guide walks through premises liability, structural coverage, arena and footing insurance, equipment protection, business interruption, and the critical difference between personal and commercial equestrian facility coverage.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> equestrian facility insurance, horse barn insurance, riding arena insurance, equestrian center liability, horse facility coverage, equestrian property insurance, indoor arena insurance cost</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>More Than a Barn: What Equestrian Facilities Need to Insure</h4>
+            <p>An equestrian facility is a complex commercial operation with exposures that touch property, liability, livestock, equipment, and business continuity. Whether you run a boarding stable, a training barn, a show facility, or a multi-use equestrian center, your insurance needs extend far beyond what a standard farm policy covers. Understanding the full scope of your exposure is the first step toward proper protection.</p>
+
+            <h4>Property Coverage: Buildings and Structures</h4>
+            <p>Your facility likely includes multiple structures: the main barn, secondary barns or run-in sheds, indoor and outdoor arenas, hay and feed storage, tack rooms, office space, wash racks, and potentially a residence. Each needs to be insured at replacement cost — not the depreciated value, but what it would cost to rebuild today. Many facility owners significantly underinsure their barns, discovering the gap only after a fire or storm. A 20-stall barn with tack room, wash rack, and office can cost $200,000–$500,000+ to replace. Verify your coverage reflects reality.</p>
+
+            <h4>Liability Layers</h4>
+            <ul>
+              <li><strong>Premises liability:</strong> Injuries occurring anywhere on your property — not just horse-related</li>
+              <li><strong>Commercial equine liability:</strong> Injuries arising from equine activities you operate or supervise</li>
+              <li><strong>Care, Custody & Control:</strong> Damage to client horses in your care</li>
+              <li><strong>Professional liability:</strong> Claims arising from professional services (training advice, lesson instruction)</li>
+            </ul>
+
+            <h4>Business Interruption</h4>
+            <p>If a fire destroys your barn, you lose not just the building but the income it generates. Boarding fees, training fees, lesson income — all stop. Business interruption or loss of income coverage replaces that revenue while you rebuild. For a facility generating $15,000–$50,000+ per month in boarding and training fees, several months without income can be as devastating as the property loss itself.</p>
+
+            <h4>Arena and Footing Considerations</h4>
+            <p>Indoor and covered arenas represent major investments — $100,000–$1 million+ depending on size and construction. Arena footing, drainage systems, and lighting are additional insurable values. Some policies treat arenas as outbuildings with reduced coverage limits. Verify that your arena coverage reflects its actual replacement cost, and that specialized components like engineered footing and drainage are included.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 15 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Glossary</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag green">Education</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Riding School Insurance: Protecting Your Lesson Program, Students, and School Horses</span></h3>
+          <p>Riding schools face a unique liability profile — beginners on school horses, children in lessons, parents watching from the rail, and a constant rotation of riders with varying skill levels. One fall can generate a lawsuit that exceeds your personal assets. This guide covers riding instructor liability, student injury coverage, school horse mortality and medical, participant waivers and their legal limits, and the specific insurance requirements that separate a protected program from an exposed one.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> riding school insurance, horse riding lesson insurance, riding instructor liability insurance, equestrian school coverage, horse lesson program insurance, riding academy insurance, horse riding school liability</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Unique Risks of the Lesson Barn</h4>
+            <p>Riding schools operate in a liability environment unlike any other equine business. Your clients are often beginners — children and adults who don't know how to fall, can't read a horse's body language, and may overestimate their abilities. Your school horses interact with dozens of different riders per week, each with different skill levels, different body mechanics, and different levels of confidence. One fall, one kick, one runaway — and the lawsuit can exceed your personal assets many times over.</p>
+
+            <h4>Riding Instructor Liability</h4>
+            <p>As an instructor, you have a duty of care to match riders with appropriate horses, assess rider ability before mounting, maintain safe lesson environments, provide proper instruction, and supervise activities within your control. Commercial equine liability with specific riding instruction coverage is essential. Verify your policy explicitly covers lesson activities — some commercial equine policies focus on boarding or training and may not adequately address the lesson-specific exposure.</p>
+
+            <h4>School Horse Coverage</h4>
+            <p>School horses are business assets with specific value. They may not command high market prices, but their replacement cost includes finding, purchasing, and training a safe, suitable lesson horse — which can take months and cost significantly more than the horse's market value suggests. Mortality and medical coverage for school horses protects your ability to operate the program. A single colic surgery on a school horse can cost more than the horse's purchase price.</p>
+
+            <h4>Waivers, Minors, and Legal Reality</h4>
+            <p>Most riding schools require signed waivers. But understand the limits: waivers signed by parents on behalf of minor children are unenforceable in many states. Waivers don't protect against negligence — if your arena has a known hazard and a student is injured, the waiver won't save you. Waivers don't protect against providing an unsuitable mount for a rider's skill level. They're one layer of protection, not a substitute for insurance or safe practices. Post equine activity warning signs as required by your state's statute, and document everything.</p>
+
+            <h4>Participant Accident Insurance</h4>
+            <p>Consider adding participant accident coverage, which pays medical expenses for injured riders regardless of fault. This is not liability insurance — it's a first-party medical payment that covers the student's immediate medical bills without a lawsuit. It demonstrates good faith, reduces the incentive to sue, and provides real help to an injured student while the liability question is being evaluated.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 16 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Western</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag gold">Western</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Rodeo Contractor Insurance: Covering Stock, Arena Risk, and Event Liability</span></h3>
+          <p>Rodeo contractors face some of the highest-risk insurance scenarios in the equine industry — bucking stock injuries, arena accidents, spectator exposure, livestock transport, temporary venue hazards, and multi-state event schedules. Standard equine policies don't cover this world. This guide explains rodeo stock contractor liability, livestock mortality for bucking horses, event-specific coverage requirements, participant accident insurance, and the specialized carriers who understand the rodeo business.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> rodeo contractor insurance, rodeo stock contractor liability, bucking horse insurance, rodeo event insurance, rodeo liability coverage, livestock contractor insurance, PRCA insurance requirements</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>The Highest-Risk Insurance in the Equine Industry</h4>
+            <p>Rodeo contracting is a specialized business with insurance exposures that exceed almost any other equine operation. You're providing livestock that is intentionally agitated to perform. You're operating in temporary venues with variable conditions. Your stock interacts with riders whose goal is to stay on for 8 seconds while the animal tries to remove them. Spectators sit close to the action. Events travel across state lines. Standard equine insurance doesn't touch this world — you need specialized coverage from carriers who understand the rodeo business.</p>
+
+            <h4>Livestock Mortality for Bucking Stock</h4>
+            <p>Bucking horses and bulls are valuable business assets. A proven bucking horse can be worth $10,000–$50,000+; elite bulls significantly more. Mortality coverage for bucking stock requires carriers experienced in rodeo — the risk profile differs from standard equine mortality. Injuries during performance, transport stress from constant travel, and the physical demands of the sport all factor into underwriting. Document your stock values through purchase records, breeding potential, and earnings or stock contractor rankings.</p>
+
+            <h4>Event Liability and Participant Coverage</h4>
+            <p>Rodeo event liability covers the contractor's exposure during performances — rider injuries, spectator incidents, arena accidents, and livestock escapes. PRCA and other sanctioning organizations typically require specific minimum coverage levels. Participant accident insurance covers competitors' medical expenses. Spectator liability covers injuries to the audience. Volunteer coverage protects the dozens of people who help run an event without compensation. Each layer addresses a different exposure — missing one leaves a gap.</p>
+
+            <h4>Multi-State Operations</h4>
+            <p>Rodeo contractors typically operate across multiple states during the season. Insurance must be valid in every jurisdiction where you perform. Some states have specific requirements for livestock events. Workers' compensation requirements vary by state for your employees and contract workers. A national rodeo contractor needs a coverage portfolio that works everywhere they haul, set up, and perform — not just in their home state.</p>
+
+            <h4>Transport and Setup Risk</h4>
+            <p>Hauling livestock to events creates transit exposure for your stock, commercial auto liability for your trucks and trailers, and potential property damage during loading and unloading at venues. Setting up temporary chutes, pens, and arena infrastructure creates premises liability at each location. Each event is essentially a pop-up operation with all the risks of a permanent facility compressed into a weekend.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+      <!-- BLOG POST 17 -->
+      <div class="blog-card">
+        <div class="blog-card-img-placeholder">Events</div>
+        <div class="blog-card-body">
+          <div class="blog-card-meta">
+            <span class="blog-card-date">March 2026</span>
+            <span class="blog-card-tag red">Events</span>
+          </div>
+          <h3><span class="blog-title-link" onclick="openBlog(this)">Horse Event Insurance: Liability Coverage for Shows, Clinics, Jackpots, and Competitions</span></h3>
+          <p>Hosting or organizing a horse event — whether it's a weekend jackpot roping, a breed show, a barrel race, a dressage clinic, or a multi-day competition — creates concentrated liability in a short window. Participants, spectators, vendors, and horses from dozens of different owners converge on one property. This guide covers event liability policies, participant accident insurance, certificate of insurance requirements, venue agreements, cancellation coverage, and what happens when something goes wrong at your event.</p>
+          <div class="blog-card-keywords"><strong>Keywords:</strong> horse event insurance, horse show liability insurance, equine event coverage, horse clinic insurance, jackpot roping insurance, barrel race event insurance, equestrian competition insurance, horse show cancellation insurance</div>
+
+          <span class="blog-read-more" onclick="openBlog(this)">▼ Read Full Article</span>
+          <div class="blog-article"><div class="blog-article-inner">
+            <h4>Concentrated Risk in a Short Window</h4>
+            <p>Hosting a horse event — whether it's a weekend jackpot roping, a breed show, a barrel race, a dressage clinic, or a multi-day competition — creates concentrated liability exposure that your regular insurance probably doesn't cover. Dozens or hundreds of horses from different owners converge on one property. Participants, spectators, vendors, and volunteers all present during the same window. One incident can generate claims from multiple parties simultaneously.</p>
+
+            <h4>Event Liability Insurance</h4>
+            <p>Event liability is typically purchased as a short-term policy covering the specific dates and activities of your event. It covers third-party bodily injury and property damage arising from the event. Coverage amounts typically range from $1 million to $5 million per occurrence. Most venues and sanctioning bodies require proof of event liability before allowing an event to proceed. If you're hosting on someone else's property, the property owner will almost certainly require you to add them as an additional insured on your event policy.</p>
+
+            <h4>What Event Insurance Covers</h4>
+            <ul>
+              <li><strong>Participant injury:</strong> A rider falls during competition and is injured</li>
+              <li><strong>Spectator injury:</strong> A loose horse runs through the spectator area</li>
+              <li><strong>Property damage:</strong> A horse damages a trailer, vehicle, or facility structure during the event</li>
+              <li><strong>Vendor liability:</strong> Incidents involving food vendors, equipment vendors, or other third parties at your event</li>
+            </ul>
+
+            <h4>Participant Accident Insurance</h4>
+            <p>Separate from event liability, participant accident insurance provides medical expense coverage for injured competitors regardless of fault. This is first-party coverage — it pays the injured person's medical bills directly without requiring a liability determination. Many sanctioning organizations include participant accident coverage in their membership. For unsanctioned events (jackpot ropings, informal competitions), the organizer should consider purchasing this separately.</p>
+
+            <h4>Cancellation Coverage</h4>
+            <p>Event cancellation insurance reimburses non-recoverable expenses if the event must be cancelled due to covered causes — severe weather, venue damage, government orders, or other unforeseen circumstances. For events with significant upfront costs (arena rental, judges, livestock, advertising, prize money deposits), cancellation coverage protects the organizer's financial investment. Consider this for any event where your out-of-pocket cost to stage the event exceeds what you can comfortably absorb as a loss.</p>
+
+            <h4>Certificate of Insurance Requirements</h4>
+            <p>Expect to provide Certificates of Insurance to: the venue or property owner, the sanctioning body, local government (if permits are required), and potentially individual participants. Have your agent prepare these in advance — last-minute COI requests the day before an event create unnecessary stress. Build insurance requirements into your event planning timeline alongside entries, judges, and livestock.</p>
+            <span class="blog-collapse" onclick="closeBlog(this)">▲ Collapse Article</span>
+          </div></div>
+
+        </div>
+      </div>
+
+    </div><!-- /blog-grid -->
+
+    <div class="blog-cta">
+      <p><strong>New articles published regularly.</strong> Bookmark this page or check back for the latest horse insurance education, claims tips, and risk management guides.</p>
+    </div>
+
+  </div>
+</section>
+
+
+<div class="container" style="padding-top:12px;padding-bottom:4px;">
+  <div class="disclaimer-banner">
+    <strong>Educational Disclaimer:</strong> HorseInsurance.ai is an independent education platform. We do not sell insurance, represent any carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only. Always consult a licensed insurance professional for coverage decisions.
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">HorseInsurance.ai</div>
+      <p>Education-first equine insurance platform. We explain coverage, risk, and claims readiness — clearly and without sales pressure.</p>
+      <p class="footer-brand-detail">A Bridle &amp; Bit Magazine platform.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Coverage</h4>
+      <a href="/coverage/">All Coverage Types</a>
+      <a href="/coverage/mortality.html">Mortality</a>
+      <a href="/coverage/medical.html">Medical &amp; Surgical</a>
+      <a href="/coverage/liability.html">Liability</a>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <a href="/claims/">Claims Readiness</a>
+      <a href="/premiums/">Premiums &amp; Costs</a>
+      <a href="/disciplines/">By Discipline</a>
+      <a href="/qa/">Q&amp;A (200+)</a>
+      <a href="/glossary/">Glossary (100+)</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-col">
+      <h4>More</h4>
+      <a href="/loss-prevention/">Loss Prevention</a>
+      <a href="/ranch/">Ranch &amp; Home</a>
+      <a href="/before-you-buy/">Before You Buy</a>
+      <a href="https://www.bridleandbit.com">Bridle &amp; Bit Magazine</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    &copy; 2026 HorseInsurance.ai — A Bridle &amp; Bit Magazine Platform. All rights reserved.
+  </div>
+  <div class="footer-disclaimer">
+    <strong>Legal Disclaimer:</strong> HorseInsurance.ai is an independent educational platform operated by Bridle &amp; Bit Magazine. We do not sell insurance, represent any insurance carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only and does not constitute insurance advice.
+  </div>
+</footer>
+
+<button class="back-to-top" id="back-to-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
+<script>
+// Back to top
+(function(){var b=document.getElementById('back-to-top');if(!b)return;window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>400)},{passive:true})})();
+// Close nav on outside tap
+document.addEventListener('click',function(e){var n=document.querySelector('.main-nav');if(!n||!n.classList.contains('open'))return;if(!document.querySelector('.site-header').contains(e.target))n.classList.remove('open')});
+// Auto-hide header on scroll (phone)
+(function(){var ly=0,h=document.querySelector('.site-header'),t=false;window.addEventListener('scroll',function(){if(t)return;t=true;requestAnimationFrame(function(){var y=window.scrollY;if(window.innerWidth<900&&y>120){if(y>ly+8)h.classList.add('header-hidden');else if(y<ly-4)h.classList.remove('header-hidden')}else h.classList.remove('header-hidden');ly=y;t=false})},{passive:true})})();
+// Header height
+(function(){function u(){var h=document.querySelector('.site-header');if(h)document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px')}u();window.addEventListener('resize',u,{passive:true})})();
+
+function setMeasuredHeight(body,open){if(open){body.style.maxHeight=body.scrollHeight+'px';var f=function(){body.style.maxHeight='none';body.removeEventListener('transitionend',f)};body.addEventListener('transitionend',f)}else{body.style.maxHeight=body.scrollHeight+'px';body.offsetHeight;body.style.maxHeight='0'}}
+function openBlog(el){var card=el.closest('.blog-card');card.classList.add('blog-open');setMeasuredHeight(card.querySelector('.blog-article'),true)}
+function closeBlog(el){var card=el.closest('.blog-card');var article=card.querySelector('.blog-article');setMeasuredHeight(article,false);var f=function(){card.classList.remove('blog-open');article.removeEventListener('transitionend',f)};article.addEventListener('transitionend',f);var top=card.getBoundingClientRect().top+window.scrollY-60;window.scrollTo({top:top,behavior:'smooth'})}
+document.querySelectorAll('.blog-read-more,.blog-collapse,.blog-title-link').forEach(function(el){el.setAttribute('role','button');el.setAttribute('tabindex','0');el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click()}})});
+
+</script>
+</body>
+</html>

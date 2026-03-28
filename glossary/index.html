@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
+<title>Glossary — 100+ Horse Insurance Terms — HorseInsurance.ai</title>
+<meta name="description" content="100+ horse insurance terms defined — mortality, co-pay, deductible, agreed value, exclusion, underwriting, and more.">
+<link rel="canonical" href="https://horseinsurance.ai/glossary/">
+<meta property="og:title" content="Glossary — 100+ Horse Insurance Terms — HorseInsurance.ai">
+<meta property="og:description" content="100+ horse insurance terms defined — mortality, co-pay, deductible, agreed value, exclusion, underwriting, and more.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://horseinsurance.ai/glossary/">
+<meta property="og:image" content="https://horseinsurance.ai/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Glossary — 100+ Horse Insurance Terms — HorseInsurance.ai">
+<meta name="twitter:description" content="100+ horse insurance terms defined — mortality, co-pay, deductible, agreed value, exclusion, underwriting, and more.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#003D79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   HorseInsurance.ai — Conservative Insurance Design System
+   MOBILE-FIRST: Base styles = phone (320px–599px)
+   Scale UP with min-width breakpoints.
+   Target audience: Arizona equestrian on phones.
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --primary: #0b3c5d;
+  --primary-light: #144e78;
+  --secondary: #1d6fa5;
+  --accent: #2a8fd4;
+  --gold: #b8860b;
+  --gold-light: #d4a017;
+  --bg: #ffffff;
+  --bg-alt: #f4f6f8;
+  --bg-warm: #faf9f7;
+  --text: #1f2933;
+  --text-mid: #4a5568;
+  --text-light: #6b7280;
+  --border: #e5e7eb;
+  --border-light: #f0f1f3;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --radius: 6px;
+  --max-w: 1100px;
+  --transition: 0.2s ease;
+}
+
+/* ── RESET & BASE (phone) ── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+/* Remove 300ms tap delay on all interactive elements */
+a, button, [onclick], .qa-question, .deep-dive-header, .blog-read-more, .blog-collapse, .qa-filter {
+  touch-action: manipulation;
+}
+html {
+  scroll-behavior:smooth; scroll-padding-top:100px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.65;
+  font-size: 16px; /* Prevents iOS zoom on input focus */
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: none; /* Prevents rubber-band bounce revealing white below footer */
+}
+a { color: var(--secondary); text-decoration:none; transition: color var(--transition); }
+a:hover { color: var(--primary); text-decoration:underline; }
+img { max-width:100%; height:auto; display:block; }
+
+/* ── Container (phone: 16px gutters) ── */
+.container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── Phone: hide verbose SEO subtitle, show compact version ── */
+.hero-sub-seo { display:none; }
+.hero-sub-short { display:block; }
+
+/* ── Phone: tighter body font for very small screens ── */
+@media(max-width:359px) {
+  body { font-size:15px; }
+  .hero h1 { font-size:1.3rem; }
+  .hero-btn { font-size:0.72rem; padding:7px 8px; }
+  .container { padding:0 12px; }
+}
+
+/* ── Focus styles — keyboard navigation ── */
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Suppress focus ring on mouse/touch — only show for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Reduced motion: respect system preference ── */
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .deep-dive-body, .qa-answer, .blog-article { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   HEADER — two-line: logo row + nav row
+   ═══════════════════════════════════════ */
+.site-header {
+  position: sticky; top:0; z-index:100;
+  background: rgba(255,255,255,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+.site-header.header-hidden { transform:translateY(-100%); }
+.header-top {
+  display:flex; justify-content:space-between; align-items:center;
+  max-width:var(--max-w); margin:0 auto; padding:8px 16px;
+}
+.site-logo {
+  font-weight:800; font-size:1.05rem; color:var(--primary);
+  letter-spacing:-0.02em;
+}
+.site-logo span { color:var(--secondary); }
+
+/* Phone: nav behind hamburger on line 2 */
+.nav-toggle {
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer;
+  padding:8px; min-width:44px; min-height:44px;
+}
+.nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
+.main-nav {
+  display:none; flex-direction:column; padding:4px 16px 12px; gap:2px;
+  border-top:1px solid var(--border-light);
+}
+.main-nav.open { display:flex; }
+.main-nav a {
+  padding:10px 16px; border-radius:var(--radius);
+  font-size:0.92rem; font-weight:500; color:var(--text-mid);
+  transition: background var(--transition), color var(--transition);
+  min-height:44px; display:flex; align-items:center;
+}
+.main-nav a:hover { background:var(--bg-alt); color:var(--primary); text-decoration:none; }
+.main-nav a.active { background:var(--primary); color:#fff; }
+
+/* ═══════════════════════════════════════
+   HERO — phone base, CENTERED
+   ═══════════════════════════════════════ */
+.hero {
+  background: #003D79; /* Deep Process Blue */
+  color: #fff;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+.hero-inner { max-width:var(--max-w); margin:0 auto; }
+.hero h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 auto;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.hero-sub {
+  font-size: 0.88rem;
+  margin: 8px auto 0;
+  opacity: 0.9;
+  line-height: 1.35;
+  max-width: 600px;
+}
+/* Hero buttons: 2×2 grid on phone, compact */
+.hero-buttons {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; margin-top:14px;
+  max-width:380px; margin-left:auto; margin-right:auto;
+}
+.hero-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  background:#EF3340; /* Process Red (PMS 032) */
+  border:1px solid rgba(255,255,255,0.3);
+  padding:8px 10px; border-radius:var(--radius);
+  font-size:0.78rem; font-weight:600; color:#fff;
+  text-decoration:none; transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  min-height:40px;
+}
+.hero-btn:hover {
+  background:#d42d38; border-color:rgba(255,255,255,0.5);
+  text-decoration:none; color:#fff;
+}
+@media(hover:hover) {
+  .hero-btn:hover { transform:translateY(-1px); }
+}
+.hero-btn:active { transform:translateY(0); background:#c0272f; }
+.hero-btn svg { width:14px; height:14px; flex-shrink:0; }
+
+/* ═══════════════════════════════════════
+   STATS BAR — phone: 2×2 grid
+   ═══════════════════════════════════════ */
+.stats-bar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+}
+.stats-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center;
+}
+.stat-item strong {
+  display:block; font-size:1.2rem; color:var(--primary); font-weight:800;
+}
+.stat-item span {
+  font-size:0.7rem; color:var(--text-light); text-transform:uppercase; letter-spacing:0.05em;
+}
+
+/* ═══════════════════════════════════════
+   SECTION NAV — phone: horizontal scroll + sticky
+   ═══════════════════════════════════════ */
+.section-nav {
+  position: sticky; top: var(--header-h, 44px); z-index: 90;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+  transition: top 0.3s ease;
+}
+.section-nav::-webkit-scrollbar { display:none; }
+.section-nav-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:flex; gap:0; padding:0 16px;
+}
+.section-nav a {
+  padding:11px 10px; font-size:0.72rem; font-weight:600;
+  color:var(--text-light); white-space:nowrap;
+  border-bottom:2px solid transparent; transition: color var(--transition), border-color var(--transition);
+  min-height:42px; display:flex; align-items:center;
+  scroll-snap-align:start;
+}
+.section-nav a:hover { color:var(--primary); text-decoration:none; border-bottom-color:var(--border); }
+.section-nav a.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* ═══════════════════════════════════════
+   CONTENT SECTIONS — phone base
+   ═══════════════════════════════════════ */
+.content-section { padding:22px 0; }
+.content-section:nth-of-type(even) { background:var(--bg-alt); }
+.content-section h2 {
+  font-size:1.3rem; font-weight:800; color:var(--primary);
+  margin-bottom:6px; letter-spacing:-0.01em;
+}
+.content-section .section-desc {
+  font-size:0.92rem; color:var(--text-mid); margin-bottom:20px;
+}
+#coverage { background:#d6dde6; }
+#coverage .section-desc { font-weight:700; }
+
+/* ═══════════════════════════════════════
+   CARDS — phone: single column
+   ═══════════════════════════════════════ */
+.cards-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:12px; margin-top:16px;
+}
+.card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  transition: box-shadow var(--transition);
+}
+.card:hover { box-shadow:var(--shadow-sm); }
+.card-icon {
+  width:38px; height:38px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:10px; flex-shrink:0;
+}
+.card-icon svg { width:20px; height:20px; }
+.card-icon.blue { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
+.card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
+/* Cards go 2-col at 500px — gives each card enough width for readable text */
+@media(min-width:500px) {
+  .cards-grid { grid-template-columns:1fr 1fr; gap:12px; }
+}
+
+/* ═══════════════════════════════════════
+   DEEP DIVES — phone: full-width, big touch targets
+   ═══════════════════════════════════════ */
+.deep-dive {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); margin-bottom:12px; overflow:hidden;
+}
+.deep-dive-header {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--bg); transition:background var(--transition);
+  min-height:52px; gap:10px; /* 52px for comfortable touch */
+}
+.deep-dive-header > div:first-child {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  min-width:0; flex:1;
+}
+.deep-dive-header:hover { background:var(--bg-alt); }
+.deep-dive-header h3 { font-size:0.95rem; color:var(--primary); margin:0; line-height:1.35; }
+.deep-dive-header .tag {
+  font-size:0.67rem; text-transform:uppercase; letter-spacing:0.06em;
+  padding:2px 6px; border-radius:3px; font-weight:700;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+  flex-shrink:0; white-space:nowrap;
+}
+.deep-dive-chevron {
+  width:20px; height:20px; transition:transform 0.3s ease; flex-shrink:0;
+  stroke:var(--text-light); min-width:20px;
+}
+.deep-dive.open .deep-dive-chevron { transform:rotate(180deg); }
+.deep-dive-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease-out; }
+.deep-dive.open .deep-dive-body { /* height set by JS */ }
+.deep-dive-content {
+  padding:0 16px 18px;
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.deep-dive-content h4 {
+  font-size:0.93rem; color:var(--primary); margin:16px 0 8px; font-weight:700;
+}
+.deep-dive-content p { margin-bottom:10px; }
+.deep-dive-content ul, .deep-dive-content ol {
+  margin:6px 0 14px 16px; color:var(--text-mid);
+}
+.deep-dive-content li { margin-bottom:5px; line-height:1.6; font-size:0.88rem; }
+
+/* ═══════════════════════════════════════
+   TABLES — phone: horizontal scroll
+   ═══════════════════════════════════════ */
+.compare-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.8rem;
+}
+.compare-table th {
+  background:var(--primary); color:#fff; padding:8px 10px;
+  text-align:left; font-weight:600; font-size:0.7rem;
+  text-transform:uppercase; letter-spacing:0.04em;
+  white-space:nowrap;
+}
+.compare-table td {
+  padding:8px 10px; border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.compare-table tr:nth-child(even) td { background:var(--bg-alt); }
+.compare-table .check { color:var(--success); font-weight:700; }
+.compare-table .cross { color:var(--danger); font-weight:700; }
+.compare-table .varies { color:var(--warning); font-weight:600; }
+.table-wrap {
+  overflow-x:auto; -webkit-overflow-scrolling:touch; margin:16px 0;
+  border-radius:var(--radius);
+  position:relative;
+}
+/* Fade hint — indicates horizontal scroll on phone */
+.table-wrap::after {
+  content:'';
+  position:absolute; top:0; right:0; bottom:0; width:32px;
+  background: linear-gradient(to left, var(--table-fade-bg, var(--bg)) 0%, transparent 100%);
+  pointer-events:none; border-radius:0 var(--radius) var(--radius) 0;
+}
+.content-section:nth-of-type(even) .table-wrap { --table-fade-bg: var(--bg-alt); }
+#coverage .table-wrap { --table-fade-bg: #d6dde6; }
+@media(min-width:900px) {
+  .table-wrap::after { display:none; }
+}
+
+/* ═══════════════════════════════════════
+   Q&A — phone: full-width, large touch targets
+   ═══════════════════════════════════════ */
+.qa-filters {
+  display:flex; flex-wrap:nowrap; gap:6px; margin-bottom:16px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; padding-bottom:4px;
+}
+.qa-filters::-webkit-scrollbar { display:none; }
+.qa-filter {
+  padding:8px 12px; border-radius:20px; font-size:0.8rem;
+  font-weight:500; border:1px solid var(--border);
+  background:var(--bg); color:var(--text-mid); cursor:pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  min-height:38px; /* comfortable touch */
+}
+.qa-filter:hover { border-color:var(--secondary); color:var(--secondary); }
+.qa-filter.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.qa-item {
+  border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden; background:var(--bg);
+}
+.qa-question {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  font-weight:600; font-size:0.9rem; color:var(--text);
+  transition:background var(--transition);
+  min-height:48px; gap:8px; /* 48px touch target */
+}
+.qa-question:hover { background:var(--bg-alt); }
+.qa-question > span:first-child { flex:1; line-height:1.4; }
+.qa-question .qa-cat {
+  font-size:0.67rem; background:var(--bg-alt); color:var(--text-light);
+  padding:2px 6px; border-radius:3px; white-space:nowrap;
+  text-transform:uppercase; letter-spacing:0.04em; font-weight:600;
+  flex-shrink:0; margin-top:3px;
+  display:none; /* hidden on phone — visible from 600px+ */
+}
+.qa-chevron {
+  width:16px; height:16px; flex-shrink:0; stroke:var(--text-light);
+  transition:transform 0.3s ease; min-width:16px; margin-top:3px;
+}
+.qa-item.open .qa-chevron { transform:rotate(180deg); }
+.qa-answer { max-height:0; overflow:hidden; transition:max-height 0.3s ease-out; }
+.qa-item.open .qa-answer { /* height set by JS */ }
+.qa-answer-inner {
+  padding:12px 16px 16px;
+  font-size:0.87rem; line-height:1.7; color:var(--text-mid);
+  border-top:1px solid var(--border-light);
+}
+.qa-count {
+  font-size:0.8rem; color:var(--text-light); margin-bottom:12px;
+}
+.qa-controls {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px; flex-wrap:wrap; gap:8px;
+}
+.qa-toggle-all {
+  font-size:0.8rem; font-weight:600; color:var(--secondary);
+  background:none; border:1px solid var(--border); border-radius:var(--radius);
+  padding:6px 14px; cursor:pointer; transition: background var(--transition), border-color var(--transition);
+  min-height:36px;
+}
+.qa-toggle-all:hover { background:var(--bg-alt); border-color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   BLOG — phone base
+   ═══════════════════════════════════════ */
+.blog-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:16px; margin-top:20px;
+}
+.blog-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  transition: box-shadow var(--transition);
+}
+.blog-card:hover { box-shadow:var(--shadow-md); }
+.blog-card-img {
+  width:100%; height:180px; object-fit:cover;
+  background:var(--bg-alt); display:block;
+}
+.blog-card-img-placeholder {
+  width:100%; height:160px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(255,255,255,0.55); font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.1em;
+}
+.blog-card-body { padding:18px; }
+.blog-card-meta {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.blog-card-date {
+  font-size:0.72rem; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:0.04em;
+}
+.blog-card-tag {
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; padding:2px 7px; border-radius:3px;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+}
+.blog-card-tag.red { background:rgba(239,51,64,0.1); color:#c0272f; }
+.blog-card-tag.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.blog-card-tag.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.blog-card h3 {
+  font-size:1.05rem; font-weight:700; color:var(--primary);
+  margin-bottom:8px; line-height:1.35;
+}
+.blog-card h3 a { color:inherit; text-decoration:none; }
+.blog-card h3 a:hover { color:var(--secondary); text-decoration:none; }
+.blog-title-link { color:inherit; cursor:pointer; }
+.blog-title-link:hover { color:var(--secondary); }
+.blog-card p {
+  font-size:0.86rem; color:var(--text-mid); line-height:1.6;
+  margin-bottom:12px;
+}
+.blog-card-keywords {
+  font-size:0.72rem; color:var(--text-light); line-height:1.5;
+  border-top:1px solid var(--border-light); padding-top:10px;
+  display:none; /* SEO metadata — hidden on phone */
+}
+.blog-card-keywords strong { color:var(--text-mid); }
+.blog-featured {
+  border:2px solid var(--primary);
+}
+.blog-featured-label {
+  display:inline-block; background:var(--primary); color:#fff;
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; padding:3px 10px; border-radius:0 0 var(--radius) 0;
+}
+.blog-cta {
+  text-align:center; margin-top:28px; padding:24px 16px;
+  background:var(--bg-alt); border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.blog-cta p { font-size:0.9rem; color:var(--text-mid); margin-bottom:10px; }
+.blog-cta strong { color:var(--primary); }
+.blog-read-more {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--secondary); cursor:pointer; padding:6px 0;
+  transition:color var(--transition);
+}
+.blog-read-more:hover { color:var(--primary); }
+.blog-article {
+  max-height:0; overflow:hidden; transition:max-height 0.5s ease-out;
+}
+.blog-card.blog-open .blog-article { /* height set by JS */ }
+.blog-card.blog-open .blog-read-more { display:none; }
+.blog-article-inner {
+  padding-top:16px; margin-top:14px;
+  border-top:1px solid var(--border-light);
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.blog-article-inner h4 {
+  font-size:0.95rem; color:var(--primary); font-weight:700;
+  margin:18px 0 8px;
+}
+.blog-article-inner h4:first-child { margin-top:0; }
+.blog-article-inner p { margin-bottom:12px; color:var(--text-mid); }
+.blog-article-inner ul {
+  margin:8px 0 16px 18px; color:var(--text-mid);
+}
+.blog-article-inner li { margin-bottom:5px; line-height:1.6; }
+.blog-collapse {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--text-light); cursor:pointer; padding:8px 0; margin-top:8px;
+  transition:color var(--transition);
+}
+.blog-collapse:hover { color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   GLOSSARY — phone: single column, full-width search
+   ═══════════════════════════════════════ */
+.glossary-search {
+  width:100%; padding:12px 16px;
+  border:1px solid var(--border); border-radius:var(--radius);
+  font-size:16px; /* 16px prevents iOS zoom on focus */
+  margin-bottom:16px;
+  transition:border-color var(--transition);
+  -webkit-appearance:none; appearance:none;
+}
+.glossary-search:focus { outline:none; border-color:var(--secondary); box-shadow:0 0 0 3px rgba(29,111,165,0.1); }
+.glossary-grid {
+  display:grid; grid-template-columns:1fr; gap:10px;
+}
+.glossary-term {
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; background:var(--bg);
+}
+.glossary-term:hover { box-shadow:var(--shadow-sm); }
+.glossary-term dt {
+  font-weight:700; color:var(--primary); font-size:0.9rem; margin-bottom:3px;
+}
+.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
+.glossary-tag {
+  display:inline-block; font-size:0.65rem; text-transform:uppercase;
+  letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
+  margin-left:4px; font-weight:700; vertical-align:middle;
+}
+.tag-coverage { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.tag-claims { background:rgba(4,120,87,0.1); color:var(--success); }
+.tag-underwriting { background:rgba(184,134,11,0.1); color:var(--gold); }
+.tag-contract { background:rgba(107,114,128,0.1); color:var(--text-light); }
+.tag-medical { background:rgba(185,28,28,0.1); color:var(--danger); }
+.tag-liability { background:rgba(109,40,217,0.1); color:#6d28d9; }
+.tag-western { background:rgba(184,134,11,0.15); color:#96710a; }
+.tag-english { background:rgba(29,111,165,0.15); color:#145e8a; }
+.hero-sub-gap { margin-top:4px; }
+.disclaimer-pad { padding-top:10px; }
+
+/* ═══════════════════════════════════════
+   CALLOUTS & DISCLAIMERS — phone
+   ═══════════════════════════════════════ */
+.callout {
+  border-left:4px solid var(--secondary); background:var(--bg-alt);
+  padding:12px 14px; border-radius:0 var(--radius) var(--radius) 0;
+  margin:14px 0; font-size:0.86rem;
+}
+.callout.warning { border-left-color:var(--warning); background:#fffbeb; }
+.callout.danger { border-left-color:var(--danger); background:#fef2f2; }
+.callout.success { border-left-color:var(--success); background:#ecfdf5; }
+.callout strong { color:var(--text); }
+
+.disclaimer-banner {
+  background:var(--bg-warm); border:1px solid #e5ddd0;
+  padding:14px 16px; border-radius:var(--radius); margin:16px 0;
+  font-size:0.83rem; color:var(--text-mid); line-height:1.6;
+}
+.disclaimer-banner strong { color:var(--text); }
+
+/* ═══════════════════════════════════════
+   ROTATING AD BANNER — mobile-first leaderboard
+   ═══════════════════════════════════════ */
+.ad-rotator {
+  width:100%; max-width:var(--max-w);
+  margin:0 auto; padding:6px 16px 8px;
+  position:relative;
+}
+.ad-rotator-inner {
+  display:flex; justify-content:center;
+  position:relative; width:100%; overflow:hidden;
+}
+.ad-slide {
+  display:none;
+}
+.ad-slide.active { display:block; }
+.ad-slide img {
+  display:block;
+  width:100%; max-width:320px; height:auto; aspect-ratio:320/100;
+  cursor:pointer;
+  border-radius:var(--radius);
+}
+.ad-slide a { display:block; line-height:0; }
+.ad-dots {
+  display:none;
+}
+.ad-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--border); cursor:pointer;
+  transition:background var(--transition);
+  border:none; padding:0;
+}
+.ad-dot.active { background:var(--primary); }
+
+/* ═══════════════════════════════════════
+   BACK TO TOP
+   ═══════════════════════════════════════ */
+.back-to-top {
+  position:fixed; bottom:20px; right:16px; z-index:200;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+  touch-action:manipulation;
+}
+.back-to-top.visible { opacity:1; pointer-events:auto; }
+.back-to-top:hover { background:var(--primary-light); }
+@media(hover:hover) { .back-to-top:hover { transform:translateY(-2px); } }
+.back-to-top svg { width:20px; height:20px; }
+
+/* ═══════════════════════════════════════
+   FOOTER — phone: single column
+   ═══════════════════════════════════════ */
+.site-footer {
+  background:var(--primary); color:rgba(255,255,255,0.8);
+  padding:28px 16px 20px;
+}
+.footer-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr; gap:20px;
+}
+.footer-brand { font-size:0.86rem; line-height:1.7; }
+.footer-brand p { margin-bottom:4px; }
+.footer-brand-detail { font-size:0.78rem; opacity:0.7; }
+.footer-brand .footer-logo { font-weight:800; font-size:1.05rem; color:#fff; margin-bottom:6px; }
+.footer-col h4 {
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
+  color:rgba(255,255,255,0.5); margin-bottom:8px;
+}
+.footer-col a {
+  display:flex; align-items:center;
+  color:rgba(255,255,255,0.75); font-size:0.86rem;
+  padding:6px 0; transition:color var(--transition);
+  min-height:40px; /* touch-friendly footer links */
+}
+.footer-col a:hover { color:#fff; text-decoration:none; }
+.footer-bottom {
+  max-width:var(--max-w); margin:20px auto 0;
+  padding-top:14px; border-top:1px solid rgba(255,255,255,0.1);
+  font-size:0.75rem; color:rgba(255,255,255,0.4);
+}
+.footer-disclaimer {
+  max-width:var(--max-w); margin:10px auto 0;
+  font-size:0.72rem; color:rgba(255,255,255,0.35); line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   LARGE PHONE — min-width: 480px (wider phones)
+   Footer 2-col, minor type bumps.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:480px) {
+  .footer-inner { grid-template-columns:1fr 1fr; gap:20px; }
+  .hero-buttons { max-width:400px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat-item strong { font-size:1.1rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TABLET — min-width: 600px
+   Two columns, bigger type, more breathing room.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:600px) {
+  .container { padding:0 24px; }
+  .header-top { padding:8px 24px; }
+  .site-logo { font-size:1.15rem; }
+  .hero { padding:32px 24px 24px; }
+  .hero h1 { font-size:1.85rem; max-width:680px; }
+  .hero-sub { font-size:0.95rem; max-width:620px; line-height:1.4; }
+  .hero-sub-short { display:none; }
+  .hero-sub-seo { display:block; }
+  .hero-buttons { max-width:440px; gap:10px; }
+  .hero-btn { font-size:0.82rem; padding:9px 14px; }
+  .stats-bar { padding:18px 24px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:16px; }
+  .stat-item strong { font-size:1.35rem; }
+  .section-nav-inner { padding:0 24px; }
+  .section-nav a { padding:12px 14px; font-size:0.8rem; }
+  .content-section { padding:40px 0; }
+  .content-section h2 { font-size:1.5rem; }
+  .content-section .section-desc { font-size:0.98rem; }
+  .cards-grid { grid-template-columns:1fr 1fr; gap:16px; }
+  .card { padding:22px; }
+  .deep-dive-header { padding:18px 20px; }
+  .deep-dive-header h3 { font-size:1rem; }
+  .deep-dive-content { padding:0 20px 22px; font-size:0.9rem; }
+  .compare-table { font-size:0.84rem; }
+  .compare-table th, .compare-table td { padding:10px 12px; }
+  .qa-question { font-size:0.92rem; }
+  .qa-answer-inner { font-size:0.9rem; }
+  .qa-filters { flex-wrap:wrap; overflow-x:visible; padding-bottom:0; }
+  .qa-question .qa-cat { display:inline-block; }
+  .glossary-grid { grid-template-columns:1fr 1fr; }
+  .blog-grid { grid-template-columns:1fr 1fr; }
+  .glossary-search { max-width:360px; }
+  .footer-inner { grid-template-columns:1fr 1fr; gap:28px; }
+  .disclaimer-banner { padding:18px 20px; font-size:0.86rem; }
+  .callout { padding:14px 18px; font-size:0.88rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   DESKTOP — min-width: 900px
+   Full nav bar, 3+ columns, hover effects.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:900px) {
+  html { scroll-padding-top:120px; }
+  .container { padding:0 24px; }
+  .header-top { padding:10px 24px; }
+  .site-logo { font-size:1.2rem; }
+
+  /* Desktop: show nav as visible second row */
+  .nav-toggle { display:none; }
+  .main-nav {
+    display:flex; flex-direction:row; flex-wrap:wrap;
+    justify-content:center; gap:2px;
+    padding:0 24px 8px; border-top:1px solid var(--border-light);
+    max-width:var(--max-w); margin:0 auto;
+  }
+  .main-nav a {
+    padding:6px 14px; font-size:0.84rem; min-height:auto;
+  }
+
+  .hero { padding:40px 24px 32px; }
+  .hero h1 { font-size:2.4rem; max-width:780px; }
+  .hero-sub { font-size:1rem; max-width:680px; margin-top:10px; line-height:1.4; }
+  .hero-buttons { grid-template-columns:repeat(4,1fr); max-width:620px; gap:12px; margin-top:18px; }
+  .hero-btn { font-size:0.84rem; padding:10px 14px; border-radius:var(--radius); }
+
+  .stats-bar { padding:20px 24px; }
+  .stats-inner { gap:20px; }
+  .stat-item strong { font-size:1.5rem; }
+
+  .section-nav { padding:0 24px; }
+  .section-nav a { padding:14px 18px; font-size:0.84rem; }
+
+  .content-section { padding:56px 0; }
+  .content-section h2 { font-size:1.75rem; }
+  .content-section .section-desc { font-size:1.05rem; max-width:700px; margin-bottom:32px; }
+
+  .cards-grid { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+  .card { padding:28px; }
+  .card:hover { box-shadow:var(--shadow-md); }
+  @media(hover:hover) { .card:hover { transform:translateY(-2px); } }
+
+  .deep-dive { margin-bottom:20px; }
+  .deep-dive-header { padding:22px 28px; }
+  .deep-dive-header h3 { font-size:1.1rem; }
+  .deep-dive-content { padding:0 28px 28px; font-size:0.95rem; }
+  .deep-dive-content h4 { font-size:1rem; margin:20px 0 8px; }
+  .deep-dive-content li { font-size:0.93rem; }
+
+  .compare-table { font-size:0.9rem; }
+  .compare-table th { padding:12px 16px; font-size:0.78rem; }
+  .compare-table td { padding:12px 16px; }
+
+  .qa-question { padding:16px 20px; font-size:0.95rem; }
+  .qa-answer-inner { padding:16px 20px 20px; font-size:0.93rem; }
+  .qa-filter { padding:8px 16px; font-size:0.84rem; }
+
+  .glossary-grid { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .blog-grid { grid-template-columns:repeat(3,1fr); gap:20px; }
+  .blog-card h3 { font-size:1.1rem; }
+  .blog-card p { font-size:0.9rem; }
+  .blog-card-img, .blog-card-img-placeholder { height:200px; }
+  .blog-card-keywords { display:block; }
+  .glossary-search { max-width:400px; }
+  .glossary-term { padding:16px 20px; }
+  .glossary-term dt { font-size:0.95rem; }
+  .glossary-term dd { font-size:0.9rem; }
+  .glossary-tag { font-size:0.62rem; }
+
+  .callout { padding:16px 20px; font-size:0.93rem; }
+  .disclaimer-banner { padding:20px 24px; font-size:0.88rem; }
+
+  .footer-inner { grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; }
+  .site-footer { padding:48px 24px 32px; }
+  .footer-col a { min-height:auto; padding:4px 0; }
+}
+
+</style>
+<style>
+.breadcrumb{background:var(--bg-alt);border-bottom:1px solid var(--border);padding:8px 0;font-size:0.8rem;color:var(--text-light)}
+.breadcrumb a{color:var(--secondary);text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+.page-nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.page-nav a{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;font-weight:500;color:var(--text-mid);text-decoration:none;min-height:40px;transition:background 0.2s,border-color 0.2s}
+.page-nav a:hover{background:var(--bg-alt);border-color:var(--secondary);color:var(--primary);text-decoration:none}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle" onclick="document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/claims/">Claims</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/qa/">Q&amp;A</a>
+    <a href="/glossary/"  class="active">Glossary</a>
+    <a href="/blog/">Blog</a>
+  </nav>
+</header>
+<nav class="breadcrumb"><div class="container"><a href="/">Home</a> &rsaquo; <span>Glossary</span></div></nav>
+<section class="content-section" id="glossary">
+  <div class="container">
+    <h2>Insurance Glossary</h2>
+    <p class="section-desc">
+      65+ equine insurance terms defined in plain language. Search or browse by category.
+    </p>
+    <input type="search" class="glossary-search" id="glossary-search" placeholder="Search glossary terms..." aria-label="Search glossary" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search">
+    <div class="glossary-grid" id="glossary-grid">
+
+      <dl class="glossary-term" data-term="agreed value"><dt>Agreed Value <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>The dollar amount established when the policy is written, representing the horse's insured value and the maximum payout in a mortality claim.</dd></dl>
+
+      <dl class="glossary-term" data-term="all-risk"><dt>All-Risk <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A mortality policy that covers death from any cause not specifically excluded. The broadest and most common form of equine mortality coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="annual limit"><dt>Annual Limit <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Maximum amount the insurer will pay during one policy period. Once exhausted, the owner is responsible for all remaining costs.</dd></dl>
+
+      <dl class="glossary-term" data-term="appraisal"><dt>Appraisal <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Formal evaluation of a horse's value by a qualified appraiser. May be required for high-value horses, typically $25,000+.</dd></dl>
+
+      <dl class="glossary-term" data-term="application"><dt>Application <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>The form submitted requesting coverage. Requires details about breed, age, sex, use, value, health history, and location. Misrepresentations may void coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="binder"><dt>Binder <span class="glossary-tag tag-contract">Contract</span></dt><dd>Temporary coverage agreement while the formal policy is being issued. Confirms coverage is in effect before the full policy is delivered.</dd></dl>
+
+      <dl class="glossary-term" data-term="bill of sale"><dt>Bill of Sale <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Document recording purchase price and transfer of ownership. Primary evidence of value for insurance purposes.</dd></dl>
+
+      <dl class="glossary-term" data-term="care custody control"><dt>Care, Custody &amp; Control (CCC) <span class="glossary-tag tag-liability">Liability</span></dt><dd>Liability coverage for damage to horses belonging to others while in your professional care. Essential for trainers, boarders, and haulers.</dd></dl>
+
+      <dl class="glossary-term" data-term="certificate of insurance"><dt>Certificate of Insurance (COI) <span class="glossary-tag tag-contract">Contract</span></dt><dd>Document confirming a policy is in force. Often required by facilities, event organizers, and commercial haulers.</dd></dl>
+
+      <dl class="glossary-term" data-term="claimant"><dt>Claimant <span class="glossary-tag tag-claims">Claims</span></dt><dd>The individual or entity filing an insurance claim.</dd></dl>
+
+      <dl class="glossary-term" data-term="coggins test"><dt>Coggins Test <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Blood test for Equine Infectious Anemia (EIA). Required annually for transport, competition, and often for insurance applications. A positive Coggins can make a horse uninsurable.</dd></dl>
+
+      <dl class="glossary-term" data-term="co-insurance co-pay"><dt>Co-Insurance (Co-Pay) <span class="glossary-tag tag-contract">Contract</span></dt><dd>Percentage of eligible expenses paid by the policyholder after the deductible. Example: 80/20 means insurer pays 80%, owner pays 20%.</dd></dl>
+
+      <dl class="glossary-term" data-term="colic"><dt>Colic <span class="glossary-tag tag-medical">Medical</span></dt><dd>Abdominal pain in horses. Colic surgery is the most common high-cost equine insurance claim, with episodes costing $8,000–$17,000+.</dd></dl>
+
+      <dl class="glossary-term" data-term="comparable sales"><dt>Comparable Sales <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Recent sale prices of similar horses used to establish or verify a horse's insured value.</dd></dl>
+
+      <dl class="glossary-term" data-term="covered cause"><dt>Covered Cause <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>An event or condition for which the policy provides coverage. All-risk policies cover any cause not specifically excluded.</dd></dl>
+
+      <dl class="glossary-term" data-term="deductible"><dt>Deductible <span class="glossary-tag tag-contract">Contract</span></dt><dd>Amount paid out of pocket before reimbursement begins. May be per incident or per policy period. Typical range: $150–$500.</dd></dl>
+
+      <dl class="glossary-term" data-term="diagnostic imaging"><dt>Diagnostic Imaging <span class="glossary-tag tag-medical">Medical</span></dt><dd>X-rays, ultrasound, MRI, CT scans. Typically covered under major medical policies.</dd></dl>
+
+      <dl class="glossary-term" data-term="effective date"><dt>Effective Date <span class="glossary-tag tag-contract">Contract</span></dt><dd>The date coverage begins. Pre-existing conditions are determined relative to this date.</dd></dl>
+
+      <dl class="glossary-term" data-term="endorsement"><dt>Endorsement <span class="glossary-tag tag-contract">Contract</span></dt><dd>An amendment to the policy that adds, removes, or modifies coverage. Used to customize a standard policy to specific needs.</dd></dl>
+
+      <dl class="glossary-term" data-term="equine activity liability statute"><dt>Equine Activity Liability Statute <span class="glossary-tag tag-liability">Liability</span></dt><dd>State laws that limit liability for equine professionals and sponsors for injuries from "inherent risks." Does not eliminate all liability.</dd></dl>
+
+      <dl class="glossary-term" data-term="exclusion"><dt>Exclusion <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A condition, cause, or circumstance the policy does not cover. The most common source of claims disputes.</dd></dl>
+
+      <dl class="glossary-term" data-term="humane destruction"><dt>Humane Destruction <span class="glossary-tag tag-claims">Claims</span></dt><dd>Euthanasia to prevent unrecoverable suffering. Covered by mortality insurance when authorized by the insurer.</dd></dl>
+
+      <dl class="glossary-term" data-term="infertility coverage"><dt>Infertility Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Pays when a stallion becomes permanently unable to breed. Separate from mortality. Requires documented semen evaluations.</dd></dl>
+
+      <dl class="glossary-term" data-term="inherent risk"><dt>Inherent Risk <span class="glossary-tag tag-liability">Liability</span></dt><dd>Risks intrinsic to equine activities that cannot be eliminated. Equine activity liability statutes protect against claims from inherent risks.</dd></dl>
+
+      <dl class="glossary-term" data-term="insurable interest"><dt>Insurable Interest <span class="glossary-tag tag-contract">Contract</span></dt><dd>A financial stake in the horse's wellbeing. Owners, lessees, lienholders, and partners may all have insurable interest.</dd></dl>
+
+      <dl class="glossary-term" data-term="insured use"><dt>Insured Use <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>The declared primary use of the horse on the insurance application. Critical for both underwriting and Loss of Use claims.</dd></dl>
+
+      <dl class="glossary-term" data-term="laminitis"><dt>Laminitis <span class="glossary-tag tag-medical">Medical</span></dt><dd>Inflammation of the laminae in the hoof. Can be career-ending or fatal. Pre-existing laminitis is commonly excluded.</dd></dl>
+
+      <dl class="glossary-term" data-term="lay-up"><dt>Lay-Up <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A reduced premium rate during periods when a horse is not in active use (resting, recovering). Not all carriers offer this.</dd></dl>
+
+      <dl class="glossary-term" data-term="limited perils"><dt>Limited Perils <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Restricted mortality covering only specified causes (fire, lightning, transport accident). Excludes illness and disease. Often the only option for older horses.</dd></dl>
+
+      <dl class="glossary-term" data-term="live foal guarantee"><dt>Live Foal Guarantee <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Insurance protecting the stud fee if a breeding doesn't produce a live foal. "Live foal" typically means standing and nursing within 24 hours.</dd></dl>
+
+      <dl class="glossary-term" data-term="loss of use"><dt>Loss of Use <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Pays 50–60% of insured value when a horse becomes permanently unable to perform its insured use. Requires veterinary confirmation of permanence.</dd></dl>
+
+      <dl class="glossary-term" data-term="major medical"><dt>Major Medical <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Comprehensive medical coverage reimbursing veterinary expenses for illness or injury including diagnostics, hospitalization, and medications.</dd></dl>
+
+      <dl class="glossary-term" data-term="material misrepresentation"><dt>Material Misrepresentation <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>False or misleading information on an application that, if known, would have changed the underwriting decision. Can void the entire policy.</dd></dl>
+
+      <dl class="glossary-term" data-term="mortality insurance"><dt>Mortality Insurance <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>The foundational equine coverage. Pays the agreed value upon death from covered causes. Equivalent to "life insurance" for horses.</dd></dl>
+
+      <dl class="glossary-term" data-term="named exclusion"><dt>Named Exclusion <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>A specific condition excluded from coverage based on the horse's health history. Example: "navicular disease excluded." The rest of the horse remains covered.</dd></dl>
+
+      <dl class="glossary-term" data-term="named perils"><dt>Named Perils <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Policy covering only specifically listed causes of loss. Less comprehensive than all-risk.</dd></dl>
+
+      <dl class="glossary-term" data-term="navicular"><dt>Navicular Syndrome <span class="glossary-tag tag-medical">Medical</span></dt><dd>Chronic foot condition affecting the navicular bone and surrounding structures. Common in performance horses. Pre-existing navicular is frequently excluded.</dd></dl>
+
+      <dl class="glossary-term" data-term="necropsy"><dt>Necropsy (Post-Mortem) <span class="glossary-tag tag-claims">Claims</span></dt><dd>Examination after death to determine cause. Insurers may require a necropsy for mortality claims. Typically paid by the insurer.</dd></dl>
+
+      <dl class="glossary-term" data-term="notification requirement"><dt>Notification Requirement <span class="glossary-tag tag-claims">Claims</span></dt><dd>The timeframe within which the insured must notify the insurer of a loss or incident. Failure to comply can jeopardize claims.</dd></dl>
+
+      <dl class="glossary-term" data-term="per incident"><dt>Per Incident <span class="glossary-tag tag-contract">Contract</span></dt><dd>Deductible structure where a separate deductible applies to each new injury or illness.</dd></dl>
+
+      <dl class="glossary-term" data-term="per policy period"><dt>Per Policy Period <span class="glossary-tag tag-contract">Contract</span></dt><dd>Deductible structure where one deductible applies to all claims during the entire policy year.</dd></dl>
+
+      <dl class="glossary-term" data-term="pleuropneumonia"><dt>Pleuropneumonia (Shipping Fever) <span class="glossary-tag tag-medical">Medical</span></dt><dd>Respiratory infection that can develop during or after transport. Potentially life-threatening. Transit coverage may apply.</dd></dl>
+
+      <dl class="glossary-term" data-term="policy period"><dt>Policy Period <span class="glossary-tag tag-contract">Contract</span></dt><dd>The duration of the insurance contract, typically one year from the effective date.</dd></dl>
+
+      <dl class="glossary-term" data-term="pre-existing condition"><dt>Pre-Existing Condition <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Any illness, injury, or clinical sign present before the policy effective date. Almost universally excluded from coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="premium"><dt>Premium <span class="glossary-tag tag-contract">Contract</span></dt><dd>The cost of insurance coverage. For mortality, typically 2.5%–4% of the insured value annually.</dd></dl>
+
+      <dl class="glossary-term" data-term="pre-purchase exam"><dt>Pre-Purchase Examination <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Veterinary examination before buying a horse. Findings become part of the health record and affect insurability.</dd></dl>
+
+      <dl class="glossary-term" data-term="pro-rated refund"><dt>Pro-Rated Refund <span class="glossary-tag tag-contract">Contract</span></dt><dd>Return of the unused premium portion upon cancellation, calculated proportionally to the remaining policy term.</dd></dl>
+
+      <dl class="glossary-term" data-term="rescission"><dt>Rescission <span class="glossary-tag tag-contract">Contract</span></dt><dd>Insurer's act of voiding a policy from inception due to material misrepresentation on the application. Premiums may be returned but all claims are denied.</dd></dl>
+
+      <dl class="glossary-term" data-term="rider"><dt>Rider <span class="glossary-tag tag-contract">Contract</span></dt><dd>See "Endorsement." An amendment to the policy that modifies, adds, or removes coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="scheduled property"><dt>Scheduled Property <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Specific items listed individually on a policy with their own values and coverage terms. Used for high-value tack and equipment.</dd></dl>
+
+      <dl class="glossary-term" data-term="short-rate cancellation"><dt>Short-Rate Cancellation <span class="glossary-tag tag-contract">Contract</span></dt><dd>Cancellation method that includes a penalty, resulting in less refund than pro-rated. More common when the insured initiates cancellation.</dd></dl>
+
+      <dl class="glossary-term" data-term="subrogation"><dt>Subrogation <span class="glossary-tag tag-claims">Claims</span></dt><dd>The insurer's right to pursue a third party responsible for the loss after paying a claim. The insured must cooperate with subrogation efforts.</dd></dl>
+
+      <dl class="glossary-term" data-term="surgical-only"><dt>Surgical-Only Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Medical coverage limited to expenses directly related to covered surgical procedures. Less comprehensive and less expensive than major medical.</dd></dl>
+
+      <dl class="glossary-term" data-term="tack insurance"><dt>Tack Insurance <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Coverage for saddles, bridles, and other equipment. May be included in farm/ranch policies or purchased separately as inland marine coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="theft coverage"><dt>Theft Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Protection against stolen horses. Usually included in all-risk mortality. Requires police report and proof of ownership. May have a waiting period.</dd></dl>
+
+      <dl class="glossary-term" data-term="transit coverage"><dt>Transit Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Insurance during transport. May be included in mortality, purchased as endorsement, or standalone. Covers loading, transport, and layover.</dd></dl>
+
+      <dl class="glossary-term" data-term="underwriter"><dt>Underwriter <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>The insurance company or individual who evaluates risk and determines coverage terms. The financial entity backing the policy.</dd></dl>
+
+      <dl class="glossary-term" data-term="waiting period"><dt>Waiting Period <span class="glossary-tag tag-contract">Contract</span></dt><dd>Time between the policy effective date and when certain coverages become active. Common for medical coverage (15–30 days) and shipping fever.</dd></dl>
+
+      <dl class="glossary-term" data-term="waiver"><dt>Waiver <span class="glossary-tag tag-liability">Liability</span></dt><dd>Document signed by participants acknowledging inherent risks and releasing liability. Common at events, boarding facilities, and lesson programs. Does not eliminate all liability.</dd></dl>
+
+
+      <dl class="glossary-term" data-term="actual cash value"><dt>Actual Cash Value (ACV) <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Market value minus depreciation. Less common in equine mortality than agreed value. Eliminates the need for upfront valuation but creates uncertainty at claim time.</dd></dl>
+
+      <dl class="glossary-term" data-term="additional insured"><dt>Additional Insured <span class="glossary-tag tag-contract">Contract</span></dt><dd>A person or entity added to a policy who receives liability protection under the policyholder's coverage. Common for facility owners who require boarders or trainers to add them.</dd></dl>
+
+      <dl class="glossary-term" data-term="adverse selection"><dt>Adverse Selection <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>When higher-risk individuals are more likely to purchase insurance, skewing the risk pool. Insurers manage this through underwriting, health requirements, and exclusions.</dd></dl>
+
+      <dl class="glossary-term" data-term="aggregate limit"><dt>Aggregate Limit <span class="glossary-tag tag-contract">Contract</span></dt><dd>The maximum total amount an insurer will pay for all claims during a policy period. Different from per-occurrence limits.</dd></dl>
+
+      <dl class="glossary-term" data-term="am best rating"><dt>AM Best Rating <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Independent financial strength rating of insurance carriers. "A" or better indicates strong ability to pay claims. Check before purchasing any policy.</dd></dl>
+
+      <dl class="glossary-term" data-term="animal bailee"><dt>Animal Bailee <span class="glossary-tag tag-liability">Liability</span></dt><dd>A person or entity temporarily entrusted with the care of an animal belonging to another. Trainers, boarders, and veterinarians are common animal bailees with specific legal obligations.</dd></dl>
+
+      <dl class="glossary-term" data-term="blanket coverage"><dt>Blanket Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A single coverage limit that applies across multiple items or locations rather than individually scheduled values. Used in some multi-horse or property policies.</dd></dl>
+
+      <dl class="glossary-term" data-term="breach of warranty"><dt>Breach of Warranty <span class="glossary-tag tag-contract">Contract</span></dt><dd>Violation of a policy condition or representation. Can void coverage. Common breaches include use misrepresentation and failure to disclose health conditions.</dd></dl>
+
+      <dl class="glossary-term" data-term="broad form"><dt>Broad Form <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A policy that covers a wider range of perils than basic or named-perils coverage. Not as comprehensive as all-risk but more protective than limited perils.</dd></dl>
+
+      <dl class="glossary-term" data-term="captive agent"><dt>Captive Agent <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>An agent who represents a single insurance company exclusively. Contrast with independent agent who can access multiple carriers.</dd></dl>
+
+      <dl class="glossary-term" data-term="castration exclusion"><dt>Castration/Elective Procedure Exclusion <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Many policies exclude coverage for elective surgical procedures including castration, cosmetic surgery, and other non-medically-necessary operations.</dd></dl>
+
+      <dl class="glossary-term" data-term="catastrophic loss"><dt>Catastrophic Loss <span class="glossary-tag tag-claims">Claims</span></dt><dd>A total or near-total loss, such as death of a high-value horse, barn fire destroying multiple horses, or a liability judgment exceeding coverage limits.</dd></dl>
+
+      <dl class="glossary-term" data-term="commercial equine"><dt>Commercial Equine Insurance <span class="glossary-tag tag-liability">Liability</span></dt><dd>Coverage designed for equine businesses — boarding, training, lessons, breeding, events. Covers business-related liability that personal policies exclude.</dd></dl>
+
+      <dl class="glossary-term" data-term="congenital condition"><dt>Congenital Condition <span class="glossary-tag tag-medical">Medical</span></dt><dd>A condition present from birth. May or may not be hereditary. Often excluded as a pre-existing condition if documented, though some may not manifest until later in life.</dd></dl>
+
+      <dl class="glossary-term" data-term="contingent liability"><dt>Contingent Liability <span class="glossary-tag tag-liability">Liability</span></dt><dd>Potential liability that depends on a future event. Example: liability for a horse's actions that may or may not occur.</dd></dl>
+
+      <dl class="glossary-term" data-term="declarations page"><dt>Declarations Page <span class="glossary-tag tag-contract">Contract</span></dt><dd>The summary page of an insurance policy listing the insured, covered horses, values, coverages, premiums, effective dates, and policy number. Also called the "dec page."</dd></dl>
+
+      <dl class="glossary-term" data-term="duty of care"><dt>Duty of Care <span class="glossary-tag tag-liability">Liability</span></dt><dd>Legal obligation to provide reasonable care to prevent foreseeable harm. Horse owners, trainers, and facility operators all owe a duty of care.</dd></dl>
+
+      <dl class="glossary-term" data-term="earned premium"><dt>Earned Premium <span class="glossary-tag tag-contract">Contract</span></dt><dd>The portion of premium corresponding to coverage already provided. If you cancel after 6 months on an annual policy, 50% of the premium has been "earned" by the insurer.</dd></dl>
+
+      <dl class="glossary-term" data-term="emergency euthanasia"><dt>Emergency Euthanasia <span class="glossary-tag tag-claims">Claims</span></dt><dd>Euthanasia performed without prior insurer authorization due to extreme, immediate suffering. Most policies permit this in genuine emergencies but the owner must demonstrate the emergency was real and immediate.</dd></dl>
+
+      <dl class="glossary-term" data-term="equine infectious anemia"><dt>Equine Infectious Anemia (EIA) <span class="glossary-tag tag-medical">Medical</span></dt><dd>A viral disease with no cure. A positive Coggins test result can make a horse uninsurable and require quarantine or euthanasia by state law.</dd></dl>
+
+      <dl class="glossary-term" data-term="farm income"><dt>Farm Income Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Optional coverage under farm/ranch policies that replaces income lost due to a covered property loss — for example, boarding income lost after a barn fire.</dd></dl>
+
+      <dl class="glossary-term" data-term="first party"><dt>First-Party Coverage <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Coverage that pays the policyholder directly for their own loss. Mortality and medical are first-party coverages. Contrast with third-party (liability) coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="fleet policy"><dt>Fleet/Herd Policy <span class="glossary-tag tag-contract">Contract</span></dt><dd>A policy covering multiple horses under a single contract with potential volume discounts. Common for large operations with 10+ horses.</dd></dl>
+
+      <dl class="glossary-term" data-term="force majeure"><dt>Force Majeure <span class="glossary-tag tag-contract">Contract</span></dt><dd>Unforeseeable circumstances (acts of God, natural disasters) that prevent fulfillment of a contract. Relevant to both insurance claims and underlying contracts like breeding agreements.</dd></dl>
+
+      <dl class="glossary-term" data-term="grace period"><dt>Grace Period <span class="glossary-tag tag-contract">Contract</span></dt><dd>A short period after the premium due date during which coverage remains active even if payment hasn't been received. Typically 10–30 days. Not all policies include one.</dd></dl>
+
+      <dl class="glossary-term" data-term="gross negligence"><dt>Gross Negligence <span class="glossary-tag tag-liability">Liability</span></dt><dd>Extreme carelessness demonstrating reckless disregard for safety. Equine activity liability statutes and waivers typically do NOT protect against gross negligence claims.</dd></dl>
+
+      <dl class="glossary-term" data-term="hold harmless"><dt>Hold Harmless Agreement <span class="glossary-tag tag-liability">Liability</span></dt><dd>A contractual clause where one party agrees not to hold the other liable. Common in boarding, training, and facility use agreements. Enforceability varies by state.</dd></dl>
+
+      <dl class="glossary-term" data-term="indemnification"><dt>Indemnification <span class="glossary-tag tag-contract">Contract</span></dt><dd>The principle of restoring the insured to the same financial position they were in before the loss. Insurance pays the loss amount, not a windfall.</dd></dl>
+
+      <dl class="glossary-term" data-term="independent agent"><dt>Independent Agent <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>An agent who represents multiple insurance carriers and can shop among them for the best coverage. Generally preferred for equine insurance due to market variety.</dd></dl>
+
+      <dl class="glossary-term" data-term="inland marine"><dt>Inland Marine Insurance <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Coverage for movable property including tack, equipment, and horse trailers. Covers items in transit or stored at various locations, not just at home.</dd></dl>
+
+      <dl class="glossary-term" data-term="insolvency"><dt>Insolvency <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>When an insurance company cannot meet its financial obligations, including paying claims. State guaranty funds may provide limited protection for admitted carriers. Check AM Best ratings.</dd></dl>
+
+      <dl class="glossary-term" data-term="material fact"><dt>Material Fact <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>Information that would influence the insurer's decision to accept, decline, or price a risk. Failure to disclose material facts can void coverage entirely.</dd></dl>
+
+      <dl class="glossary-term" data-term="moral hazard"><dt>Moral Hazard <span class="glossary-tag tag-underwriting">Underwriting</span></dt><dd>The risk that insurance coverage may change behavior — for example, an insured person taking less care because they know losses are covered. Insurers manage moral hazard through deductibles and claims investigation.</dd></dl>
+
+      <dl class="glossary-term" data-term="non-renewal"><dt>Non-Renewal <span class="glossary-tag tag-contract">Contract</span></dt><dd>The insurer's decision not to renew a policy at expiration. May result from claims history, risk changes, or market withdrawal. Different from mid-term cancellation.</dd></dl>
+
+      <dl class="glossary-term" data-term="occurrence"><dt>Occurrence <span class="glossary-tag tag-claims">Claims</span></dt><dd>A single event or continuous exposure that causes injury or damage. Relevant to both medical (per-incident deductibles) and liability (per-occurrence limits) coverage.</dd></dl>
+
+      <dl class="glossary-term" data-term="peril"><dt>Peril <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A cause of loss. Fire, theft, colic, and injury are all perils. All-risk policies cover all perils not excluded; named-perils policies cover only listed perils.</dd></dl>
+
+      <dl class="glossary-term" data-term="personal property"><dt>Personal Property <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>Movable property including tack, saddles, equipment, and personal belongings. Covered under homeowner's or farm/ranch policies, often with specific limits.</dd></dl>
+
+      <dl class="glossary-term" data-term="pigeon fever"><dt>Pigeon Fever <span class="glossary-tag tag-medical">Medical</span></dt><dd>Bacterial infection (Corynebacterium pseudotuberculosis) common in the southwestern US. Creates abscesses requiring veterinary treatment. Medical coverage typically applies.</dd></dl>
+
+      <dl class="glossary-term" data-term="replacement cost"><dt>Replacement Cost <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>The cost to replace a damaged item with a new equivalent. Applies to property (barns, equipment) rather than horses. More favorable than actual cash value for property claims.</dd></dl>
+
+      <dl class="glossary-term" data-term="salvage value"><dt>Salvage Value <span class="glossary-tag tag-claims">Claims</span></dt><dd>The residual value of property after a loss. In equine insurance, relevant to Loss of Use (the horse has residual value for another purpose) and property claims (damaged equipment still has value).</dd></dl>
+
+      <dl class="glossary-term" data-term="schedule"><dt>Schedule <span class="glossary-tag tag-contract">Contract</span></dt><dd>A list of individually identified items on a policy — each horse with its name, value, and specific coverage. Allows customized coverage for each horse on a multi-horse policy.</dd></dl>
+
+      <dl class="glossary-term" data-term="state guaranty fund"><dt>State Guaranty Fund <span class="glossary-tag tag-contract">Contract</span></dt><dd>A state-run safety net that pays claims if an admitted insurance carrier becomes insolvent. Coverage limits apply. Does NOT cover surplus lines carriers.</dd></dl>
+
+      <dl class="glossary-term" data-term="strict liability"><dt>Strict Liability <span class="glossary-tag tag-liability">Liability</span></dt><dd>Legal responsibility without proof of negligence. Some states apply strict liability to animal owners — you're liable for your horse's actions regardless of precautions taken.</dd></dl>
+
+      <dl class="glossary-term" data-term="third party"><dt>Third-Party Coverage <span class="glossary-tag tag-liability">Liability</span></dt><dd>Insurance that pays claims made by someone other than the policyholder. Liability coverage is third-party — it pays people your horse injures or whose property it damages.</dd></dl>
+
+      <dl class="glossary-term" data-term="umbrella policy"><dt>Umbrella Policy <span class="glossary-tag tag-liability">Liability</span></dt><dd>A policy providing additional liability coverage above the limits of underlying policies. Relatively affordable for the additional protection provided. Recommended for horse property owners.</dd></dl>
+
+      <dl class="glossary-term" data-term="unearned premium"><dt>Unearned Premium <span class="glossary-tag tag-contract">Contract</span></dt><dd>The portion of premium corresponding to coverage not yet provided. The basis for premium refund calculations upon cancellation.</dd></dl>
+
+      <dl class="glossary-term" data-term="valued policy"><dt>Valued Policy <span class="glossary-tag tag-coverage">Coverage</span></dt><dd>A policy where the value is agreed upon at inception and paid in full upon total loss. Equine mortality policies are valued policies — the agreed value is the payout.</dd></dl>
+
+      <dl class="glossary-term" data-term="veterinary release"><dt>Veterinary Release <span class="glossary-tag tag-claims">Claims</span></dt><dd>Authorization from the policyholder allowing the insurer to obtain veterinary records. Typically signed as part of the claims process. Required for claims investigation.</dd></dl>
+
+      <dl class="glossary-term" data-term="vicarious liability"><dt>Vicarious Liability <span class="glossary-tag tag-liability">Liability</span></dt><dd>Liability imposed on one person for the actions of another. An employer may be vicariously liable for an employee's negligent horse handling.</dd></dl>
+    </div><!-- /glossary-grid -->
+  </div>
+</section>
+
+
+<div class="container" style="padding-top:12px;padding-bottom:4px;">
+  <div class="disclaimer-banner">
+    <strong>Educational Disclaimer:</strong> HorseInsurance.ai is an independent education platform. We do not sell insurance, represent any carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only. Always consult a licensed insurance professional for coverage decisions.
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">HorseInsurance.ai</div>
+      <p>Education-first equine insurance platform. We explain coverage, risk, and claims readiness — clearly and without sales pressure.</p>
+      <p class="footer-brand-detail">A Bridle &amp; Bit Magazine platform.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Coverage</h4>
+      <a href="/coverage/">All Coverage Types</a>
+      <a href="/coverage/mortality.html">Mortality</a>
+      <a href="/coverage/medical.html">Medical &amp; Surgical</a>
+      <a href="/coverage/liability.html">Liability</a>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <a href="/claims/">Claims Readiness</a>
+      <a href="/premiums/">Premiums &amp; Costs</a>
+      <a href="/disciplines/">By Discipline</a>
+      <a href="/qa/">Q&amp;A (200+)</a>
+      <a href="/glossary/">Glossary (100+)</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-col">
+      <h4>More</h4>
+      <a href="/loss-prevention/">Loss Prevention</a>
+      <a href="/ranch/">Ranch &amp; Home</a>
+      <a href="/before-you-buy/">Before You Buy</a>
+      <a href="https://www.bridleandbit.com">Bridle &amp; Bit Magazine</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    &copy; 2026 HorseInsurance.ai — A Bridle &amp; Bit Magazine Platform. All rights reserved.
+  </div>
+  <div class="footer-disclaimer">
+    <strong>Legal Disclaimer:</strong> HorseInsurance.ai is an independent educational platform operated by Bridle &amp; Bit Magazine. We do not sell insurance, represent any insurance carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only and does not constitute insurance advice.
+  </div>
+</footer>
+
+<button class="back-to-top" id="back-to-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
+<script>
+// Back to top
+(function(){var b=document.getElementById('back-to-top');if(!b)return;window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>400)},{passive:true})})();
+// Close nav on outside tap
+document.addEventListener('click',function(e){var n=document.querySelector('.main-nav');if(!n||!n.classList.contains('open'))return;if(!document.querySelector('.site-header').contains(e.target))n.classList.remove('open')});
+// Auto-hide header on scroll (phone)
+(function(){var ly=0,h=document.querySelector('.site-header'),t=false;window.addEventListener('scroll',function(){if(t)return;t=true;requestAnimationFrame(function(){var y=window.scrollY;if(window.innerWidth<900&&y>120){if(y>ly+8)h.classList.add('header-hidden');else if(y<ly-4)h.classList.remove('header-hidden')}else h.classList.remove('header-hidden');ly=y;t=false})},{passive:true})})();
+// Header height
+(function(){function u(){var h=document.querySelector('.site-header');if(h)document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px')}u();window.addEventListener('resize',u,{passive:true})})();
+
+var _glossaryRaf;
+document.getElementById('glossary-search').addEventListener('input',function(){var q=this.value.toLowerCase();cancelAnimationFrame(_glossaryRaf);_glossaryRaf=requestAnimationFrame(function(){document.querySelectorAll('.glossary-term').forEach(function(term){term.style.display=term.textContent.toLowerCase().includes(q)?'':'none'})})});
+
+</script>
+</body>
+</html>
