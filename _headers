@@ -2,7 +2,10 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/*.html
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
 /og-image.png
@@ -11,5 +14,5 @@
 /favicon.*
   Cache-Control: public, max-age=2592000
 
-/*.html
-  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+/style.css
+  Cache-Control: public, max-age=2592000
