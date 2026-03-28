@@ -852,7 +852,7 @@ img { max-width:100%; height:auto; display:block; }
 <header class="site-header">
   <div class="header-top">
     <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
-    <button class="nav-toggle" onclick="document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation">
+    <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
@@ -866,6 +866,7 @@ img { max-width:100%; height:auto; display:block; }
   </nav>
 </header>
 <nav class="breadcrumb"><div class="container"><a href="/">Home</a> &rsaquo; <span>Coverage Types</span></div></nav>
+<main>
 
 <section class="content-section">
   <div class="container">
@@ -883,6 +884,7 @@ img { max-width:100%; height:auto; display:block; }
 </section>
 
 
+</main>
 <div class="container" style="padding-top:12px;padding-bottom:4px;">
   <div class="disclaimer-banner">
     <strong>Educational Disclaimer:</strong> HorseInsurance.ai is an independent education platform. We do not sell insurance, represent any carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only. Always consult a licensed insurance professional for coverage decisions.
@@ -921,7 +923,7 @@ img { max-width:100%; height:auto; display:block; }
       <a href="/ranch/">Ranch &amp; Home</a>
       <a href="/before-you-buy/">Before You Buy</a>
       <a href="/partner/">Partner Resources</a>
-      <a href="https://www.bridleandbit.com">Bridle &amp; Bit Magazine</a>
+      <a href="https://www.bridleandbit.com" target="_blank" rel="noopener">Bridle &amp; Bit Magazine</a>
     </div>
   </div>
   <div class="footer-bottom">
