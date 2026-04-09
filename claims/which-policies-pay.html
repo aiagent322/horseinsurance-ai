@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
+<title>Which Horse Insurance Policies Actually Pay Claims vs. Fight Them | HorseInsurance.ai</title>
+<meta name="description" content="The straight answer on which equine insurance carriers pay legitimate claims and which coverage types get fought — based on loss ratio, adjuster behavior, and policy structure reality. Not marketing language.">
+<link rel="canonical" href="https://horseinsurance.ai/claims/which-policies-pay">
+<meta property="og:title" content="Which Horse Insurance Policies Actually Pay Claims vs. Fight Them | HorseInsurance.ai">
+<meta property="og:description" content="Markel, Great American, AXA XL — which carriers pay, which fight, and what actually determines your claim outcome. The field reality, not the brochure.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://horseinsurance.ai/claims/which-policies-pay">
+<meta property="og:image" content="https://horseinsurance.ai/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#003D79">
+<style>
+
+/* ═══════════════════════════════════════════════════════════
+   HorseInsurance.ai — Conservative Insurance Design System
+   MOBILE-FIRST: Base styles = phone (320px–599px)
+   Scale UP with min-width breakpoints.
+   Target audience: Arizona equestrian on phones.
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --primary: #0b3c5d;
+  --primary-light: #144e78;
+  --secondary: #1d6fa5;
+  --accent: #2a8fd4;
+  --gold: #b8860b;
+  --gold-light: #d4a017;
+  --bg: #ffffff;
+  --bg-alt: #f4f6f8;
+  --bg-warm: #faf9f7;
+  --text: #1f2933;
+  --text-mid: #4a5568;
+  --text-light: #6b7280;
+  --border: #e5e7eb;
+  --border-light: #f0f1f3;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --radius: 6px;
+  --max-w: 1100px;
+  --transition: 0.2s ease;
+}
+
+/* ── RESET & BASE (phone) ── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+/* Remove 300ms tap delay on all interactive elements */
+a, button, [onclick], .qa-question, .deep-dive-header, .blog-read-more, .blog-collapse, .qa-filter {
+  touch-action: manipulation;
+}
+html {
+  scroll-behavior:smooth; scroll-padding-top:100px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.65;
+  font-size: 16px; /* Prevents iOS zoom on input focus */
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: none; /* Prevents rubber-band bounce revealing white below footer */
+}
+a { color: var(--secondary); text-decoration:none; transition: color var(--transition); }
+a:hover { color: var(--primary); text-decoration:underline; }
+img { max-width:100%; height:auto; display:block; }
+
+/* ── Container (phone: 16px gutters) ── */
+.container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── Phone: hide verbose SEO subtitle, show compact version ── */
+.hero-sub-seo { display:none; }
+.hero-sub-short { display:block; }
+
+/* ── Phone: tighter body font for very small screens ── */
+@media(max-width:359px) {
+  body { font-size:15px; }
+  .hero h1 { font-size:1.3rem; }
+  .hero-btn { font-size:0.72rem; padding:7px 8px; }
+  .container { padding:0 12px; }
+}
+
+/* ── Focus styles — keyboard navigation ── */
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Suppress focus ring on mouse/touch — only show for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Reduced motion: respect system preference ── */
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .deep-dive-body, .qa-answer, .blog-article { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   HEADER — two-line: logo row + nav row
+   ═══════════════════════════════════════ */
+.site-header {
+  position: sticky; top:0; z-index:100;
+  background: rgba(255,255,255,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+.site-header.header-hidden { transform:translateY(-100%); }
+.header-top {
+  display:flex; justify-content:space-between; align-items:center;
+  max-width:var(--max-w); margin:0 auto; padding:8px 16px;
+}
+.site-logo {
+  font-weight:800; font-size:1.05rem; color:var(--primary);
+  letter-spacing:-0.02em;
+}
+.site-logo span { color:var(--secondary); }
+
+/* Phone: nav behind hamburger on line 2 */
+.nav-toggle {
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer;
+  padding:8px; min-width:44px; min-height:44px;
+}
+.nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
+.main-nav {
+  display:none; flex-direction:column; padding:4px 16px 12px; gap:2px;
+  border-top:1px solid var(--border-light);
+}
+.main-nav.open { display:flex; }
+.main-nav a {
+  padding:10px 16px; border-radius:var(--radius);
+  font-size:0.92rem; font-weight:500; color:var(--text-mid);
+  transition: background var(--transition), color var(--transition);
+  min-height:44px; display:flex; align-items:center;
+}
+.main-nav a:hover { background:var(--bg-alt); color:var(--primary); text-decoration:none; }
+.main-nav a.active { background:var(--primary); color:#fff; }
+
+/* ═══════════════════════════════════════
+   HERO — phone base, CENTERED
+   ═══════════════════════════════════════ */
+.hero {
+  background: #003D79; /* Deep Process Blue */
+  color: #fff;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+.hero-inner { max-width:var(--max-w); margin:0 auto; }
+.hero h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 auto;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.hero-sub {
+  font-size: 0.88rem;
+  margin: 8px auto 0;
+  opacity: 0.9;
+  line-height: 1.35;
+  max-width: 600px;
+}
+/* Hero buttons: 2×2 grid on phone, compact */
+.hero-buttons {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; margin-top:14px;
+  max-width:380px; margin-left:auto; margin-right:auto;
+}
+.hero-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  background:#EF3340; /* Process Red (PMS 032) */
+  border:1px solid rgba(255,255,255,0.3);
+  padding:8px 10px; border-radius:var(--radius);
+  font-size:0.78rem; font-weight:600; color:#fff;
+  text-decoration:none; transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  min-height:40px;
+}
+.hero-btn:hover {
+  background:#d42d38; border-color:rgba(255,255,255,0.5);
+  text-decoration:none; color:#fff;
+}
+@media(hover:hover) {
+  .hero-btn:hover { transform:translateY(-1px); }
+}
+.hero-btn:active { transform:translateY(0); background:#c0272f; }
+.hero-btn svg { width:14px; height:14px; flex-shrink:0; }
+
+/* ═══════════════════════════════════════
+   STATS BAR — phone: 2×2 grid
+   ═══════════════════════════════════════ */
+.stats-bar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+}
+.stats-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center;
+}
+.stat-item strong {
+  display:block; font-size:1.2rem; color:var(--primary); font-weight:800;
+}
+.stat-item span {
+  font-size:0.7rem; color:var(--text-light); text-transform:uppercase; letter-spacing:0.05em;
+}
+
+/* ═══════════════════════════════════════
+   SECTION NAV — phone: horizontal scroll + sticky
+   ═══════════════════════════════════════ */
+.section-nav {
+  position: sticky; top: var(--header-h, 44px); z-index: 90;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+  transition: top 0.3s ease;
+}
+.section-nav::-webkit-scrollbar { display:none; }
+.section-nav-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:flex; gap:0; padding:0 16px;
+}
+.section-nav a {
+  padding:11px 10px; font-size:0.72rem; font-weight:600;
+  color:var(--text-light); white-space:nowrap;
+  border-bottom:2px solid transparent; transition: color var(--transition), border-color var(--transition);
+  min-height:42px; display:flex; align-items:center;
+  scroll-snap-align:start;
+}
+.section-nav a:hover { color:var(--primary); text-decoration:none; border-bottom-color:var(--border); }
+.section-nav a.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* ═══════════════════════════════════════
+   CONTENT SECTIONS — phone base
+   ═══════════════════════════════════════ */
+.content-section { padding:22px 0; }
+.content-section:nth-of-type(even) { background:var(--bg-alt); }
+.content-section h2 {
+  font-size:1.3rem; font-weight:800; color:var(--primary);
+  margin-bottom:6px; letter-spacing:-0.01em;
+}
+.content-section .section-desc {
+  font-size:0.92rem; color:var(--text-mid); margin-bottom:20px;
+}
+#coverage { background:#d6dde6; }
+#coverage .section-desc { font-weight:700; }
+
+/* ═══════════════════════════════════════
+   CARDS — phone: single column
+   ═══════════════════════════════════════ */
+.cards-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:12px; margin-top:16px;
+}
+.card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  transition: box-shadow var(--transition);
+}
+.card:hover { box-shadow:var(--shadow-sm); }
+.card-icon {
+  width:38px; height:38px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:10px; flex-shrink:0;
+}
+.card-icon svg { width:20px; height:20px; }
+.card-icon.blue { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
+.card h2, .card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
+/* Cards go 2-col at 500px — gives each card enough width for readable text */
+@media(min-width:500px) {
+  .cards-grid { grid-template-columns:1fr 1fr; gap:12px; }
+}
+
+/* ═══════════════════════════════════════
+   DEEP DIVES — phone: full-width, big touch targets
+   ═══════════════════════════════════════ */
+.deep-dive {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); margin-bottom:12px; overflow:hidden;
+}
+.deep-dive-header {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--bg); transition:background var(--transition);
+  min-height:52px; gap:10px; /* 52px for comfortable touch */
+}
+.deep-dive-header > div:first-child {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  min-width:0; flex:1;
+}
+.deep-dive-header:hover { background:var(--bg-alt); }
+.deep-dive-header h3 { font-size:0.95rem; color:var(--primary); margin:0; line-height:1.35; }
+.deep-dive-header .tag {
+  font-size:0.67rem; text-transform:uppercase; letter-spacing:0.06em;
+  padding:2px 6px; border-radius:3px; font-weight:700;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+  flex-shrink:0; white-space:nowrap;
+}
+.deep-dive-chevron {
+  width:20px; height:20px; transition:transform 0.3s ease; flex-shrink:0;
+  stroke:var(--text-light); min-width:20px;
+}
+.deep-dive.open .deep-dive-chevron { transform:rotate(180deg); }
+.deep-dive-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease-out; }
+.deep-dive.open .deep-dive-body { /* height set by JS */ }
+.deep-dive-content {
+  padding:0 16px 18px;
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.deep-dive-content h4 {
+  font-size:0.93rem; color:var(--primary); margin:16px 0 8px; font-weight:700;
+}
+.deep-dive-content p { margin-bottom:10px; }
+.deep-dive-content ul, .deep-dive-content ol {
+  margin:6px 0 14px 16px; color:var(--text-mid);
+}
+.deep-dive-content li { margin-bottom:5px; line-height:1.6; font-size:0.88rem; }
+
+/* ═══════════════════════════════════════
+   TABLES — phone: horizontal scroll
+   ═══════════════════════════════════════ */
+.compare-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.8rem;
+}
+.compare-table th {
+  background:var(--primary); color:#fff; padding:8px 10px;
+  text-align:left; font-weight:600; font-size:0.7rem;
+  text-transform:uppercase; letter-spacing:0.04em;
+  white-space:nowrap;
+}
+.compare-table td {
+  padding:8px 10px; border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.compare-table tr:nth-child(even) td { background:var(--bg-alt); }
+.compare-table .check { color:var(--success); font-weight:700; }
+.compare-table .cross { color:var(--danger); font-weight:700; }
+.compare-table .varies { color:var(--warning); font-weight:600; }
+.table-wrap {
+  overflow-x:auto; -webkit-overflow-scrolling:touch; margin:16px 0;
+  border-radius:var(--radius);
+  position:relative;
+}
+/* Fade hint — indicates horizontal scroll on phone */
+.table-wrap::after {
+  content:'';
+  position:absolute; top:0; right:0; bottom:0; width:32px;
+  background: linear-gradient(to left, var(--table-fade-bg, var(--bg)) 0%, transparent 100%);
+  pointer-events:none; border-radius:0 var(--radius) var(--radius) 0;
+}
+.content-section:nth-of-type(even) .table-wrap { --table-fade-bg: var(--bg-alt); }
+#coverage .table-wrap { --table-fade-bg: #d6dde6; }
+@media(min-width:900px) {
+  .table-wrap::after { display:none; }
+}
+
+/* ═══════════════════════════════════════
+   Q&A — phone: full-width, large touch targets
+   ═══════════════════════════════════════ */
+.qa-filters {
+  display:flex; flex-wrap:nowrap; gap:6px; margin-bottom:16px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; padding-bottom:4px;
+}
+.qa-filters::-webkit-scrollbar { display:none; }
+.qa-filter {
+  padding:8px 12px; border-radius:20px; font-size:0.8rem;
+  font-weight:500; border:1px solid var(--border);
+  background:var(--bg); color:var(--text-mid); cursor:pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  min-height:38px; /* comfortable touch */
+}
+.qa-filter:hover { border-color:var(--secondary); color:var(--secondary); }
+.qa-filter.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.qa-item {
+  border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden; background:var(--bg);
+}
+.qa-question {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  font-weight:600; font-size:0.9rem; color:var(--text);
+  transition:background var(--transition);
+  min-height:48px; gap:8px; /* 48px touch target */
+}
+.qa-question:hover { background:var(--bg-alt); }
+.qa-question > span:first-child { flex:1; line-height:1.4; }
+.qa-question .qa-cat {
+  font-size:0.67rem; background:var(--bg-alt); color:var(--text-light);
+  padding:2px 6px; border-radius:3px; white-space:nowrap;
+  text-transform:uppercase; letter-spacing:0.04em; font-weight:600;
+  flex-shrink:0; margin-top:3px;
+  display:none; /* hidden on phone — visible from 600px+ */
+}
+.qa-chevron {
+  width:16px; height:16px; flex-shrink:0; stroke:var(--text-light);
+  transition:transform 0.3s ease; min-width:16px; margin-top:3px;
+}
+.qa-item.open .qa-chevron { transform:rotate(180deg); }
+.qa-answer { max-height:0; overflow:hidden; transition:max-height 0.3s ease-out; }
+.qa-item.open .qa-answer { /* height set by JS */ }
+.qa-answer-inner {
+  padding:12px 16px 16px;
+  font-size:0.87rem; line-height:1.7; color:var(--text-mid);
+  border-top:1px solid var(--border-light);
+}
+.qa-count {
+  font-size:0.8rem; color:var(--text-light); margin-bottom:12px;
+}
+.qa-controls {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px; flex-wrap:wrap; gap:8px;
+}
+.qa-toggle-all {
+  font-size:0.8rem; font-weight:600; color:var(--secondary);
+  background:none; border:1px solid var(--border); border-radius:var(--radius);
+  padding:6px 14px; cursor:pointer; transition: background var(--transition), border-color var(--transition);
+  min-height:36px;
+}
+.qa-toggle-all:hover { background:var(--bg-alt); border-color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   BLOG — phone base
+   ═══════════════════════════════════════ */
+.blog-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:16px; margin-top:20px;
+}
+.blog-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  transition: box-shadow var(--transition);
+}
+.blog-card:hover { box-shadow:var(--shadow-md); }
+.blog-card-img {
+  width:100%; height:180px; object-fit:cover;
+  background:var(--bg-alt); display:block;
+}
+.blog-card-img-placeholder {
+  width:100%; height:160px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(255,255,255,0.55); font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.1em;
+}
+.blog-card-body { padding:18px; }
+.blog-card-meta {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.blog-card-date {
+  font-size:0.72rem; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:0.04em;
+}
+.blog-card-tag {
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; padding:2px 7px; border-radius:3px;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+}
+.blog-card-tag.red { background:rgba(239,51,64,0.1); color:#c0272f; }
+.blog-card-tag.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.blog-card-tag.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.blog-card h3 {
+  font-size:1.05rem; font-weight:700; color:var(--primary);
+  margin-bottom:8px; line-height:1.35;
+}
+.blog-card h3 a { color:inherit; text-decoration:none; }
+.blog-card h3 a:hover { color:var(--secondary); text-decoration:none; }
+.blog-title-link { color:inherit; cursor:pointer; }
+.blog-title-link:hover { color:var(--secondary); }
+.blog-card p {
+  font-size:0.86rem; color:var(--text-mid); line-height:1.6;
+  margin-bottom:12px;
+}
+.blog-card-keywords {
+  font-size:0.72rem; color:var(--text-light); line-height:1.5;
+  border-top:1px solid var(--border-light); padding-top:10px;
+  display:none; /* SEO metadata — hidden on phone */
+}
+.blog-card-keywords strong { color:var(--text-mid); }
+.blog-featured {
+  border:2px solid var(--primary);
+}
+.blog-featured-label {
+  display:inline-block; background:var(--primary); color:#fff;
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; padding:3px 10px; border-radius:0 0 var(--radius) 0;
+}
+.blog-cta {
+  text-align:center; margin-top:28px; padding:24px 16px;
+  background:var(--bg-alt); border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.blog-cta p { font-size:0.9rem; color:var(--text-mid); margin-bottom:10px; }
+.blog-cta strong { color:var(--primary); }
+.blog-read-more {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--secondary); cursor:pointer; padding:6px 0;
+  transition:color var(--transition);
+}
+.blog-read-more:hover { color:var(--primary); }
+.blog-article {
+  max-height:0; overflow:hidden; transition:max-height 0.5s ease-out;
+}
+.blog-card.blog-open .blog-article { /* height set by JS */ }
+.blog-card.blog-open .blog-read-more { display:none; }
+.blog-article-inner {
+  padding-top:16px; margin-top:14px;
+  border-top:1px solid var(--border-light);
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.blog-article-inner h4 {
+  font-size:0.95rem; color:var(--primary); font-weight:700;
+  margin:18px 0 8px;
+}
+.blog-article-inner h4:first-child { margin-top:0; }
+.blog-article-inner p { margin-bottom:12px; color:var(--text-mid); }
+.blog-article-inner ul {
+  margin:8px 0 16px 18px; color:var(--text-mid);
+}
+.blog-article-inner li { margin-bottom:5px; line-height:1.6; }
+.blog-collapse {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--text-light); cursor:pointer; padding:8px 0; margin-top:8px;
+  transition:color var(--transition);
+}
+.blog-collapse:hover { color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   GLOSSARY — phone: single column, full-width search
+   ═══════════════════════════════════════ */
+.glossary-search {
+  width:100%; padding:12px 16px;
+  border:1px solid var(--border); border-radius:var(--radius);
+  font-size:16px; /* 16px prevents iOS zoom on focus */
+  margin-bottom:16px;
+  transition:border-color var(--transition);
+  -webkit-appearance:none; appearance:none;
+}
+.glossary-search:focus { outline:none; border-color:var(--secondary); box-shadow:0 0 0 3px rgba(29,111,165,0.1); }
+.glossary-grid {
+  display:grid; grid-template-columns:1fr; gap:10px;
+}
+.glossary-term {
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; background:var(--bg);
+}
+.glossary-term:hover { box-shadow:var(--shadow-sm); }
+.glossary-term dt {
+  font-weight:700; color:var(--primary); font-size:0.9rem; margin-bottom:3px;
+}
+.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
+.glossary-tag {
+  display:inline-block; font-size:0.65rem; text-transform:uppercase;
+  letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
+  margin-left:4px; font-weight:700; vertical-align:middle;
+}
+.tag-coverage { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.tag-claims { background:rgba(4,120,87,0.1); color:var(--success); }
+.tag-underwriting { background:rgba(184,134,11,0.1); color:var(--gold); }
+.tag-contract { background:rgba(107,114,128,0.1); color:var(--text-light); }
+.tag-medical { background:rgba(185,28,28,0.1); color:var(--danger); }
+.tag-liability { background:rgba(109,40,217,0.1); color:#6d28d9; }
+.tag-western { background:rgba(184,134,11,0.15); color:#96710a; }
+.tag-english { background:rgba(29,111,165,0.15); color:#145e8a; }
+.hero-sub-gap { margin-top:4px; }
+.disclaimer-pad { padding-top:10px; }
+
+/* ═══════════════════════════════════════
+   CALLOUTS & DISCLAIMERS — phone
+   ═══════════════════════════════════════ */
+.callout {
+  border-left:4px solid var(--secondary); background:var(--bg-alt);
+  padding:12px 14px; border-radius:0 var(--radius) var(--radius) 0;
+  margin:14px 0; font-size:0.86rem;
+}
+.callout.warning { border-left-color:var(--warning); background:#fffbeb; }
+.callout.danger { border-left-color:var(--danger); background:#fef2f2; }
+.callout.success { border-left-color:var(--success); background:#ecfdf5; }
+.callout strong { color:var(--text); }
+
+.disclaimer-banner {
+  background:var(--bg-warm); border:1px solid #e5ddd0;
+  padding:14px 16px; border-radius:var(--radius); margin:16px 0;
+  font-size:0.83rem; color:var(--text-mid); line-height:1.6;
+}
+.disclaimer-banner strong { color:var(--text); }
+
+/* ═══════════════════════════════════════
+   ROTATING AD BANNER — mobile-first leaderboard
+   ═══════════════════════════════════════ */
+.ad-rotator {
+  width:100%; max-width:var(--max-w);
+  margin:0 auto; padding:6px 16px 8px;
+  position:relative;
+}
+.ad-rotator-inner {
+  display:flex; justify-content:center;
+  position:relative; width:100%; overflow:hidden;
+}
+.ad-slide {
+  display:none;
+}
+.ad-slide.active { display:block; }
+.ad-slide img {
+  display:block;
+  width:100%; max-width:320px; height:auto; aspect-ratio:320/100;
+  cursor:pointer;
+  border-radius:var(--radius);
+}
+.ad-slide a { display:block; line-height:0; }
+.ad-dots {
+  display:none;
+}
+.ad-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--border); cursor:pointer;
+  transition:background var(--transition);
+  border:none; padding:0;
+}
+.ad-dot.active { background:var(--primary); }
+
+/* ═══════════════════════════════════════
+   BACK TO TOP
+   ═══════════════════════════════════════ */
+.back-to-top {
+  position:fixed; bottom:20px; right:16px; z-index:200;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+  touch-action:manipulation;
+}
+.back-to-top.visible { opacity:1; pointer-events:auto; }
+.back-to-top:hover { background:var(--primary-light); }
+@media(hover:hover) { .back-to-top:hover { transform:translateY(-2px); } }
+.back-to-top svg { width:20px; height:20px; }
+
+/* ═══════════════════════════════════════
+   FOOTER — phone: single column
+   ═══════════════════════════════════════ */
+.site-footer {
+  background:var(--primary); color:rgba(255,255,255,0.8);
+  padding:28px 16px 20px;
+}
+.footer-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr; gap:20px;
+}
+.footer-brand { font-size:0.86rem; line-height:1.7; }
+.footer-brand p { margin-bottom:4px; }
+.footer-brand-detail { font-size:0.78rem; opacity:0.7; }
+.footer-brand .footer-logo { font-weight:800; font-size:1.05rem; color:#fff; margin-bottom:6px; }
+.footer-col h4 {
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
+  color:rgba(255,255,255,0.5); margin-bottom:8px;
+}
+.footer-col a {
+  display:flex; align-items:center;
+  color:rgba(255,255,255,0.75); font-size:0.86rem;
+  padding:6px 0; transition:color var(--transition);
+  min-height:40px; /* touch-friendly footer links */
+}
+.footer-col a:hover { color:#fff; text-decoration:none; }
+.footer-bottom {
+  max-width:var(--max-w); margin:20px auto 0;
+  padding-top:14px; border-top:1px solid rgba(255,255,255,0.1);
+  font-size:0.75rem; color:rgba(255,255,255,0.4);
+}
+.footer-disclaimer {
+  max-width:var(--max-w); margin:10px auto 0;
+  font-size:0.72rem; color:rgba(255,255,255,0.35); line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   LARGE PHONE — min-width: 480px (wider phones)
+   Footer 2-col, minor type bumps.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:480px) {
+  .footer-inner { grid-template-columns:1fr 1fr; gap:20px; }
+  .hero-buttons { max-width:400px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat-item strong { font-size:1.1rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TABLET — min-width: 600px
+   Two columns, bigger type, more breathing room.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:600px) {
+  .container { padding:0 24px; }
+  .header-top { padding:8px 24px; }
+  .site-logo { font-size:1.15rem; }
+  .hero { padding:32px 24px 24px; }
+  .hero h1 { font-size:1.85rem; max-width:680px; }
+  .hero-sub { font-size:0.95rem; max-width:620px; line-height:1.4; }
+  .hero-sub-short { display:none; }
+  .hero-sub-seo { display:block; }
+  .hero-buttons { max-width:440px; gap:10px; }
+  .hero-btn { font-size:0.82rem; padding:9px 14px; }
+  .stats-bar { padding:18px 24px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:16px; }
+  .stat-item strong { font-size:1.35rem; }
+  .section-nav-inner { padding:0 24px; }
+  .section-nav a { padding:12px 14px; font-size:0.8rem; }
+  .content-section { padding:40px 0; }
+  .content-section h2 { font-size:1.5rem; }
+  .content-section .section-desc { font-size:0.98rem; }
+  .cards-grid { grid-template-columns:1fr 1fr; gap:16px; }
+  .card { padding:22px; }
+  .deep-dive-header { padding:18px 20px; }
+  .deep-dive-header h3 { font-size:1rem; }
+  .deep-dive-content { padding:0 20px 22px; font-size:0.9rem; }
+  .compare-table { font-size:0.84rem; }
+  .compare-table th, .compare-table td { padding:10px 12px; }
+  .qa-question { font-size:0.92rem; }
+  .qa-answer-inner { font-size:0.9rem; }
+  .qa-filters { flex-wrap:wrap; overflow-x:visible; padding-bottom:0; }
+  .qa-question .qa-cat { display:inline-block; }
+  .glossary-grid { grid-template-columns:1fr 1fr; }
+  .blog-grid { grid-template-columns:1fr 1fr; }
+  .glossary-search { max-width:360px; }
+  .footer-inner { grid-template-columns:1fr 1fr; gap:28px; }
+  .disclaimer-banner { padding:18px 20px; font-size:0.86rem; }
+  .callout { padding:14px 18px; font-size:0.88rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   DESKTOP — min-width: 900px
+   Full nav bar, 3+ columns, hover effects.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:900px) {
+  html { scroll-padding-top:120px; }
+  .container { padding:0 24px; }
+  .header-top { padding:10px 24px; }
+  .site-logo { font-size:1.2rem; }
+
+  /* Desktop: show nav as visible second row */
+  .nav-toggle { display:none; }
+  .main-nav {
+    display:flex; flex-direction:row; flex-wrap:wrap;
+    justify-content:center; gap:2px;
+    padding:0 24px 8px; border-top:1px solid var(--border-light);
+    max-width:var(--max-w); margin:0 auto;
+  }
+  .main-nav a {
+    padding:6px 14px; font-size:0.84rem; min-height:auto;
+  }
+
+  .hero { padding:40px 24px 32px; }
+  .hero h1 { font-size:2.4rem; max-width:780px; }
+  .hero-sub { font-size:1rem; max-width:680px; margin-top:10px; line-height:1.4; }
+  .hero-buttons { grid-template-columns:repeat(4,1fr); max-width:620px; gap:12px; margin-top:18px; }
+  .hero-btn { font-size:0.84rem; padding:10px 14px; border-radius:var(--radius); }
+
+  .stats-bar { padding:20px 24px; }
+  .stats-inner { gap:20px; }
+  .stat-item strong { font-size:1.5rem; }
+
+  .section-nav { padding:0 24px; }
+  .section-nav a { padding:14px 18px; font-size:0.84rem; }
+
+  .content-section { padding:56px 0; }
+  .content-section h2 { font-size:1.75rem; }
+  .content-section .section-desc { font-size:1.05rem; max-width:700px; margin-bottom:32px; }
+
+  .cards-grid { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+  .card { padding:28px; }
+  .card:hover { box-shadow:var(--shadow-md); }
+  @media(hover:hover) { .card:hover { transform:translateY(-2px); } }
+
+  .deep-dive { margin-bottom:20px; }
+  .deep-dive-header { padding:22px 28px; }
+  .deep-dive-header h3 { font-size:1.1rem; }
+  .deep-dive-content { padding:0 28px 28px; font-size:0.95rem; }
+  .deep-dive-content h4 { font-size:1rem; margin:20px 0 8px; }
+  .deep-dive-content li { font-size:0.93rem; }
+
+  .compare-table { font-size:0.9rem; }
+  .compare-table th { padding:12px 16px; font-size:0.78rem; }
+  .compare-table td { padding:12px 16px; }
+
+  .qa-question { padding:16px 20px; font-size:0.95rem; }
+  .qa-answer-inner { padding:16px 20px 20px; font-size:0.93rem; }
+  .qa-filter { padding:8px 16px; font-size:0.84rem; }
+
+  .glossary-grid { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .blog-grid { grid-template-columns:repeat(3,1fr); gap:20px; }
+  .blog-card h3 { font-size:1.1rem; }
+  .blog-card p { font-size:0.9rem; }
+  .blog-card-img, .blog-card-img-placeholder { height:200px; }
+  .blog-card-keywords { display:block; }
+  .glossary-search { max-width:400px; }
+  .glossary-term { padding:16px 20px; }
+  .glossary-term dt { font-size:0.95rem; }
+  .glossary-term dd { font-size:0.9rem; }
+  .glossary-tag { font-size:0.62rem; }
+
+  .callout { padding:16px 20px; font-size:0.93rem; }
+  .disclaimer-banner { padding:20px 24px; font-size:0.88rem; }
+
+  .footer-inner { grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; }
+  .site-footer { padding:48px 24px 32px; }
+  .footer-col a { min-height:auto; padding:4px 0; }
+}
+
+
+
+.page-hero {
+  background: linear-gradient(135deg, #1a0a0a 0%, #0b3c5d 100%);
+  color: #fff;
+  padding: 2rem 1rem;
+  border-bottom: 3px solid #ef3340;
+}
+.page-hero h1 { font-size:1.5rem; font-weight:800; margin:0 0 0.4rem; line-height:1.2; }
+.page-hero p { opacity:0.88; font-size:0.88rem; margin:0; max-width:640px; }
+.back-link { display:inline-block; font-size:0.82rem; color:rgba(255,255,255,0.7); margin-bottom:0.5rem; text-decoration:none; }
+.section-label { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-light); margin:2rem 0 0.75rem; padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+
+/* First principle box */
+.principle-box {
+  background: #1a0a0a;
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.principle-box h3 {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ef3340;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+.principle-box p {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0 0 0.85rem;
+  opacity: 0.9;
+}
+.principle-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+.principle-chip {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Carrier pay cards */
+.carrier-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background: var(--bg);
+}
+.carrier-card.top { border-color: #047857; border-left-width: 4px; }
+.carrier-card.mid { border-color: #9ca3af; }
+.carrier-card h2 {
+  font-size: 1.05rem;
+  color: var(--primary);
+  font-weight: 800;
+  margin: 0.4rem 0 0.2rem;
+}
+.carrier-card .carrier-sub {
+  font-size: 0.83rem;
+  color: var(--secondary);
+  font-weight: 600;
+  margin: 0 0 0.85rem;
+}
+.pays-fights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.85rem 0;
+}
+@media(max-width:480px) { .pays-fights { grid-template-columns:1fr; } }
+.pays-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.fights-box {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.pays-box h4 {
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: #047857; margin: 0 0 0.4rem;
+}
+.fights-box h4 {
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: #b91c1c; margin: 0 0 0.4rem;
+}
+.pays-box ul, .fights-box ul {
+  margin: 0; padding-left: 1.1rem;
+}
+.pays-box li, .fights-box li {
+  font-size: 0.84rem; color: var(--text-mid); margin-bottom: 0.25rem; line-height: 1.45;
+}
+.verdict-bar {
+  background: var(--bg-alt);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.87rem;
+  color: var(--text);
+  line-height: 1.55;
+  border-left: 3px solid var(--secondary);
+}
+.verdict-bar strong { color: var(--primary); }
+
+/* Pay badge */
+.pay-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 20px;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-green { background: #047857; color: #fff; }
+.badge-yellow { background: #b45309; color: #fff; }
+.badge-gray { background: #4a5568; color: #fff; }
+.badge-red { background: #b91c1c; color: #fff; }
+
+/* Fight list - the danger section */
+.fight-section {
+  background: #fff1f2;
+  border: 2px solid #ef3340;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.fight-header {
+  background: #ef3340;
+  color: #fff;
+  padding: 0.85rem 1.25rem;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.fight-item {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #fecdd3;
+}
+.fight-item:last-child { border-bottom: none; }
+.fight-item h4 {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #b91c1c;
+  margin: 0 0 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fight-item p {
+  font-size: 0.87rem;
+  color: #7f1d1d;
+  margin: 0 0 0.4rem;
+  line-height: 1.55;
+}
+.fight-item ul {
+  margin: 0.3rem 0;
+  padding-left: 1.25rem;
+}
+.fight-item li {
+  font-size: 0.85rem;
+  color: #7f1d1d;
+  margin-bottom: 0.25rem;
+  line-height: 1.45;
+}
+.fight-item .reality {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0b3c5d;
+  background: #dbeafe;
+  border-radius: 4px;
+  padding: 3px 10px;
+  display: inline-block;
+  margin-top: 0.3rem;
+}
+
+/* Outcome hierarchy */
+.hierarchy-box {
+  background: linear-gradient(135deg, #0b3c5d, #1d3d1d);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.hierarchy-box h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+  margin: 0 0 1rem;
+}
+.h-row {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  align-items: flex-start;
+}
+.h-row:last-child { border-bottom: none; }
+.h-pct {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fcd34d;
+  min-width: 52px;
+  flex-shrink: 0;
+  line-height: 1;
+  padding-top: 3px;
+}
+.h-content h4 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #fff;
+}
+.h-content p {
+  font-size: 0.82rem;
+  opacity: 0.8;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Bottom line summary */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.85rem 0;
+}
+@media(max-width:480px) { .summary-grid { grid-template-columns: 1fr; } }
+.summary-card {
+  border-radius: var(--radius);
+  padding: 1rem;
+  border: 1px solid var(--border);
+}
+.summary-card.green { background: #f0fdf4; border-color: #bbf7d0; }
+.summary-card.red { background: #fff1f2; border-color: #fecdd3; }
+.summary-card h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.5rem;
+}
+.summary-card.green h4 { color: #047857; }
+.summary-card.red h4 { color: #b91c1c; }
+.summary-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.summary-card li {
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  margin-bottom: 0.3rem;
+  line-height: 1.45;
+}
+
+/* Final reality check */
+.reality-check {
+  background: #1a0a0a;
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.reality-check h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ef3340;
+  margin: 0 0 0.75rem;
+}
+.reality-check p {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  margin: 0 0 0.75rem;
+  opacity: 0.9;
+}
+.reality-check ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.reality-check li {
+  font-size: 0.88rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.reality-check li strong { color: #fcd34d; opacity: 1; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')=='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/companies/">Companies</a>
+    <a href="/agencies/">Agencies</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/qa/">Q&amp;A</a>
+    <a href="/glossary/">Glossary</a>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <div class="container" style="max-width:800px;margin:0 auto;padding:0 1rem;">
+    <a class="back-link" href="/claims/">← Claims</a>
+    <h1>Which Horse Insurance Policies Actually Pay Claims — and Which Fight Them</h1>
+    <p>The straight answer, based on loss ratio, adjuster behavior, and policy structure reality. Not marketing language.</p>
+  </div>
+</div>
+
+<div class="container" style="max-width:800px;margin:0 auto;padding:1.5rem 1rem 3rem;">
+
+  <!-- FIRST PRINCIPLE -->
+  <div class="principle-box">
+    <h3>First Principle — Non-Negotiable</h3>
+    <p>No carrier "always pays" or "always fights." Anyone who tells you otherwise is selling something. What actually determines your claim outcome has almost nothing to do with which carrier you're with — and almost everything to do with three things:</p>
+    <div class="principle-chips">
+      <span class="principle-chip">📄 How the policy was written</span>
+      <span class="principle-chip">📋 What you disclosed at underwriting</span>
+      <span class="principle-chip">🏥 What type of claim it is</span>
+    </div>
+    <p style="margin:0.85rem 0 0;font-size:0.88rem;opacity:0.75;line-height:1.55;">That said — there are clear patterns by carrier and coverage type that every horse owner should understand before they buy. Here's the field reality.</p>
+  </div>
+
+  <!-- PAYERS -->
+  <p class="section-label">Carriers Known for Paying Legitimate Claims (When Written Correctly)</p>
+
+  <!-- MARKEL -->
+  <div class="carrier-card top">
+    <span class="pay-badge badge-green">✓ Most Consistent Payer — All Segments</span>
+    <h2>Markel</h2>
+    <p class="carrier-sub">The most predictable, least combative carrier in the equine market across claim types</p>
+    <p style="font-size:0.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:0.85rem;">Markel pays routine mortality claims, colic surgery reimbursements, and major medical claims reliably — and their adjusters actually understand equine use. When a rope horse dies from a stifle injury or a show horse requires colic surgery, Markel adjusters know what those situations look like and don't treat them as suspicious. Their field reputation for consistent claims handling is why they dominate the performance horse market.</p>
+    <div class="pays-fights">
+      <div class="pays-box">
+        <h4>✓ Where They Pay Clean</h4>
+        <ul>
+          <li>Mortality with clear, documented cause of death</li>
+          <li>Colic surgery with veterinary records</li>
+          <li>Major medical within policy limits</li>
+          <li>Claims from horses doing exactly what the policy says</li>
+        </ul>
+      </div>
+      <div class="fights-box">
+        <h4>⚠ Where They Scrutinize</h4>
+        <ul>
+          <li>Pre-existing conditions not disclosed at underwriting</li>
+          <li>Lameness claims with undisclosed prior history</li>
+          <li>Use mismatch — claim activity doesn't match policy classification</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict-bar"><strong>Bottom line:</strong> The most predictable and least combative carrier overall. If the policy is written correctly and the risk is disclosed honestly — Markel pays.</div>
+    <a href="/companies/markel" style="display:inline-block;margin-top:0.75rem;font-size:0.85rem;color:var(--secondary);font-weight:600;">Full Markel Review →</a>
+  </div>
+
+  <!-- GREAT AMERICAN -->
+  <div class="carrier-card top">
+    <span class="pay-badge badge-yellow">✓ Pays Large Claims — Strict Upfront, Smoother Later</span>
+    <h2>Great American Insurance Group</h2>
+    <p class="carrier-sub">Their demanding underwriting process is the feature — not the bug</p>
+    <p style="font-size:0.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:0.85rem;">Great American is less forgiving at the underwriting stage than Markel — more documentation required, stricter vet exam requirements, more questions. But that rigor means fewer surprises at claim time. Because they screened the risk carefully, they have less grounds to fight a legitimate claim. On large, well-documented mortality and surgical claims — the ones where the money really matters — Great American pays.</p>
+    <div class="pays-fights">
+      <div class="pays-box">
+        <h4>✓ Where They Pay Clean</h4>
+        <ul>
+          <li>High-value mortality claims with full documentation</li>
+          <li>Surgical claims supported by complete vet records</li>
+          <li>Claims where the underwriting file is complete and clean</li>
+          <li>Large structured policy claims — mortality + medical + LOU</li>
+        </ul>
+      </div>
+      <div class="fights-box">
+        <h4>⚠ Where They Fight</h4>
+        <ul>
+          <li>Anything connected to prior vet issues not disclosed</li>
+          <li>Incomplete disclosure at underwriting — their standard is high</li>
+          <li>Claims where the horse's condition doesn't match the application</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict-bar"><strong>Bottom line:</strong> Tough upfront = smoother payout later. The demanding underwriting process is the mechanism that makes claims reliable — not a bureaucratic obstacle.</div>
+    <a href="/companies/great-american" style="display:inline-block;margin-top:0.75rem;font-size:0.85rem;color:var(--secondary);font-weight:600;">Full Great American Review →</a>
+  </div>
+
+  <!-- AXA XL -->
+  <div class="carrier-card top">
+    <span class="pay-badge badge-gray">✓ Pays at the Top End — Highly Structured Process</span>
+    <h2>AXA XL</h2>
+    <p class="carrier-sub">Professional claims handling at the elite level — but very technical, very structured</p>
+    <p style="font-size:0.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:0.85rem;">AXA XL handles multi-six and seven-figure horse claims — the kind of exposure most domestic carriers can't write. At that level, claims handling is professional and technically rigorous. They pay mortality claims, international transit losses, and structured program claims inside their defined process. But Loss of Use claims are a different story — heavily contested at every carrier, and AXA XL is no exception. Valuation disputes on high-value horses are also a risk if documentation is weak.</p>
+    <div class="pays-fights">
+      <div class="pays-box">
+        <h4>✓ Where They Pay Clean</h4>
+        <ul>
+          <li>Mortality claims — very structured process, pays inside it</li>
+          <li>International transit losses</li>
+          <li>Well-documented losses at agreed value</li>
+        </ul>
+      </div>
+      <div class="fights-box">
+        <h4>⚠ Where They Fight</h4>
+        <ul>
+          <li>Loss of Use — heavily contested, even at this level</li>
+          <li>Valuation disputes if horse value is poorly documented</li>
+          <li>Claims outside the strict policy structure</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict-bar"><strong>Bottom line:</strong> Pays — but only inside strict structure. Every T crossed, every I dotted. The elite market demands it.</div>
+    <a href="/companies/axa-xl" style="display:inline-block;margin-top:0.75rem;font-size:0.85rem;color:var(--secondary);font-weight:600;">Full AXA XL Review →</a>
+  </div>
+
+  <!-- MIDDLE TIER -->
+  <p class="section-label">Middle Tier — Outcome Depends on Policy Structure &amp; Agent Quality</p>
+
+  <div class="carrier-card mid">
+    <span class="pay-badge badge-gray">⚖ Variable — Agent Quality Is the Deciding Factor</span>
+    <h2>American Equine Insurance Group</h2>
+    <p class="carrier-sub">Not a single carrier — a program manager. Outcome depends on who's backing the risk and how the agent structured it.</p>
+    <p style="font-size:0.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:0.75rem;">American Equine places risk across multiple backing carriers — meaning the claims experience you get depends heavily on which carrier is actually underwriting your policy and how your agent structured the coverage. An experienced equine agent placing correctly through American Equine's programs can deliver excellent claims outcomes. A generalist agent using the same programs carelessly can create serious gaps. The carrier itself is not the variable — the agent and policy structure are.</p>
+    <div class="verdict-bar"><strong>Bottom line:</strong> Can pay well OR fight — agent quality and policy structure determine the outcome more than the carrier name on the policy.</div>
+    <a href="/companies/american-equine" style="display:inline-block;margin-top:0.75rem;font-size:0.85rem;color:var(--secondary);font-weight:600;">Full American Equine Review →</a>
+  </div>
+
+  <div class="carrier-card mid">
+    <span class="pay-badge badge-gray">⚖ Strong on Liability — Weak When Events Not Scheduled</span>
+    <h2>Equisure Inc.</h2>
+    <p class="carrier-sub">Liability and event coverage pays well — when the events are properly declared</p>
+    <p style="font-size:0.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:0.75rem;">Equisure's specialty is liability and event coverage, and they pay those claims reliably — when the event was properly scheduled on the policy. The most common claim problem with Equisure placements is an event that wasn't declared: a jackpot roping, a clinic, a show that the operator assumed was covered by their base policy. If it's scheduled, it pays. If it's not scheduled, it almost certainly doesn't.</p>
+    <div class="verdict-bar"><strong>Bottom line:</strong> Liability and event claims pay when the event is properly declared and waivers are in place. Problems arise from undeclared events — the most preventable claim problem in the equine market.</div>
+    <a href="/agencies/equisure" style="display:inline-block;margin-top:0.75rem;font-size:0.85rem;color:var(--secondary);font-weight:600;">Equisure Agency Profile →</a>
+  </div>
+
+  <!-- THE FIGHT SECTION -->
+  <p class="section-label">Coverage Types That Most Often Fight Claims — Across ALL Carriers</p>
+
+  <div class="fight-section">
+    <div class="fight-header">⚠ The Coverage Types Most Likely to Resist Paying — Regardless of Carrier</div>
+
+    <div class="fight-item">
+      <h4>❌ Loss of Use (LOU) — The #1 Most Disputed Coverage in Equine Insurance</h4>
+      <p>Loss of Use is the single most contested coverage type in the equine market — at every carrier, at every value level. The reason is structural: proving a horse cannot perform its intended use is inherently subjective. Carriers can and do argue that the horse can perform some alternative use, that the medical evidence is insufficient, or that the horse may recover with more time. Even legitimate LOU claims routinely result in partial payouts, extended disputes, or denials based on "alternative use" arguments.</p>
+      <ul>
+        <li>Requires proving the horse <em>cannot</em> perform its insured use — a high and subjective bar</li>
+        <li>Carriers often counter with "alternative use" — the horse can still do something, just not competition</li>
+        <li>Medical evidence is frequently contested between carrier-hired and owner-hired veterinarians</li>
+        <li>Partial payouts are common even when the claim is clearly legitimate</li>
+      </ul>
+      <span class="reality">→ Reality: Expect resistance on LOU claims — even from the most reputable carriers. Document everything obsessively.</span>
+    </div>
+
+    <div class="fight-item">
+      <h4>❌ Poorly Written Mortality Policies</h4>
+      <p>Mortality claims on poorly structured policies — no agreed value, missing vet exam, undisclosed conditions — are the second most common claim fight. Carriers investigating a mortality claim will pull every vet record they can access. If a condition existed before the policy was written and wasn't disclosed, the carrier has a legitimate basis to deny or reduce the claim by tying the death to that prior condition.</p>
+      <ul>
+        <li>No agreed value → carrier argues the horse was worth less than insured</li>
+        <li>Missing pre-insurance vet exam → carrier disputes the horse's health at policy inception</li>
+        <li>Undisclosed conditions → carrier argues the death traces to something you didn't tell them</li>
+      </ul>
+      <span class="reality">→ Reality: Agreed value + full disclosure + vet exam removes 90% of carrier leverage on mortality claims.</span>
+    </div>
+
+    <div class="fight-item">
+      <h4>❌ Liability Policies with Misclassified Operations</h4>
+      <p>A policy that says "boarding" but covers a facility running lessons, training, and weekly events is a claim denial waiting to happen. When a claim arises from training or a lesson or an event — the carrier's first question is whether that activity was covered under the policy classification. If it wasn't declared, the answer is almost always no.</p>
+      <ul>
+        <li>Policy says boarding → claim from lesson injury → carrier denies on classification mismatch</li>
+        <li>Policy doesn't include event endorsement → claim from jackpot roping → carrier denies</li>
+        <li>Discipline not specified in training coverage → claim from discipline-specific injury → grey area</li>
+      </ul>
+      <span class="reality">→ Reality: Policy classification must match actual operations exactly. Every revenue stream declared. Every discipline specified.</span>
+    </div>
+
+    <div class="fight-item">
+      <h4>❌ CCC (Care, Custody &amp; Control) Gaps</h4>
+      <p>CCC claims — a client's horse injured or killed while in your care — are frequently underpaid because the coverage limit is too low, the horse count was wrong at underwriting, or the CCC wasn't properly endorsed onto the base policy. A $50K CCC limit on a boarding operation housing $300K worth of client horses is a structural gap that only shows up when the most valuable horse is the one that dies.</p>
+      <ul>
+        <li>Limit too low → partial payout, you cover the rest personally</li>
+        <li>Wrong horse count → carrier argues the horse wasn't within the covered number</li>
+        <li>Not properly endorsed → carrier argues CCC doesn't attach to this claim</li>
+      </ul>
+      <span class="reality">→ Reality: CCC limit should reflect the highest-value horse in your care, not an average. Revisit it annually.</span>
+    </div>
+  </div>
+
+  <!-- OUTCOME HIERARCHY -->
+  <p class="section-label">What Actually Determines Whether You Get Paid</p>
+
+  <div class="hierarchy-box">
+    <h3>The Real Outcome Hierarchy — By Weight</h3>
+    <div class="h-row">
+      <span class="h-pct">70%</span>
+      <div class="h-content">
+        <h4>Policy Structure</h4>
+        <p>Agreed value · Correct use classification · Proper endorsements · Right coverage types attached · All revenue streams declared · All entities named</p>
+      </div>
+    </div>
+    <div class="h-row">
+      <span class="h-pct">20%</span>
+      <div class="h-content">
+        <h4>Disclosure Quality</h4>
+        <p>Full veterinary history shared · Honest use description (rope, cutting, show, breeding) · Maintenance programs documented · Prior conditions disclosed</p>
+      </div>
+    </div>
+    <div class="h-row">
+      <span class="h-pct">10%</span>
+      <div class="h-content">
+        <h4>Carrier Behavior</h4>
+        <p>Markel = most consistent · Great American = strict but fair · AXA XL = technical but reliable · The carrier you're with matters — but far less than the first two factors</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM LINE SUMMARY -->
+  <p class="section-label">The Bottom Line</p>
+
+  <div class="summary-grid">
+    <div class="summary-card green">
+      <h4>✓ Most Reliable Claim Payers</h4>
+      <ul>
+        <li><strong>Markel</strong> — best overall consistency across all claim types</li>
+        <li><strong>Great American</strong> — best for large, well-documented claims</li>
+        <li><strong>AXA XL</strong> — best for elite / high-value structured risk</li>
+      </ul>
+    </div>
+    <div class="summary-card red">
+      <h4>❌ Most Disputed Coverage Types</h4>
+      <ul>
+        <li>Loss of Use — contested at every carrier, every level</li>
+        <li>Undisclosed pre-existing conditions</li>
+        <li>Misclassified business operations</li>
+        <li>CCC with inadequate limits</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- FINAL REALITY CHECK -->
+  <div class="reality-check">
+    <h3>⚠ Final Reality Check</h3>
+    <p>If a claim is denied, 90% of the time it is not because the carrier is bad. It is because:</p>
+    <ul>
+      <li><strong>The policy was written wrong</strong> — wrong classification, missing endorsements, no agreed value</li>
+      <li><strong>The risk wasn't disclosed</strong> — prior conditions, maintenance history, actual use</li>
+      <li><strong>The coverage didn't match the operation</strong> — events not scheduled, disciplines not specified, entities not named</li>
+    </ul>
+    <p style="margin:0.85rem 0 0;font-size:0.88rem;opacity:0.8;line-height:1.6;">The carrier gets blamed. But the structure is almost always the real problem — and structure is something you control before the claim ever happens.</p>
+  </div>
+
+  <!-- CROSS LINKS -->
+  <div class="related-links" style="padding:1.25rem;background:#f4f6f8;border-radius:6px;border:1px solid #e5e7eb;">
+    <div style="margin-bottom:1rem;">
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Carrier Reviews</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/companies/markel" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Markel</a>
+        <a href="/companies/great-american" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Great American</a>
+        <a href="/companies/axa-xl" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">AXA XL</a>
+        <a href="/companies/american-equine" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">American Equine</a>
+        <a href="/companies/" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">All Companies</a>
+      </div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Related Coverage Topics</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/topic/horse-insurance-claims-process" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Claims Process</a>
+        <a href="/topic/loss-of-use-horse-insurance" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Loss of Use Insurance</a>
+        <a href="/topic/horse-insurance-exclusions" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Insurance Exclusions</a>
+        <a href="/topic/equine-liability-insurance" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Equine Liability Insurance</a>
+        <a href="/topic/major-medical-horse-insurance" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Major Medical Insurance</a>
+      </div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Coverage Architecture</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/ranch/multiple-revenue-streams" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Multiple Revenue Streams Guide</a>
+        <a href="/disciplines/equine-business" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Equine Business Insurance</a>
+      </div>
+    </div>
+    <div>
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Glossary</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/glossary/horse-insurance-claims-terms" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Claims Terms</a>
+        <a href="/glossary/horse-insurance-coverage-terms" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Coverage Terms</a>
+        <a href="/glossary/horse-insurance-liability-terms" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Liability Terms</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">HorseInsurance.ai</div>
+      <p>Education-first equine insurance platform. We explain coverage, risk, and claims readiness — clearly and without sales pressure.</p>
+      <p class="footer-brand-detail">A Bridle &amp; Bit Magazine platform.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Coverage</h4>
+      <a href="/coverage/">All Coverage Types</a>
+      <a href="/coverage/mortality">Mortality</a>
+      <a href="/coverage/medical">Medical &amp; Surgical</a>
+      <a href="/coverage/loss-of-use">Loss of Use</a>
+      <a href="/coverage/liability">Liability</a>
+      <a href="/coverage/transit">Transit &amp; Shipping</a>
+      <a href="/coverage/breeding">Stallion &amp; Breeding</a>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <a href="/claims/">Claims Readiness</a>
+      <a href="/premiums/">Premiums &amp; Costs</a>
+      <a href="/disciplines/">By Discipline</a>
+      <a href="/qa/">Q&amp;A (200+)</a>
+      <a href="/glossary/">Glossary (100+)</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-col">
+      <h4>More</h4>
+      <a href="/loss-prevention/">Loss Prevention</a>
+      <a href="/ranch/">Ranch &amp; Home</a>
+      <a href="/before-you-buy/">Before You Buy</a>
+      <a href="/partner/">Partner Resources</a>
+      <a href="https://www.bridleandbit.com" target="_blank" rel="noopener">Bridle &amp; Bit Magazine</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    &copy; 2026 HorseInsurance.ai — A Bridle &amp; Bit Magazine Platform. All rights reserved.
+  </div>
+  <div class="footer-disclaimer">
+    <strong>Legal Disclaimer:</strong> HorseInsurance.ai is an independent educational platform operated by Bridle &amp; Bit Magazine. We do not sell insurance, represent any insurance carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only and does not constitute insurance advice.
+  </div>
+</footer>
+<script>
+document.querySelector('.nav-toggle')?.addEventListener('click', function() {
+  document.querySelector('.main-nav').classList.toggle('open');
+});
+</script>
+</body>
+</html>
