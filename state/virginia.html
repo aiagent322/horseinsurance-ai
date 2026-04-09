@@ -22,7 +22,22 @@
 </style>
 </head>
 <body>
-<nav><a href="/">Home</a><a href="/coverage/">Coverage</a><a href="/companies/">Companies</a><a href="/disciplines/">Disciplines</a><a href="/qa/">Q&A</a><a href="/glossary/">Glossary</a></nav>
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/companies/">Companies</a>
+    <a href="/agencies/">Agencies</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/claims/">Claims</a>
+    <a href="/qa/">Q&amp;A</a>
+  </nav>
+</header>
 <div class="breadcrumb">Home &rsaquo; Horse Insurance by State &rsaquo; Virginia</div>
 <h1>Horse Insurance in Virginia</h1>
 <p>Virginia's horse insurance market reflects the state's uniquely diverse equestrian culture — spanning thoroughbred racing and breeding in the Northern Piedmont and Clarke County horse country, the Middleburg and Upperville hunt country where some of the country's most valuable sport horses reside, the Virginia horse show circuit that runs from spring through fall, and the active western Virginia trail and pleasure horse community in the Shenandoah Valley and Blue Ridge foothills. The state is also home to Virginia International Raceway-adjacent equestrian facilities and several major equestrian sport venues.</p>
@@ -43,7 +58,59 @@
   <li><a href="/disciplines/">Insurance by Discipline</a></li>
   <li><a href="/premiums/">Understanding Premiums</a></li>
 </ul>
-<footer><p><a href="/">HorseInsurance.ai</a> — Educational resource for equine insurance. Not an insurance agent or broker. Consult a licensed equine insurance professional for coverage decisions.</p></footer>
+<footer class="site-footer" style="background:#1f2933;color:#e5e7eb;padding:2rem 1rem 1rem;margin-top:2rem;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.5rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:#fff;margin-bottom:0.5rem;">HorseInsurance.ai</div>
+        <p style="font-size:0.8rem;opacity:0.7;line-height:1.5;margin:0 0 0.4rem;">Education-first equine insurance platform. No sales pressure.</p>
+        <p style="font-size:0.78rem;opacity:0.6;margin:0;">A Bridle &amp; Bit Magazine platform.</p>
+      </div>
+      <div>
+        <h4 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin:0 0 0.5rem;font-weight:700;">Coverage</h4>
+        <a href="/coverage/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">All Coverage Types</a>
+        <a href="/coverage/mortality" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Mortality</a>
+        <a href="/coverage/medical" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Medical &amp; Surgical</a>
+        <a href="/coverage/loss-of-use" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Loss of Use</a>
+        <a href="/coverage/liability" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Liability</a>
+        <a href="/coverage/transit" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Transit &amp; Shipping</a>
+        <a href="/coverage/breeding" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;">Stallion &amp; Breeding</a>
+      </div>
+      <div>
+        <h4 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin:0 0 0.5rem;font-weight:700;">Carriers &amp; Agencies</h4>
+        <a href="/companies/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Insurance Companies</a>
+        <a href="/companies/markel" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Markel</a>
+        <a href="/companies/great-american" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Great American</a>
+        <a href="/agencies/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Agencies &amp; Brokers</a>
+        <a href="/agencies/blue-bridle" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Blue Bridle</a>
+        <a href="/agencies/equisure" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;">Equisure</a>
+      </div>
+      <div>
+        <h4 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin:0 0 0.5rem;font-weight:700;">Disciplines &amp; Claims</h4>
+        <a href="/disciplines/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">By Discipline</a>
+        <a href="/disciplines/team-roping" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Team Roping</a>
+        <a href="/disciplines/cutting-horses" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Cutting Horses</a>
+        <a href="/disciplines/equine-business" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Equine Business</a>
+        <a href="/claims/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Claims Guide</a>
+        <a href="/claims/which-policies-pay" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;">Which Policies Pay</a>
+      </div>
+      <div>
+        <h4 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin:0 0 0.5rem;font-weight:700;">Learn</h4>
+        <a href="/glossary/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Glossary (100+)</a>
+        <a href="/qa/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Q&amp;A (200+)</a>
+        <a href="/premiums/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Premiums &amp; Costs</a>
+        <a href="/before-you-buy/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Before You Buy</a>
+        <a href="/loss-prevention/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Loss Prevention</a>
+        <a href="/ranch/" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;margin-bottom:0.3rem;">Ranch &amp; Operations</a>
+        <a href="https://www.bridleandbit.com" target="_blank" rel="noopener" style="display:block;font-size:0.83rem;color:#d1d5db;text-decoration:none;">Bridle &amp; Bit Magazine</a>
+      </div>
+    </div>
+    <div style="border-top:1px solid #374151;padding-top:1rem;font-size:0.78rem;color:#6b7280;line-height:1.5;">
+      <p style="margin:0 0 0.4rem;">&copy; 2026 HorseInsurance.ai — A Bridle &amp; Bit Magazine Platform. All rights reserved.</p>
+      <p style="margin:0;"><strong style="color:#9ca3af;">Legal Disclaimer:</strong> HorseInsurance.ai is an independent educational platform operated by Bridle &amp; Bit Magazine. We do not sell insurance, represent any insurance carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only and does not constitute insurance advice.</p>
+    </div>
+  </div>
+</footer>
 
 <div class="related-links" style="margin-top:2rem;padding:1.25rem;background:#f4f6f8;border-radius:6px;border:1px solid #e5e7eb;">
   <div style="margin-bottom:1rem;">
@@ -67,5 +134,11 @@
     </div>
   </div>
 </div>
+
+<script>
+document.querySelector('.nav-toggle')?.addEventListener('click', function() {
+  document.querySelector('.main-nav').classList.toggle('open');
+});
+</script>
 </body>
 </html>
