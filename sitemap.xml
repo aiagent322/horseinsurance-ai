@@ -3,19 +3,9 @@
 
   <!-- Core -->
   <url><loc>https://horseinsurance.ai/</loc><lastmod>2026-04-09</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://horseinsurance.ai/coverage/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://horseinsurance.ai/companies/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://horseinsurance.ai/qa/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://horseinsurance.ai/claims/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://horseinsurance.ai/premiums/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://horseinsurance.ai/before-you-buy/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://horseinsurance.ai/disciplines/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://horseinsurance.ai/loss-prevention/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://horseinsurance.ai/ranch/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://horseinsurance.ai/partner/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://horseinsurance.ai/glossary/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
   <!-- Coverage -->
+  <url><loc>https://horseinsurance.ai/coverage/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://horseinsurance.ai/coverage/mortality</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://horseinsurance.ai/coverage/medical</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://horseinsurance.ai/coverage/liability</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
@@ -24,21 +14,60 @@
   <url><loc>https://horseinsurance.ai/coverage/breeding</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
   <!-- Companies -->
+  <url><loc>https://horseinsurance.ai/companies/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://horseinsurance.ai/companies/markel</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://horseinsurance.ai/companies/great-american</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/companies/great-american</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://horseinsurance.ai/companies/american-equine</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://horseinsurance.ai/companies/equisure</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://horseinsurance.ai/companies/broadstone</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/companies/axa-xl</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/companies/berkley-equine</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/companies/broadstone</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/companies/equisure</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
-  <!-- Glossary Concept Pages -->
+  <!-- Agencies -->
+  <url><loc>https://horseinsurance.ai/agencies/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/blue-bridle</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/horse-insurance-specialists</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/kay-cassell</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/legis-equine</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/marnitz-equirisk</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/agencies/jorene-mize</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
+  <!-- Disciplines -->
+  <url><loc>https://horseinsurance.ai/disciplines/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://horseinsurance.ai/disciplines/team-roping</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/disciplines/barrel-racing</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/disciplines/cutting-horses</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/disciplines/high-value-show-horses</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/disciplines/equine-business</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Claims -->
+  <url><loc>https://horseinsurance.ai/claims/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://horseinsurance.ai/claims/which-policies-pay</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Premiums -->
+  <url><loc>https://horseinsurance.ai/premiums/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/premiums/premium-ranges</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/premiums/multi-horse-pricing</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/premiums/discipline-rate-comparison</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Ranch & Operations -->
+  <url><loc>https://horseinsurance.ai/ranch/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/ranch/multiple-revenue-streams</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Glossary -->
+  <url><loc>https://horseinsurance.ai/glossary/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-coverage-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-policy-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-underwriting-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-liability-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-claims-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://horseinsurance.ai/glossary/horse-insurance-medical-terms</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
+  <!-- Supporting sections -->
+  <url><loc>https://horseinsurance.ai/qa/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://horseinsurance.ai/before-you-buy/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/loss-prevention/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://horseinsurance.ai/partner/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
 
   <!-- Breed Pages -->
   <url><loc>https://horseinsurance.ai/breed/quarter-horse-insurance</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
