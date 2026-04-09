@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
+<title>Rope vs. Cutting vs. Barrel Horse Insurance Rates Compared | HorseInsurance.ai</title>
+<meta name="description" content="Side-by-side insurance rate comparison for rope, cutting, and barrel horses. Actual mortality rates by discipline, exact premium examples by value, and how to optimize a mixed-discipline barn program.">
+<link rel="canonical" href="https://horseinsurance.ai/premiums/discipline-rate-comparison">
+<meta property="og:title" content="Rope vs. Cutting vs. Barrel Horse Insurance Rates Compared | HorseInsurance.ai">
+<meta property="og:description" content="Barrel horses can cost 30%+ more to insure than rope horses. Here's why — and how to optimize a mixed barn program.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://horseinsurance.ai/premiums/discipline-rate-comparison">
+<meta property="og:image" content="https://horseinsurance.ai/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#003D79">
+<style>
+
+/* ═══════════════════════════════════════════════════════════
+   HorseInsurance.ai — Conservative Insurance Design System
+   MOBILE-FIRST: Base styles = phone (320px–599px)
+   Scale UP with min-width breakpoints.
+   Target audience: Arizona equestrian on phones.
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --primary: #0b3c5d;
+  --primary-light: #144e78;
+  --secondary: #1d6fa5;
+  --accent: #2a8fd4;
+  --gold: #b8860b;
+  --gold-light: #d4a017;
+  --bg: #ffffff;
+  --bg-alt: #f4f6f8;
+  --bg-warm: #faf9f7;
+  --text: #1f2933;
+  --text-mid: #4a5568;
+  --text-light: #6b7280;
+  --border: #e5e7eb;
+  --border-light: #f0f1f3;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --radius: 6px;
+  --max-w: 1100px;
+  --transition: 0.2s ease;
+}
+
+/* ── RESET & BASE (phone) ── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+/* Remove 300ms tap delay on all interactive elements */
+a, button, [onclick], .qa-question, .deep-dive-header, .blog-read-more, .blog-collapse, .qa-filter {
+  touch-action: manipulation;
+}
+html {
+  scroll-behavior:smooth; scroll-padding-top:100px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.65;
+  font-size: 16px; /* Prevents iOS zoom on input focus */
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: none; /* Prevents rubber-band bounce revealing white below footer */
+}
+a { color: var(--secondary); text-decoration:none; transition: color var(--transition); }
+a:hover { color: var(--primary); text-decoration:underline; }
+img { max-width:100%; height:auto; display:block; }
+
+/* ── Container (phone: 16px gutters) ── */
+.container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── Phone: hide verbose SEO subtitle, show compact version ── */
+.hero-sub-seo { display:none; }
+.hero-sub-short { display:block; }
+
+/* ── Phone: tighter body font for very small screens ── */
+@media(max-width:359px) {
+  body { font-size:15px; }
+  .hero h1 { font-size:1.3rem; }
+  .hero-btn { font-size:0.72rem; padding:7px 8px; }
+  .container { padding:0 12px; }
+}
+
+/* ── Focus styles — keyboard navigation ── */
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Suppress focus ring on mouse/touch — only show for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Reduced motion: respect system preference ── */
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .deep-dive-body, .qa-answer, .blog-article { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   HEADER — two-line: logo row + nav row
+   ═══════════════════════════════════════ */
+.site-header {
+  position: sticky; top:0; z-index:100;
+  background: rgba(255,255,255,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+.site-header.header-hidden { transform:translateY(-100%); }
+.header-top {
+  display:flex; justify-content:space-between; align-items:center;
+  max-width:var(--max-w); margin:0 auto; padding:8px 16px;
+}
+.site-logo {
+  font-weight:800; font-size:1.05rem; color:var(--primary);
+  letter-spacing:-0.02em;
+}
+.site-logo span { color:var(--secondary); }
+
+/* Phone: nav behind hamburger on line 2 */
+.nav-toggle {
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer;
+  padding:8px; min-width:44px; min-height:44px;
+}
+.nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
+.main-nav {
+  display:none; flex-direction:column; padding:4px 16px 12px; gap:2px;
+  border-top:1px solid var(--border-light);
+}
+.main-nav.open { display:flex; }
+.main-nav a {
+  padding:10px 16px; border-radius:var(--radius);
+  font-size:0.92rem; font-weight:500; color:var(--text-mid);
+  transition: background var(--transition), color var(--transition);
+  min-height:44px; display:flex; align-items:center;
+}
+.main-nav a:hover { background:var(--bg-alt); color:var(--primary); text-decoration:none; }
+.main-nav a.active { background:var(--primary); color:#fff; }
+
+/* ═══════════════════════════════════════
+   HERO — phone base, CENTERED
+   ═══════════════════════════════════════ */
+.hero {
+  background: #003D79; /* Deep Process Blue */
+  color: #fff;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+.hero-inner { max-width:var(--max-w); margin:0 auto; }
+.hero h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 auto;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.hero-sub {
+  font-size: 0.88rem;
+  margin: 8px auto 0;
+  opacity: 0.9;
+  line-height: 1.35;
+  max-width: 600px;
+}
+/* Hero buttons: 2×2 grid on phone, compact */
+.hero-buttons {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; margin-top:14px;
+  max-width:380px; margin-left:auto; margin-right:auto;
+}
+.hero-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  background:#EF3340; /* Process Red (PMS 032) */
+  border:1px solid rgba(255,255,255,0.3);
+  padding:8px 10px; border-radius:var(--radius);
+  font-size:0.78rem; font-weight:600; color:#fff;
+  text-decoration:none; transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  min-height:40px;
+}
+.hero-btn:hover {
+  background:#d42d38; border-color:rgba(255,255,255,0.5);
+  text-decoration:none; color:#fff;
+}
+@media(hover:hover) {
+  .hero-btn:hover { transform:translateY(-1px); }
+}
+.hero-btn:active { transform:translateY(0); background:#c0272f; }
+.hero-btn svg { width:14px; height:14px; flex-shrink:0; }
+
+/* ═══════════════════════════════════════
+   STATS BAR — phone: 2×2 grid
+   ═══════════════════════════════════════ */
+.stats-bar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+}
+.stats-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center;
+}
+.stat-item strong {
+  display:block; font-size:1.2rem; color:var(--primary); font-weight:800;
+}
+.stat-item span {
+  font-size:0.7rem; color:var(--text-light); text-transform:uppercase; letter-spacing:0.05em;
+}
+
+/* ═══════════════════════════════════════
+   SECTION NAV — phone: horizontal scroll + sticky
+   ═══════════════════════════════════════ */
+.section-nav {
+  position: sticky; top: var(--header-h, 44px); z-index: 90;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+  transition: top 0.3s ease;
+}
+.section-nav::-webkit-scrollbar { display:none; }
+.section-nav-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:flex; gap:0; padding:0 16px;
+}
+.section-nav a {
+  padding:11px 10px; font-size:0.72rem; font-weight:600;
+  color:var(--text-light); white-space:nowrap;
+  border-bottom:2px solid transparent; transition: color var(--transition), border-color var(--transition);
+  min-height:42px; display:flex; align-items:center;
+  scroll-snap-align:start;
+}
+.section-nav a:hover { color:var(--primary); text-decoration:none; border-bottom-color:var(--border); }
+.section-nav a.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* ═══════════════════════════════════════
+   CONTENT SECTIONS — phone base
+   ═══════════════════════════════════════ */
+.content-section { padding:22px 0; }
+.content-section:nth-of-type(even) { background:var(--bg-alt); }
+.content-section h2 {
+  font-size:1.3rem; font-weight:800; color:var(--primary);
+  margin-bottom:6px; letter-spacing:-0.01em;
+}
+.content-section .section-desc {
+  font-size:0.92rem; color:var(--text-mid); margin-bottom:20px;
+}
+#coverage { background:#d6dde6; }
+#coverage .section-desc { font-weight:700; }
+
+/* ═══════════════════════════════════════
+   CARDS — phone: single column
+   ═══════════════════════════════════════ */
+.cards-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:12px; margin-top:16px;
+}
+.card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  transition: box-shadow var(--transition);
+}
+.card:hover { box-shadow:var(--shadow-sm); }
+.card-icon {
+  width:38px; height:38px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:10px; flex-shrink:0;
+}
+.card-icon svg { width:20px; height:20px; }
+.card-icon.blue { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
+.card h2, .card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
+/* Cards go 2-col at 500px — gives each card enough width for readable text */
+@media(min-width:500px) {
+  .cards-grid { grid-template-columns:1fr 1fr; gap:12px; }
+}
+
+/* ═══════════════════════════════════════
+   DEEP DIVES — phone: full-width, big touch targets
+   ═══════════════════════════════════════ */
+.deep-dive {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); margin-bottom:12px; overflow:hidden;
+}
+.deep-dive-header {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--bg); transition:background var(--transition);
+  min-height:52px; gap:10px; /* 52px for comfortable touch */
+}
+.deep-dive-header > div:first-child {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  min-width:0; flex:1;
+}
+.deep-dive-header:hover { background:var(--bg-alt); }
+.deep-dive-header h3 { font-size:0.95rem; color:var(--primary); margin:0; line-height:1.35; }
+.deep-dive-header .tag {
+  font-size:0.67rem; text-transform:uppercase; letter-spacing:0.06em;
+  padding:2px 6px; border-radius:3px; font-weight:700;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+  flex-shrink:0; white-space:nowrap;
+}
+.deep-dive-chevron {
+  width:20px; height:20px; transition:transform 0.3s ease; flex-shrink:0;
+  stroke:var(--text-light); min-width:20px;
+}
+.deep-dive.open .deep-dive-chevron { transform:rotate(180deg); }
+.deep-dive-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease-out; }
+.deep-dive.open .deep-dive-body { /* height set by JS */ }
+.deep-dive-content {
+  padding:0 16px 18px;
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.deep-dive-content h4 {
+  font-size:0.93rem; color:var(--primary); margin:16px 0 8px; font-weight:700;
+}
+.deep-dive-content p { margin-bottom:10px; }
+.deep-dive-content ul, .deep-dive-content ol {
+  margin:6px 0 14px 16px; color:var(--text-mid);
+}
+.deep-dive-content li { margin-bottom:5px; line-height:1.6; font-size:0.88rem; }
+
+/* ═══════════════════════════════════════
+   TABLES — phone: horizontal scroll
+   ═══════════════════════════════════════ */
+.compare-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.8rem;
+}
+.compare-table th {
+  background:var(--primary); color:#fff; padding:8px 10px;
+  text-align:left; font-weight:600; font-size:0.7rem;
+  text-transform:uppercase; letter-spacing:0.04em;
+  white-space:nowrap;
+}
+.compare-table td {
+  padding:8px 10px; border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.compare-table tr:nth-child(even) td { background:var(--bg-alt); }
+.compare-table .check { color:var(--success); font-weight:700; }
+.compare-table .cross { color:var(--danger); font-weight:700; }
+.compare-table .varies { color:var(--warning); font-weight:600; }
+.table-wrap {
+  overflow-x:auto; -webkit-overflow-scrolling:touch; margin:16px 0;
+  border-radius:var(--radius);
+  position:relative;
+}
+/* Fade hint — indicates horizontal scroll on phone */
+.table-wrap::after {
+  content:'';
+  position:absolute; top:0; right:0; bottom:0; width:32px;
+  background: linear-gradient(to left, var(--table-fade-bg, var(--bg)) 0%, transparent 100%);
+  pointer-events:none; border-radius:0 var(--radius) var(--radius) 0;
+}
+.content-section:nth-of-type(even) .table-wrap { --table-fade-bg: var(--bg-alt); }
+#coverage .table-wrap { --table-fade-bg: #d6dde6; }
+@media(min-width:900px) {
+  .table-wrap::after { display:none; }
+}
+
+/* ═══════════════════════════════════════
+   Q&A — phone: full-width, large touch targets
+   ═══════════════════════════════════════ */
+.qa-filters {
+  display:flex; flex-wrap:nowrap; gap:6px; margin-bottom:16px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; padding-bottom:4px;
+}
+.qa-filters::-webkit-scrollbar { display:none; }
+.qa-filter {
+  padding:8px 12px; border-radius:20px; font-size:0.8rem;
+  font-weight:500; border:1px solid var(--border);
+  background:var(--bg); color:var(--text-mid); cursor:pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  min-height:38px; /* comfortable touch */
+}
+.qa-filter:hover { border-color:var(--secondary); color:var(--secondary); }
+.qa-filter.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.qa-item {
+  border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden; background:var(--bg);
+}
+.qa-question {
+  padding:14px 16px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  font-weight:600; font-size:0.9rem; color:var(--text);
+  transition:background var(--transition);
+  min-height:48px; gap:8px; /* 48px touch target */
+}
+.qa-question:hover { background:var(--bg-alt); }
+.qa-question > span:first-child { flex:1; line-height:1.4; }
+.qa-question .qa-cat {
+  font-size:0.67rem; background:var(--bg-alt); color:var(--text-light);
+  padding:2px 6px; border-radius:3px; white-space:nowrap;
+  text-transform:uppercase; letter-spacing:0.04em; font-weight:600;
+  flex-shrink:0; margin-top:3px;
+  display:none; /* hidden on phone — visible from 600px+ */
+}
+.qa-chevron {
+  width:16px; height:16px; flex-shrink:0; stroke:var(--text-light);
+  transition:transform 0.3s ease; min-width:16px; margin-top:3px;
+}
+.qa-item.open .qa-chevron { transform:rotate(180deg); }
+.qa-answer { max-height:0; overflow:hidden; transition:max-height 0.3s ease-out; }
+.qa-item.open .qa-answer { /* height set by JS */ }
+.qa-answer-inner {
+  padding:12px 16px 16px;
+  font-size:0.87rem; line-height:1.7; color:var(--text-mid);
+  border-top:1px solid var(--border-light);
+}
+.qa-count {
+  font-size:0.8rem; color:var(--text-light); margin-bottom:12px;
+}
+.qa-controls {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px; flex-wrap:wrap; gap:8px;
+}
+.qa-toggle-all {
+  font-size:0.8rem; font-weight:600; color:var(--secondary);
+  background:none; border:1px solid var(--border); border-radius:var(--radius);
+  padding:6px 14px; cursor:pointer; transition: background var(--transition), border-color var(--transition);
+  min-height:36px;
+}
+.qa-toggle-all:hover { background:var(--bg-alt); border-color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   BLOG — phone base
+   ═══════════════════════════════════════ */
+.blog-grid {
+  display:grid; grid-template-columns:1fr;
+  gap:16px; margin-top:20px;
+}
+.blog-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  transition: box-shadow var(--transition);
+}
+.blog-card:hover { box-shadow:var(--shadow-md); }
+.blog-card-img {
+  width:100%; height:180px; object-fit:cover;
+  background:var(--bg-alt); display:block;
+}
+.blog-card-img-placeholder {
+  width:100%; height:160px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display:flex; align-items:center; justify-content:center;
+  color:rgba(255,255,255,0.55); font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.1em;
+}
+.blog-card-body { padding:18px; }
+.blog-card-meta {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.blog-card-date {
+  font-size:0.72rem; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:0.04em;
+}
+.blog-card-tag {
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; padding:2px 7px; border-radius:3px;
+  background:rgba(29,111,165,0.1); color:var(--secondary);
+}
+.blog-card-tag.red { background:rgba(239,51,64,0.1); color:#c0272f; }
+.blog-card-tag.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
+.blog-card-tag.green { background:rgba(4,120,87,0.1); color:var(--success); }
+.blog-card h3 {
+  font-size:1.05rem; font-weight:700; color:var(--primary);
+  margin-bottom:8px; line-height:1.35;
+}
+.blog-card h3 a { color:inherit; text-decoration:none; }
+.blog-card h3 a:hover { color:var(--secondary); text-decoration:none; }
+.blog-title-link { color:inherit; cursor:pointer; }
+.blog-title-link:hover { color:var(--secondary); }
+.blog-card p {
+  font-size:0.86rem; color:var(--text-mid); line-height:1.6;
+  margin-bottom:12px;
+}
+.blog-card-keywords {
+  font-size:0.72rem; color:var(--text-light); line-height:1.5;
+  border-top:1px solid var(--border-light); padding-top:10px;
+  display:none; /* SEO metadata — hidden on phone */
+}
+.blog-card-keywords strong { color:var(--text-mid); }
+.blog-featured {
+  border:2px solid var(--primary);
+}
+.blog-featured-label {
+  display:inline-block; background:var(--primary); color:#fff;
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; padding:3px 10px; border-radius:0 0 var(--radius) 0;
+}
+.blog-cta {
+  text-align:center; margin-top:28px; padding:24px 16px;
+  background:var(--bg-alt); border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.blog-cta p { font-size:0.9rem; color:var(--text-mid); margin-bottom:10px; }
+.blog-cta strong { color:var(--primary); }
+.blog-read-more {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--secondary); cursor:pointer; padding:6px 0;
+  transition:color var(--transition);
+}
+.blog-read-more:hover { color:var(--primary); }
+.blog-article {
+  max-height:0; overflow:hidden; transition:max-height 0.5s ease-out;
+}
+.blog-card.blog-open .blog-article { /* height set by JS */ }
+.blog-card.blog-open .blog-read-more { display:none; }
+.blog-article-inner {
+  padding-top:16px; margin-top:14px;
+  border-top:1px solid var(--border-light);
+  font-size:0.88rem; line-height:1.7; color:var(--text);
+}
+.blog-article-inner h4 {
+  font-size:0.95rem; color:var(--primary); font-weight:700;
+  margin:18px 0 8px;
+}
+.blog-article-inner h4:first-child { margin-top:0; }
+.blog-article-inner p { margin-bottom:12px; color:var(--text-mid); }
+.blog-article-inner ul {
+  margin:8px 0 16px 18px; color:var(--text-mid);
+}
+.blog-article-inner li { margin-bottom:5px; line-height:1.6; }
+.blog-collapse {
+  display:inline-block; font-size:0.82rem; font-weight:600;
+  color:var(--text-light); cursor:pointer; padding:8px 0; margin-top:8px;
+  transition:color var(--transition);
+}
+.blog-collapse:hover { color:var(--secondary); }
+
+/* ═══════════════════════════════════════
+   GLOSSARY — phone: single column, full-width search
+   ═══════════════════════════════════════ */
+.glossary-search {
+  width:100%; padding:12px 16px;
+  border:1px solid var(--border); border-radius:var(--radius);
+  font-size:16px; /* 16px prevents iOS zoom on focus */
+  margin-bottom:16px;
+  transition:border-color var(--transition);
+  -webkit-appearance:none; appearance:none;
+}
+.glossary-search:focus { outline:none; border-color:var(--secondary); box-shadow:0 0 0 3px rgba(29,111,165,0.1); }
+.glossary-grid {
+  display:grid; grid-template-columns:1fr; gap:10px;
+}
+.glossary-term {
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; background:var(--bg);
+}
+.glossary-term:hover { box-shadow:var(--shadow-sm); }
+.glossary-term dt {
+  font-weight:700; color:var(--primary); font-size:0.9rem; margin-bottom:3px;
+}
+.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
+.glossary-tag {
+  display:inline-block; font-size:0.65rem; text-transform:uppercase;
+  letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
+  margin-left:4px; font-weight:700; vertical-align:middle;
+}
+.tag-coverage { background:rgba(29,111,165,0.1); color:var(--secondary); }
+.tag-claims { background:rgba(4,120,87,0.1); color:var(--success); }
+.tag-underwriting { background:rgba(184,134,11,0.1); color:var(--gold); }
+.tag-contract { background:rgba(107,114,128,0.1); color:var(--text-light); }
+.tag-medical { background:rgba(185,28,28,0.1); color:var(--danger); }
+.tag-liability { background:rgba(109,40,217,0.1); color:#6d28d9; }
+.tag-western { background:rgba(184,134,11,0.15); color:#96710a; }
+.tag-english { background:rgba(29,111,165,0.15); color:#145e8a; }
+.hero-sub-gap { margin-top:4px; }
+.disclaimer-pad { padding-top:10px; }
+
+/* ═══════════════════════════════════════
+   CALLOUTS & DISCLAIMERS — phone
+   ═══════════════════════════════════════ */
+.callout {
+  border-left:4px solid var(--secondary); background:var(--bg-alt);
+  padding:12px 14px; border-radius:0 var(--radius) var(--radius) 0;
+  margin:14px 0; font-size:0.86rem;
+}
+.callout.warning { border-left-color:var(--warning); background:#fffbeb; }
+.callout.danger { border-left-color:var(--danger); background:#fef2f2; }
+.callout.success { border-left-color:var(--success); background:#ecfdf5; }
+.callout strong { color:var(--text); }
+
+.disclaimer-banner {
+  background:var(--bg-warm); border:1px solid #e5ddd0;
+  padding:14px 16px; border-radius:var(--radius); margin:16px 0;
+  font-size:0.83rem; color:var(--text-mid); line-height:1.6;
+}
+.disclaimer-banner strong { color:var(--text); }
+
+/* ═══════════════════════════════════════
+   ROTATING AD BANNER — mobile-first leaderboard
+   ═══════════════════════════════════════ */
+.ad-rotator {
+  width:100%; max-width:var(--max-w);
+  margin:0 auto; padding:6px 16px 8px;
+  position:relative;
+}
+.ad-rotator-inner {
+  display:flex; justify-content:center;
+  position:relative; width:100%; overflow:hidden;
+}
+.ad-slide {
+  display:none;
+}
+.ad-slide.active { display:block; }
+.ad-slide img {
+  display:block;
+  width:100%; max-width:320px; height:auto; aspect-ratio:320/100;
+  cursor:pointer;
+  border-radius:var(--radius);
+}
+.ad-slide a { display:block; line-height:0; }
+.ad-dots {
+  display:none;
+}
+.ad-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--border); cursor:pointer;
+  transition:background var(--transition);
+  border:none; padding:0;
+}
+.ad-dot.active { background:var(--primary); }
+
+/* ═══════════════════════════════════════
+   BACK TO TOP
+   ═══════════════════════════════════════ */
+.back-to-top {
+  position:fixed; bottom:20px; right:16px; z-index:200;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+  touch-action:manipulation;
+}
+.back-to-top.visible { opacity:1; pointer-events:auto; }
+.back-to-top:hover { background:var(--primary-light); }
+@media(hover:hover) { .back-to-top:hover { transform:translateY(-2px); } }
+.back-to-top svg { width:20px; height:20px; }
+
+/* ═══════════════════════════════════════
+   FOOTER — phone: single column
+   ═══════════════════════════════════════ */
+.site-footer {
+  background:var(--primary); color:rgba(255,255,255,0.8);
+  padding:28px 16px 20px;
+}
+.footer-inner {
+  max-width:var(--max-w); margin:0 auto;
+  display:grid; grid-template-columns:1fr; gap:20px;
+}
+.footer-brand { font-size:0.86rem; line-height:1.7; }
+.footer-brand p { margin-bottom:4px; }
+.footer-brand-detail { font-size:0.78rem; opacity:0.7; }
+.footer-brand .footer-logo { font-weight:800; font-size:1.05rem; color:#fff; margin-bottom:6px; }
+.footer-col h4 {
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
+  color:rgba(255,255,255,0.5); margin-bottom:8px;
+}
+.footer-col a {
+  display:flex; align-items:center;
+  color:rgba(255,255,255,0.75); font-size:0.86rem;
+  padding:6px 0; transition:color var(--transition);
+  min-height:40px; /* touch-friendly footer links */
+}
+.footer-col a:hover { color:#fff; text-decoration:none; }
+.footer-bottom {
+  max-width:var(--max-w); margin:20px auto 0;
+  padding-top:14px; border-top:1px solid rgba(255,255,255,0.1);
+  font-size:0.75rem; color:rgba(255,255,255,0.4);
+}
+.footer-disclaimer {
+  max-width:var(--max-w); margin:10px auto 0;
+  font-size:0.72rem; color:rgba(255,255,255,0.35); line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   LARGE PHONE — min-width: 480px (wider phones)
+   Footer 2-col, minor type bumps.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:480px) {
+  .footer-inner { grid-template-columns:1fr 1fr; gap:20px; }
+  .hero-buttons { max-width:400px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat-item strong { font-size:1.1rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TABLET — min-width: 600px
+   Two columns, bigger type, more breathing room.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:600px) {
+  .container { padding:0 24px; }
+  .header-top { padding:8px 24px; }
+  .site-logo { font-size:1.15rem; }
+  .hero { padding:32px 24px 24px; }
+  .hero h1 { font-size:1.85rem; max-width:680px; }
+  .hero-sub { font-size:0.95rem; max-width:620px; line-height:1.4; }
+  .hero-sub-short { display:none; }
+  .hero-sub-seo { display:block; }
+  .hero-buttons { max-width:440px; gap:10px; }
+  .hero-btn { font-size:0.82rem; padding:9px 14px; }
+  .stats-bar { padding:18px 24px; }
+  .stats-inner { grid-template-columns:repeat(4,1fr); gap:16px; }
+  .stat-item strong { font-size:1.35rem; }
+  .section-nav-inner { padding:0 24px; }
+  .section-nav a { padding:12px 14px; font-size:0.8rem; }
+  .content-section { padding:40px 0; }
+  .content-section h2 { font-size:1.5rem; }
+  .content-section .section-desc { font-size:0.98rem; }
+  .cards-grid { grid-template-columns:1fr 1fr; gap:16px; }
+  .card { padding:22px; }
+  .deep-dive-header { padding:18px 20px; }
+  .deep-dive-header h3 { font-size:1rem; }
+  .deep-dive-content { padding:0 20px 22px; font-size:0.9rem; }
+  .compare-table { font-size:0.84rem; }
+  .compare-table th, .compare-table td { padding:10px 12px; }
+  .qa-question { font-size:0.92rem; }
+  .qa-answer-inner { font-size:0.9rem; }
+  .qa-filters { flex-wrap:wrap; overflow-x:visible; padding-bottom:0; }
+  .qa-question .qa-cat { display:inline-block; }
+  .glossary-grid { grid-template-columns:1fr 1fr; }
+  .blog-grid { grid-template-columns:1fr 1fr; }
+  .glossary-search { max-width:360px; }
+  .footer-inner { grid-template-columns:1fr 1fr; gap:28px; }
+  .disclaimer-banner { padding:18px 20px; font-size:0.86rem; }
+  .callout { padding:14px 18px; font-size:0.88rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   DESKTOP — min-width: 900px
+   Full nav bar, 3+ columns, hover effects.
+   ═══════════════════════════════════════════════════ */
+@media(min-width:900px) {
+  html { scroll-padding-top:120px; }
+  .container { padding:0 24px; }
+  .header-top { padding:10px 24px; }
+  .site-logo { font-size:1.2rem; }
+
+  /* Desktop: show nav as visible second row */
+  .nav-toggle { display:none; }
+  .main-nav {
+    display:flex; flex-direction:row; flex-wrap:wrap;
+    justify-content:center; gap:2px;
+    padding:0 24px 8px; border-top:1px solid var(--border-light);
+    max-width:var(--max-w); margin:0 auto;
+  }
+  .main-nav a {
+    padding:6px 14px; font-size:0.84rem; min-height:auto;
+  }
+
+  .hero { padding:40px 24px 32px; }
+  .hero h1 { font-size:2.4rem; max-width:780px; }
+  .hero-sub { font-size:1rem; max-width:680px; margin-top:10px; line-height:1.4; }
+  .hero-buttons { grid-template-columns:repeat(4,1fr); max-width:620px; gap:12px; margin-top:18px; }
+  .hero-btn { font-size:0.84rem; padding:10px 14px; border-radius:var(--radius); }
+
+  .stats-bar { padding:20px 24px; }
+  .stats-inner { gap:20px; }
+  .stat-item strong { font-size:1.5rem; }
+
+  .section-nav { padding:0 24px; }
+  .section-nav a { padding:14px 18px; font-size:0.84rem; }
+
+  .content-section { padding:56px 0; }
+  .content-section h2 { font-size:1.75rem; }
+  .content-section .section-desc { font-size:1.05rem; max-width:700px; margin-bottom:32px; }
+
+  .cards-grid { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+  .card { padding:28px; }
+  .card:hover { box-shadow:var(--shadow-md); }
+  @media(hover:hover) { .card:hover { transform:translateY(-2px); } }
+
+  .deep-dive { margin-bottom:20px; }
+  .deep-dive-header { padding:22px 28px; }
+  .deep-dive-header h3 { font-size:1.1rem; }
+  .deep-dive-content { padding:0 28px 28px; font-size:0.95rem; }
+  .deep-dive-content h4 { font-size:1rem; margin:20px 0 8px; }
+  .deep-dive-content li { font-size:0.93rem; }
+
+  .compare-table { font-size:0.9rem; }
+  .compare-table th { padding:12px 16px; font-size:0.78rem; }
+  .compare-table td { padding:12px 16px; }
+
+  .qa-question { padding:16px 20px; font-size:0.95rem; }
+  .qa-answer-inner { padding:16px 20px 20px; font-size:0.93rem; }
+  .qa-filter { padding:8px 16px; font-size:0.84rem; }
+
+  .glossary-grid { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .blog-grid { grid-template-columns:repeat(3,1fr); gap:20px; }
+  .blog-card h3 { font-size:1.1rem; }
+  .blog-card p { font-size:0.9rem; }
+  .blog-card-img, .blog-card-img-placeholder { height:200px; }
+  .blog-card-keywords { display:block; }
+  .glossary-search { max-width:400px; }
+  .glossary-term { padding:16px 20px; }
+  .glossary-term dt { font-size:0.95rem; }
+  .glossary-term dd { font-size:0.9rem; }
+  .glossary-tag { font-size:0.62rem; }
+
+  .callout { padding:16px 20px; font-size:0.93rem; }
+  .disclaimer-banner { padding:20px 24px; font-size:0.88rem; }
+
+  .footer-inner { grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; }
+  .site-footer { padding:48px 24px 32px; }
+  .footer-col a { min-height:auto; padding:4px 0; }
+}
+
+
+.page-hero {
+  background: linear-gradient(135deg, #0b3c5d 0%, #2d1b00 100%);
+  color: #fff;
+  padding: 2rem 1rem;
+  border-bottom: 3px solid #b8860b;
+}
+.page-hero h1 { font-size:1.5rem; font-weight:800; margin:0 0 0.4rem; line-height:1.2; }
+.page-hero p { opacity:0.88; font-size:0.88rem; margin:0; max-width:640px; }
+.back-link { display:inline-block; font-size:0.82rem; color:rgba(255,255,255,0.7); margin-bottom:0.5rem; text-decoration:none; }
+.section-label { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-light); margin:2rem 0 0.75rem; padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+
+/* Principle box */
+.principle-box {
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.principle-box h3 { font-size:0.82rem; text-transform:uppercase; letter-spacing:0.06em; opacity:0.75; margin:0 0 0.85rem; font-weight:700; }
+.principle-chips { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem; }
+.p-chip {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.85rem;
+  font-size:0.84rem;
+  flex:1;
+  min-width:140px;
+}
+.p-chip .p-disc { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.7; margin-bottom:0.2rem; font-weight:700; }
+.p-chip .p-desc { font-size:0.85rem; font-weight:600; }
+.principle-box .result { font-size:0.85rem; opacity:0.8; margin:0; line-height:1.55; }
+
+/* Rate comparison table */
+.rate-table { width:100%; border-collapse:collapse; font-size:0.88rem; margin:0.85rem 0 0.5rem; }
+.rate-table th { background:var(--primary); color:#fff; padding:0.6rem 0.85rem; text-align:left; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; }
+.rate-table td { padding:0.6rem 0.85rem; border-bottom:1px solid var(--border-light); }
+.rate-table tr:last-child td { border-bottom:none; }
+.discipline-rope { color:#047857; font-weight:800; }
+.discipline-cutting { color:#b45309; font-weight:800; }
+.discipline-barrel { color:#b91c1c; font-weight:800; }
+.rate-val { font-weight:700; color:var(--primary); }
+.rate-risk { font-size:0.8rem; color:var(--text-light); }
+
+/* Three-column premium grids */
+.disc-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem; margin:0.85rem 0; }
+@media(max-width:500px) { .disc-grid { grid-template-columns:1fr; } }
+.disc-cell { border-radius:var(--radius); padding:0.85rem; border:2px solid var(--border); text-align:center; }
+.disc-cell.rope { border-color:#047857; background:#f0fdf4; }
+.disc-cell.cutting { border-color:#b45309; background:#fff8f0; }
+.disc-cell.barrel { border-color:#b91c1c; background:#fff1f2; }
+.disc-cell .disc-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.3rem; }
+.disc-cell.rope .disc-label { color:#047857; }
+.disc-cell.cutting .disc-label { color:#b45309; }
+.disc-cell.barrel .disc-label { color:#b91c1c; }
+.disc-cell .disc-range { font-size:1rem; font-weight:800; color:var(--text); }
+.value-label { font-size:0.85rem; font-weight:700; color:var(--text-mid); margin:1.25rem 0 0.4rem; }
+
+/* Side by side comparison */
+.compare-table { width:100%; border-collapse:collapse; font-size:0.87rem; margin:0.85rem 0; }
+.compare-table th { background:var(--bg-alt); color:var(--text); padding:0.55rem 0.85rem; text-align:left; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; border-bottom:2px solid var(--border); }
+.compare-table td { padding:0.55rem 0.85rem; border-bottom:1px solid var(--border-light); }
+.compare-table tr:last-child td { border-bottom:none; }
+.compare-table .c-rope { color:#047857; font-weight:700; }
+.compare-table .c-cutting { color:#b45309; font-weight:700; }
+.compare-table .c-barrel { color:#b91c1c; font-weight:700; }
+.compare-table .c-diff-neutral { color:var(--text-light); font-size:0.8rem; }
+.compare-table .c-diff-up { color:#b91c1c; font-weight:700; font-size:0.82rem; }
+
+/* Why barrel costs more */
+.barrel-box {
+  background: #fff1f2;
+  border: 2px solid #fecdd3;
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom:1.25rem;
+}
+.barrel-box h3 { font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:#b91c1c; font-weight:700; margin:0 0 0.6rem; }
+.barrel-box ul { margin:0; padding-left:1.25rem; }
+.barrel-box li { font-size:0.87rem; color:#7f1d1d; margin-bottom:0.3rem; line-height:1.5; }
+
+/* Cutting vs rope */
+.cvr-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin:0.85rem 0; }
+@media(max-width:480px) { .cvr-grid { grid-template-columns:1fr; } }
+.cvr-card { border-radius:var(--radius); padding:1rem; border:1px solid var(--border); }
+.cvr-card.rope { background:#f0fdf4; border-color:#bbf7d0; }
+.cvr-card.cutting { background:#fff8f0; border-color:#fed7aa; }
+.cvr-card h4 { font-size:0.85rem; font-weight:800; margin:0 0 0.5rem; }
+.cvr-card.rope h4 { color:#047857; }
+.cvr-card.cutting h4 { color:#b45309; }
+.cvr-card ul { margin:0; padding-left:1.1rem; }
+.cvr-card li { font-size:0.84rem; color:var(--text-mid); margin-bottom:0.25rem; line-height:1.45; }
+
+/* Barn mix example */
+.barn-mix { background:linear-gradient(135deg,#0b3c5d,#1d3d1d); color:#fff; border-radius:var(--radius); padding:1.25rem; margin-bottom:1.5rem; }
+.barn-mix h3 { font-size:0.88rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; opacity:0.8; margin:0 0 1rem; }
+.mix-row { display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0; border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.87rem; }
+.mix-row:last-child { border-bottom:none; }
+.mix-label { opacity:0.8; }
+.mix-val { font-weight:700; }
+.mix-val.highlight { color:#fcd34d; font-size:1rem; }
+.mix-val.green { color:#4ade80; }
+.mix-divider { border-top:2px solid rgba(255,255,255,0.2); margin:0.5rem 0; }
+
+/* Optimization strategies */
+.opt-card { border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.1rem; margin-bottom:0.75rem; display:flex; gap:0.85rem; }
+.opt-num { font-size:1.1rem; font-weight:800; color:var(--secondary); flex-shrink:0; min-width:24px; }
+.opt-content h4 { font-size:0.9rem; font-weight:700; color:var(--primary); margin:0 0 0.3rem; }
+.opt-content p { font-size:0.85rem; color:var(--text-mid); margin:0 0 0.3rem; line-height:1.55; }
+.opt-result { font-size:0.8rem; font-weight:700; color:#047857; background:#f0fdf4; border-radius:4px; padding:2px 8px; display:inline-block; }
+
+/* Final ranking */
+.rank-box { border-radius:var(--radius); overflow:hidden; margin:0.85rem 0; border:1px solid var(--border); }
+.rank-row { display:flex; align-items:center; gap:0.85rem; padding:0.75rem 1rem; border-bottom:1px solid var(--border-light); }
+.rank-row:last-child { border-bottom:none; }
+.rank-row:nth-child(1) { background:#f0fdf4; }
+.rank-row:nth-child(2) { background:#fff8f0; }
+.rank-row:nth-child(3) { background:#fff1f2; }
+.rank-pos { font-size:1.2rem; font-weight:800; min-width:28px; }
+.rank-row:nth-child(1) .rank-pos { color:#047857; }
+.rank-row:nth-child(2) .rank-pos { color:#b45309; }
+.rank-row:nth-child(3) .rank-pos { color:#b91c1c; }
+.rank-disc { font-size:0.95rem; font-weight:800; flex:1; }
+.rank-row:nth-child(1) .rank-disc { color:#047857; }
+.rank-row:nth-child(2) .rank-disc { color:#b45309; }
+.rank-row:nth-child(3) .rank-disc { color:#b91c1c; }
+.rank-rate { font-size:0.88rem; font-weight:700; color:var(--text-mid); }
+.rank-note { font-size:0.78rem; color:var(--text-light); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')=='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/companies/">Companies</a>
+    <a href="/agencies/">Agencies</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/claims/">Claims</a>
+    <a href="/qa/">Q&amp;A</a>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <div class="container" style="max-width:800px;margin:0 auto;padding:0 1rem;">
+    <a class="back-link" href="/premiums/">← Premiums &amp; Costs</a>
+    <h1>Rope vs. Cutting vs. Barrel Horse Insurance Rates</h1>
+    <p>All three are performance horses — but insurers don't rate them the same. Here's the rate difference by discipline, the premium math by value, and how to optimize a mixed barn.</p>
+  </div>
+</div>
+
+<div class="container" style="max-width:800px;margin:0 auto;padding:1.5rem 1rem 3rem;">
+
+  <!-- CORE PRINCIPLE -->
+  <p class="section-label">The Core Principle — Why Rates Differ</p>
+
+  <div class="principle-box">
+    <h3>What Insurers Are Actually Rating</h3>
+    <div class="principle-chips">
+      <div class="p-chip">
+        <div class="p-disc">Barrel Racing</div>
+        <div class="p-desc">Speed + impact</div>
+      </div>
+      <div class="p-chip">
+        <div class="p-disc">Cutting</div>
+        <div class="p-desc">Torque + repetition</div>
+      </div>
+      <div class="p-chip">
+        <div class="p-disc">Team Roping</div>
+        <div class="p-desc">Controlled strength + variability</div>
+      </div>
+    </div>
+    <p class="result">All three are classified as performance horses — but the injury patterns, claim frequency, and severity differ enough that underwriters apply different base mortality rates to each. The discipline designation on your policy directly determines your rate before any other factor is applied.</p>
+  </div>
+
+  <!-- BASE MORTALITY RATES -->
+  <p class="section-label">Base Mortality Rates by Discipline</p>
+
+  <div style="overflow-x:auto;">
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th>Discipline</th>
+          <th>Typical Rate Range</th>
+          <th>Risk Profile</th>
+          <th>vs. Standard Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="discipline-rope">Team Roping</td>
+          <td class="rate-val">2.7% – 3.4%</td>
+          <td class="rate-risk">Moderate, controlled workload</td>
+          <td style="color:#047857;font-weight:700;">Lowest</td>
+        </tr>
+        <tr>
+          <td class="discipline-cutting">Cutting</td>
+          <td class="rate-val">3.0% – 3.8%</td>
+          <td class="rate-risk">Repetitive strain, joint stress</td>
+          <td style="color:#b45309;font-weight:700;">+10–15%</td>
+        </tr>
+        <tr>
+          <td class="discipline-barrel">Barrel Racing</td>
+          <td class="rate-val">3.3% – 4.5%</td>
+          <td class="rate-risk">High speed, high impact</td>
+          <td style="color:#b91c1c;font-weight:700;">+20–40%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:0.8rem;color:var(--text-light);margin:0 0 0.5rem;">Before discounts, medical add-ons, or barn-level structuring. Rates reflect Markel and Great American underwriting ranges.</p>
+
+  <!-- EXACT PREMIUMS BY VALUE -->
+  <p class="section-label">Exact Premium Examples by Horse Value</p>
+
+  <div class="value-label">$25,000 Horse</div>
+  <div class="disc-grid">
+    <div class="disc-cell rope">
+      <div class="disc-label">Rope</div>
+      <div class="disc-range">$675 – $850</div>
+    </div>
+    <div class="disc-cell cutting">
+      <div class="disc-label">Cutting</div>
+      <div class="disc-range">$750 – $950</div>
+    </div>
+    <div class="disc-cell barrel">
+      <div class="disc-label">Barrel</div>
+      <div class="disc-range">$825 – $1,125</div>
+    </div>
+  </div>
+
+  <div class="value-label">$50,000 Horse</div>
+  <div class="disc-grid">
+    <div class="disc-cell rope">
+      <div class="disc-label">Rope</div>
+      <div class="disc-range">$1,350 – $1,700</div>
+    </div>
+    <div class="disc-cell cutting">
+      <div class="disc-label">Cutting</div>
+      <div class="disc-range">$1,500 – $1,900</div>
+    </div>
+    <div class="disc-cell barrel">
+      <div class="disc-label">Barrel</div>
+      <div class="disc-range">$1,650 – $2,250</div>
+    </div>
+  </div>
+
+  <div class="value-label">$100,000 Horse</div>
+  <div class="disc-grid">
+    <div class="disc-cell rope">
+      <div class="disc-label">Rope</div>
+      <div class="disc-range">$2,700 – $3,400</div>
+    </div>
+    <div class="disc-cell cutting">
+      <div class="disc-label">Cutting</div>
+      <div class="disc-range">$3,000 – $3,800</div>
+    </div>
+    <div class="disc-cell barrel">
+      <div class="disc-label">Barrel</div>
+      <div class="disc-range">$3,300 – $4,500</div>
+    </div>
+  </div>
+
+  <!-- SIDE BY SIDE -->
+  <p class="section-label">Side-by-Side at $50,000 — The Real Difference</p>
+
+  <div style="overflow-x:auto;">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Discipline</th>
+          <th>Annual Premium</th>
+          <th>vs. Rope Baseline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="c-rope">Team Roping</td>
+          <td class="c-rope">~$1,500</td>
+          <td class="c-diff-neutral">Baseline</td>
+        </tr>
+        <tr>
+          <td class="c-cutting">Cutting</td>
+          <td class="c-cutting">~$1,700</td>
+          <td class="c-diff-up">+13% (+$200)</td>
+        </tr>
+        <tr>
+          <td class="c-barrel">Barrel Racing</td>
+          <td class="c-barrel">~$2,000</td>
+          <td class="c-diff-up">+33% (+$500)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:0.85rem;color:#b91c1c;font-weight:600;margin:0.4rem 0 1.5rem;">Barrel horses can cost 30%+ more per year to insure than an equivalent rope horse at the same value.</p>
+
+  <!-- WHY BARREL COSTS MORE -->
+  <p class="section-label">Why Barrel Horses Cost More to Insure</p>
+
+  <div class="barrel-box">
+    <h3>What Underwriters Are Seeing in Claims Data</h3>
+    <ul>
+      <li><strong>Higher frequency of catastrophic injuries</strong> — high-speed turns create impact loads that other western disciplines don't generate at the same rate</li>
+      <li><strong>Front-end breakdown patterns</strong> — knees, shoulders, and fetlocks absorb significant stress on every run; more runs per week = more cumulative exposure</li>
+      <li><strong>More hauling, more jackpot exposure</strong> — barrel horses travel constantly to competitions, creating elevated transit risk on top of performance risk</li>
+      <li><strong>Speed reduces recovery margin</strong> — at barrel racing speeds, a stumble or misstep has less room to recover from than the same event at a cutting or roping pace</li>
+      <li><strong>Higher claims frequency per horse-year</strong> — underwriters see more claims per barrel horse per year than per rope horse per year, which directly drives the rate differential</li>
+    </ul>
+  </div>
+
+  <!-- CUTTING VS ROPE -->
+  <p class="section-label">Cutting vs. Rope — Why the Gap Is Smaller</p>
+
+  <div class="cvr-grid">
+    <div class="cvr-card rope">
+      <h4>✅ Rope Horses — Lower Rate</h4>
+      <ul>
+        <li>Lower frequency of claims overall</li>
+        <li>More predictable, controlled workload</li>
+        <li>Injury patterns are well-understood and consistent</li>
+        <li>Less catastrophic injury potential per run</li>
+        <li>Hauling exposure is real but manageable</li>
+      </ul>
+    </div>
+    <div class="cvr-card cutting">
+      <h4>⚠ Cutting Horses — Moderate Premium</h4>
+      <ul>
+        <li>Higher repetitive strain injury risk</li>
+        <li>Hock and stifle issues are frequent</li>
+        <li>More lameness exclusions triggered at underwriting</li>
+        <li>Joint maintenance programs standard — must be disclosed</li>
+        <li>Prior condition history more common</li>
+      </ul>
+    </div>
+  </div>
+  <p style="font-size:0.85rem;color:var(--text-mid);line-height:1.6;margin-bottom:1.5rem;">The cutting/rope rate difference is typically <strong>10–15%</strong> — meaningful but not dramatic. The barrel/rope difference is <strong>20–40%</strong> — a significant cost factor at higher values.</p>
+
+  <!-- BARN MIX EXAMPLE -->
+  <p class="section-label">Real-World Mixed Barn Pricing</p>
+
+  <div class="barn-mix">
+    <h3>12-Horse Barn — 5 Rope, 4 Barrel, 3 Cutting — $50K Average</h3>
+    <div class="mix-row">
+      <span class="mix-label">5 rope horses @ 3.0%</span>
+      <span class="mix-val">$7,500</span>
+    </div>
+    <div class="mix-row">
+      <span class="mix-label">4 barrel horses @ 4.0%</span>
+      <span class="mix-val">$8,000</span>
+    </div>
+    <div class="mix-row">
+      <span class="mix-label">3 cutting horses @ 3.4%</span>
+      <span class="mix-val">$5,100</span>
+    </div>
+    <div class="mix-divider"></div>
+    <div class="mix-row">
+      <span class="mix-label">Total insured value</span>
+      <span class="mix-val">$600,000</span>
+    </div>
+    <div class="mix-row">
+      <span class="mix-label">Blended rate (unstructured)</span>
+      <span class="mix-val highlight">~3.4%</span>
+    </div>
+    <div class="mix-row">
+      <span class="mix-label">Total premium (unstructured)</span>
+      <span class="mix-val">~$20,600/year</span>
+    </div>
+    <div class="mix-divider"></div>
+    <div class="mix-row">
+      <span class="mix-label">With barn-level structuring (~2.8%)</span>
+      <span class="mix-val green">~$16,800/year</span>
+    </div>
+    <div class="mix-row">
+      <span class="mix-label">Annual savings</span>
+      <span class="mix-val green">~$3,800 saved</span>
+    </div>
+  </div>
+  <p style="font-size:0.85rem;color:var(--text-mid);margin-bottom:1.5rem;line-height:1.6;">Note that <strong>barrel horses pull the blended rate up</strong> even with barn-level structuring — which is why separating them from the program is often worth considering.</p>
+
+  <!-- OPTIMIZATION -->
+  <p class="section-label">Optimization Strategy for Mixed-Discipline Barns</p>
+
+  <div class="opt-card">
+    <div class="opt-num">1</div>
+    <div class="opt-content">
+      <h4>Separate High-Risk Horses from the Main Program</h4>
+      <p>Barrel horses pulling a blended rate up affects what every rope and cutting horse in the program pays. If barrel horses represent a minority of the herd, keeping them on a separate schedule or sub-policy prevents them from elevating rates on the lower-risk majority.</p>
+      <span class="opt-result">→ Prevents barrel horses from raising rates on rope and cutting horses</span>
+    </div>
+  </div>
+
+  <div class="opt-card">
+    <div class="opt-num">2</div>
+    <div class="opt-content">
+      <h4>Bundle Rope and Cutting Horses Together</h4>
+      <p>Rope and cutting horses have similar enough risk profiles — both in the 2.7–3.8% range — that bundling them together in a single program produces a clean, consistent underwriting file. Carriers price this combination more efficiently than a mixed barrel/rope/cutting herd.</p>
+      <span class="opt-result">→ Similar risk profiles produce better blended pricing without the barrel rate drag</span>
+    </div>
+  </div>
+
+  <div class="opt-card">
+    <div class="opt-num">3</div>
+    <div class="opt-content">
+      <h4>Control Cost on Barrel Horses Specifically</h4>
+      <p>Since barrel horses carry the highest per-horse cost, they're also the best candidates for cost-control strategies: insuring at partial value (e.g., $40K on a $50K horse), raising the deductible on major medical, or limiting LOU to only the highest-value barrel horses in the program.</p>
+      <span class="opt-result">→ Partial value insuring + higher deductibles reduce per-horse barrel cost without eliminating coverage</span>
+    </div>
+  </div>
+
+  <!-- FINAL RANKING -->
+  <p class="section-label">Bottom Line — Cheapest to Most Expensive</p>
+
+  <div class="rank-box">
+    <div class="rank-row">
+      <span class="rank-pos">1</span>
+      <span class="rank-disc">Team Roping</span>
+      <span class="rank-rate">~3.0% typical</span>
+      <span class="rank-note">Lowest risk, lowest premiums</span>
+    </div>
+    <div class="rank-row">
+      <span class="rank-pos">2</span>
+      <span class="rank-disc">Cutting Horses</span>
+      <span class="rank-rate">~3.3%–3.5% typical</span>
+      <span class="rank-note">Moderate increase — 10–15% above rope</span>
+    </div>
+    <div class="rank-row">
+      <span class="rank-pos">3</span>
+      <span class="rank-disc">Barrel Racing</span>
+      <span class="rank-rate">~3.8%–4.5% typical</span>
+      <span class="rank-note">Most expensive — 20–40% above rope</span>
+    </div>
+  </div>
+
+  <div style="background:var(--primary);color:#fff;border-radius:var(--radius);padding:1rem 1.25rem;margin:1rem 0 2rem;">
+    <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;opacity:0.7;margin-bottom:0.6rem;font-weight:700;">Quick Rate Reference</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;text-align:center;">
+      <div>
+        <div style="font-size:0.75rem;opacity:0.7;">Rope</div>
+        <div style="font-size:1.2rem;font-weight:800;color:#4ade80;">~3.0%</div>
+      </div>
+      <div>
+        <div style="font-size:0.75rem;opacity:0.7;">Cutting</div>
+        <div style="font-size:1.2rem;font-weight:800;color:#fcd34d;">~3.3–3.5%</div>
+      </div>
+      <div>
+        <div style="font-size:0.75rem;opacity:0.7;">Barrel</div>
+        <div style="font-size:1.2rem;font-weight:800;color:#f87171;">~3.8–4.5%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CROSS LINKS -->
+  <div class="related-links" style="padding:1.25rem;background:#f4f6f8;border-radius:6px;border:1px solid #e5e7eb;">
+    <div style="margin-bottom:1rem;">
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Premium Guides</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/premiums/premium-ranges" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Premium Ranges by Value</a>
+        <a href="/premiums/multi-horse-pricing" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Multi-Horse &amp; Barn Pricing</a>
+        <a href="/topic/how-much-does-horse-insurance-cost" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">How Much Does It Cost</a>
+      </div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Discipline Insurance Guides</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/disciplines/team-roping" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Team Roping</a>
+        <a href="/disciplines/cutting-horses" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Cutting Horses</a>
+        <a href="/disciplines/barrel-racing" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Barrel Racing</a>
+      </div>
+    </div>
+    <div>
+      <h3 style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin:0 0 0.5rem;font-weight:600;">Coverage Topics</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <a href="/topic/horse-insurance-exclusions" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Insurance Exclusions</a>
+        <a href="/topic/loss-of-use-horse-insurance" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Loss of Use Insurance</a>
+        <a href="/topic/major-medical-horse-insurance" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Major Medical Insurance</a>
+        <a href="/claims/which-policies-pay" style="font-size:0.85rem;color:#0b3c5d;background:#fff;border:1px solid #e5e7eb;padding:3px 10px;border-radius:20px;text-decoration:none;font-weight:500;">Which Policies Pay Claims</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">HorseInsurance.ai</div>
+      <p>Education-first equine insurance platform. We explain coverage, risk, and claims readiness — clearly and without sales pressure.</p>
+      <p class="footer-brand-detail">A Bridle &amp; Bit Magazine platform.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Coverage</h4>
+      <a href="/coverage/">All Coverage Types</a>
+      <a href="/coverage/mortality">Mortality</a>
+      <a href="/coverage/medical">Medical &amp; Surgical</a>
+      <a href="/coverage/loss-of-use">Loss of Use</a>
+      <a href="/coverage/liability">Liability</a>
+      <a href="/coverage/transit">Transit &amp; Shipping</a>
+      <a href="/coverage/breeding">Stallion &amp; Breeding</a>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <a href="/claims/">Claims Readiness</a>
+      <a href="/premiums/">Premiums &amp; Costs</a>
+      <a href="/disciplines/">By Discipline</a>
+      <a href="/qa/">Q&amp;A (200+)</a>
+      <a href="/glossary/">Glossary (100+)</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-col">
+      <h4>More</h4>
+      <a href="/loss-prevention/">Loss Prevention</a>
+      <a href="/ranch/">Ranch &amp; Home</a>
+      <a href="/before-you-buy/">Before You Buy</a>
+      <a href="/partner/">Partner Resources</a>
+      <a href="https://www.bridleandbit.com" target="_blank" rel="noopener">Bridle &amp; Bit Magazine</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    &copy; 2026 HorseInsurance.ai — A Bridle &amp; Bit Magazine Platform. All rights reserved.
+  </div>
+  <div class="footer-disclaimer">
+    <strong>Legal Disclaimer:</strong> HorseInsurance.ai is an independent educational platform operated by Bridle &amp; Bit Magazine. We do not sell insurance, represent any insurance carrier, provide coverage recommendations, or make claim determinations. Content is for educational purposes only and does not constitute insurance advice.
+  </div>
+</footer>
+<script>
+document.querySelector('.nav-toggle')?.addEventListener('click', function() {
+  document.querySelector('.main-nav').classList.toggle('open');
+});
+</script>
+</body>
+</html>
