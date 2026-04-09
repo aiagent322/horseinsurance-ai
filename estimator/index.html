@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horse Insurance Estimator — HorseInsurance.ai</title>
+<meta name="description" content="Estimate your annual horse insurance premium in under 2 minutes. Covers mortality, major medical, and liability for performance horses.">
+<link rel="canonical" href="https://horseinsurance.ai/estimator/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#0b3c5d">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="header-top">
+    <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
+    <button class="nav-toggle"
+      onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')"
+      aria-label="Toggle navigation" aria-expanded="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/companies/">Companies</a>
+    <a href="/agencies/">Agencies</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/claims/">Claims</a>
+    <a href="/qa/">Q&amp;A</a>
+    <a href="/estimator/" class="nav-active">Estimator</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="est-hero">
+  <div class="container">
+    <div class="est-hero-badge">FREE TOOL</div>
+    <h1>Horse Insurance Estimator</h1>
+    <p class="est-hero-sub">Get an estimated annual premium in under 2 minutes. No login. No sales calls. Just numbers.</p>
+  </div>
+</section>
+
+<!-- MAIN ESTIMATOR -->
+<main class="container est-main">
+
+  <div class="est-layout">
+
+    <!-- LEFT: FORM -->
+    <div class="est-form-col">
+
+      <!-- STEP 1: Horses -->
+      <div class="est-card" id="step-horses">
+        <div class="est-card-header">
+          <span class="est-step-num">1</span>
+          <h2>Your Horses</h2>
+        </div>
+        <p class="est-card-intro">Enter the number of horses and average value per discipline. Leave unused rows at zero.</p>
+
+        <div class="est-table-wrap">
+          <table class="est-table">
+            <thead>
+              <tr>
+                <th>Discipline</th>
+                <th># Horses</th>
+                <th>Avg Value ($)</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="disc-label rope">🤠 Rope</span></td>
+                <td><input id="ropeCount" type="number" min="0" max="99" value="0" aria-label="Rope horse count"></td>
+                <td><input id="ropeValue" type="number" min="0" step="500" value="0" aria-label="Rope average value"></td>
+                <td><span class="risk-badge risk-mod">Moderate</span></td>
+              </tr>
+              <tr>
+                <td><span class="disc-label barrel">🛢 Barrel</span></td>
+                <td><input id="barrelCount" type="number" min="0" max="99" value="0" aria-label="Barrel horse count"></td>
+                <td><input id="barrelValue" type="number" min="0" step="500" value="0" aria-label="Barrel average value"></td>
+                <td><span class="risk-badge risk-mod">Moderate</span></td>
+              </tr>
+              <tr>
+                <td><span class="disc-label cutting">✂️ Cutting</span></td>
+                <td><input id="cuttingCount" type="number" min="0" max="99" value="0" aria-label="Cutting horse count"></td>
+                <td><input id="cuttingValue" type="number" min="0" step="500" value="0" aria-label="Cutting average value"></td>
+                <td><span class="risk-badge risk-high">Higher</span></td>
+              </tr>
+              <tr>
+                <td><span class="disc-label reining">🏆 Reining</span></td>
+                <td><input id="reiningCount" type="number" min="0" max="99" value="0" aria-label="Reining horse count"></td>
+                <td><input id="reiningValue" type="number" min="0" step="500" value="0" aria-label="Reining average value"></td>
+                <td><span class="risk-badge risk-high">Higher</span></td>
+              </tr>
+              <tr>
+                <td><span class="disc-label pleasure">🐎 Pleasure</span></td>
+                <td><input id="pleasureCount" type="number" min="0" max="99" value="0" aria-label="Pleasure horse count"></td>
+                <td><input id="pleasureValue" type="number" min="0" step="500" value="0" aria-label="Pleasure average value"></td>
+                <td><span class="risk-badge risk-low">Lower</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="est-totals-row">
+          <span>Total horses: <strong id="totalHorses">0</strong></span>
+          <span>Total insured value: <strong id="totalValue">$0</strong></span>
+        </div>
+      </div>
+
+      <!-- STEP 2: Coverage -->
+      <div class="est-card" id="step-coverage">
+        <div class="est-card-header">
+          <span class="est-step-num">2</span>
+          <h2>Coverage Options</h2>
+        </div>
+
+        <div class="est-field-group">
+          <label for="coverage">Mortality Coverage Level</label>
+          <select id="coverage">
+            <option value="1.0">Full Insured Value (100%)</option>
+            <option value="0.8">80% of Insured Value</option>
+          </select>
+          <p class="est-field-hint">Full value pays the entire insured amount at loss. 80% reduces premium ~12%.</p>
+        </div>
+
+        <div class="est-field-group">
+          <label for="medical">Major Medical / Surgical</label>
+          <select id="medical">
+            <option value="0">None — Mortality only</option>
+            <option value="275">$10,000 limit — ~$275/horse/yr</option>
+            <option value="450">$15,000 limit — ~$450/horse/yr</option>
+            <option value="650">$20,000 limit — ~$650/horse/yr</option>
+          </select>
+          <p class="est-field-hint">Major medical covers colic surgery, fractures, and acute illness. Highly recommended for performance horses.</p>
+        </div>
+
+        <div class="est-field-group">
+          <label for="liability">Equine Liability</label>
+          <select id="liability">
+            <option value="0">None</option>
+            <option value="225">$500K limit — ~$225/yr</option>
+            <option value="375">$1M limit — ~$375/yr</option>
+            <option value="550">$2M limit — ~$550/yr</option>
+          </select>
+          <p class="est-field-hint">Covers bodily injury or property damage caused by your horses. Often required at show facilities.</p>
+        </div>
+
+        <div class="est-field-group">
+          <label for="location">State</label>
+          <select id="location">
+            <option value="1.0">Arizona</option>
+            <option value="1.0">California</option>
+            <option value="0.97">Colorado</option>
+            <option value="0.95">Idaho</option>
+            <option value="1.0">Nevada</option>
+            <option value="0.98">New Mexico</option>
+            <option value="0.97">Oregon</option>
+            <option value="1.03">Texas</option>
+            <option value="0.97">Utah</option>
+            <option value="0.98">Washington</option>
+            <option value="1.0">Other</option>
+          </select>
+          <p class="est-field-hint">State affects vet cost index and some underwriting factors.</p>
+        </div>
+      </div>
+
+      <!-- STEP 3: Horse Details -->
+      <div class="est-card" id="step-details">
+        <div class="est-card-header">
+          <span class="est-step-num">3</span>
+          <h2>Additional Factors</h2>
+        </div>
+
+        <div class="est-field-group">
+          <label for="ageRange">Average Age of Horses</label>
+          <select id="ageRange">
+            <option value="1.0">3–9 years (Prime)</option>
+            <option value="1.08">10–14 years</option>
+            <option value="1.18">15–19 years</option>
+            <option value="1.35">20+ years</option>
+            <option value="1.12">Under 3 years</option>
+          </select>
+        </div>
+
+        <div class="est-field-group">
+          <label for="competitive">Competition Level</label>
+          <select id="competitive">
+            <option value="1.0">Amateur / Local shows</option>
+            <option value="1.05">Regional / State level</option>
+            <option value="1.12">National / Pro level</option>
+          </select>
+        </div>
+
+      </div>
+
+    </div><!-- /est-form-col -->
+
+    <!-- RIGHT: RESULTS PANEL -->
+    <div class="est-results-col">
+      <div class="est-results-panel" id="resultsPanel">
+
+        <div class="est-results-header">
+          <h2>Estimated Premium</h2>
+          <p>Updates as you enter values</p>
+        </div>
+
+        <!-- Empty state -->
+        <div class="est-empty-state" id="emptyState">
+          <div class="est-empty-icon">🐴</div>
+          <p>Enter at least one horse above to see your estimate.</p>
+        </div>
+
+        <!-- Results -->
+        <div class="est-results-body" id="resultsBody" style="display:none">
+
+          <div class="est-premium-display">
+            <div class="est-premium-label">Annual Premium Range</div>
+            <div class="est-premium-range">
+              <span id="premiumLow">—</span>
+              <span class="est-premium-dash">–</span>
+              <span id="premiumHigh">—</span>
+            </div>
+            <div class="est-premium-monthly">≈ <span id="premiumMonthly">—</span> / month</div>
+          </div>
+
+          <div class="est-breakdown">
+            <h3>Breakdown</h3>
+            <table class="est-breakdown-table">
+              <tbody id="breakdownRows"></tbody>
+            </table>
+          </div>
+
+          <div class="est-disclaimer">
+            <strong>Important:</strong> This is an educational estimate only. Actual premiums vary by insurer, individual horse health history, vet records, and underwriting review. Get quotes from 2–3 agencies for accurate pricing.
+          </div>
+
+          <div class="est-cta-block">
+            <p>Ready for a real quote?</p>
+            <a href="/agencies/" class="est-btn-primary">Find an Equine Insurance Agency →</a>
+            <a href="/companies/" class="est-btn-secondary">View Insurance Companies</a>
+          </div>
+
+        </div><!-- /resultsBody -->
+
+      </div><!-- /resultsPanel -->
+
+      <!-- STICKY ON MOBILE -->
+      <div class="est-mobile-bar" id="mobileSummary" style="display:none">
+        <div class="est-mobile-bar-inner">
+          <span class="est-mobile-label">Estimated Annual:</span>
+          <span class="est-mobile-range" id="mobileRange">—</span>
+        </div>
+      </div>
+
+    </div><!-- /est-results-col -->
+
+  </div><!-- /est-layout -->
+
+  <!-- EDUCATION SECTION -->
+  <section class="est-edu">
+    <h2>How Equine Insurance Premiums Are Calculated</h2>
+    <div class="est-edu-grid">
+      <div class="est-edu-card">
+        <div class="est-edu-icon">📊</div>
+        <h3>Mortality Rate</h3>
+        <p>Most insurers price mortality at <strong>2.5%–4.5%</strong> of insured value annually. Performance horses typically land at 3%–3.5%. The rate reflects statistical loss ratios across thousands of horses.</p>
+      </div>
+      <div class="est-edu-card">
+        <div class="est-edu-icon">🏇</div>
+        <h3>Discipline Risk</h3>
+        <p>High-stress disciplines like cutting and reining carry higher risk due to intense athletic demand. Rope horses face trailer and arena hazards. Pleasure horses are typically the lowest risk category.</p>
+      </div>
+      <div class="est-edu-card">
+        <div class="est-edu-icon">🩺</div>
+        <h3>Major Medical</h3>
+        <p>Colic surgery alone can run $8,000–$15,000. Major medical coverage adds a flat per-horse premium regardless of value, making it one of the highest-value add-ons for working horses.</p>
+      </div>
+      <div class="est-edu-card">
+        <div class="est-edu-icon">📋</div>
+        <h3>Underwriting Factors</h3>
+        <p>Vet exam results, prior claims, age, and training history all affect your actual quote. Horses over 15 or under 3 typically face loading charges. Clean health histories can earn discounts.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="container">
+    <p>HorseInsurance.ai is an educational resource published by <a href="https://www.bridleandbit.com">Bridle &amp; Bit Magazine</a>. We are not an insurance agency and do not sell policies. Estimates are for educational purposes only.</p>
+    <p style="margin-top:8px"><a href="/">Home</a> · <a href="/qa/">Q&amp;A</a> · <a href="/agencies/">Agencies</a> · <a href="/estimator/">Estimator</a></p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
