@@ -587,6 +587,20 @@ img { max-width:100%; height:auto; display:block; }
 }
 .est-results-body { animation:fadeSlideIn 0.25s ease; }
 
+/* Results panel scroll guard on very small screens */
+@media(max-height: 600px) and (max-width: 767px) {
+  .est-results-panel {
+    max-height: 80vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* edu-grid: 2-col on medium, 3-col on large */
+@media(min-width:768px) and (max-width:1023px) {
+  .est-edu-grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+
 /* ═══════════════════════════════════════
    DISCOUNTS SECTION
    ═══════════════════════════════════════ */
@@ -613,7 +627,7 @@ img { max-width:100%; height:auto; display:block; }
   accent-color:var(--secondary);
   cursor:pointer;
 }
-.est-discount-item:has(input:checked) {
+.est-discount-item.is-checked {
   background:#f0f9ff;
   border-color:var(--secondary);
 }
