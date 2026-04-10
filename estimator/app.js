@@ -11,6 +11,7 @@
  * State index scalar
  * Medical add-on: flat per horse × count
  * Liability add-on: flat annual
+ * Discounts: stacked, capped at 30%
  *
  * Output: low/high range (±15% of midpoint to reflect market spread)
  */
@@ -26,24 +27,36 @@ const DISCIPLINES = [
   { id: 'pleasure', label: 'Pleasure Horses',rate: 0.0325, multiplier: 0.95 },
 ];
 
+// ── Discount config (ids match checkboxes in index.html) ─────
+const DISCOUNTS = [
+  { id: 'disc_multihorse',  pct: 0.10 },
+  { id: 'disc_largebarn',   pct: 0.05 },
+  { id: 'disc_association', pct: 0.10 },
+  { id: 'disc_claimsfree',  pct: 0.05 },
+  { id: 'disc_paidfull',    pct: 0.03 },
+  { id: 'disc_microchip',   pct: 0.02 },
+];
+const DISCOUNT_CAP = 0.30; // 30% max — realistic underwriting ceiling
+
 // ── DOM refs ─────────────────────────────────────────────────
 const els = {
-  coverage:    () => parseFloat(document.getElementById('coverage').value),
-  medical:     () => parseFloat(document.getElementById('medical').value),
-  liability:   () => parseFloat(document.getElementById('liability').value),
-  location:    () => parseFloat(document.getElementById('location').value),
-  ageRange:    () => parseFloat(document.getElementById('ageRange').value),
-  competitive: () => parseFloat(document.getElementById('competitive').value),
-  totalHorses: document.getElementById('totalHorses'),
-  totalValue:  document.getElementById('totalValue'),
-  emptyState:  document.getElementById('emptyState'),
-  resultsBody: document.getElementById('resultsBody'),
-  premiumLow:  document.getElementById('premiumLow'),
-  premiumHigh: document.getElementById('premiumHigh'),
+  coverage:      () => parseFloat(document.getElementById('coverage').value),
+  medical:       () => parseFloat(document.getElementById('medical').value),
+  liability:     () => parseFloat(document.getElementById('liability').value),
+  location:      () => parseFloat(document.getElementById('location').value),
+  ageRange:      () => parseFloat(document.getElementById('ageRange').value),
+  competitive:   () => parseFloat(document.getElementById('competitive').value),
+  totalHorses:   document.getElementById('totalHorses'),
+  totalValue:    document.getElementById('totalValue'),
+  emptyState:    document.getElementById('emptyState'),
+  resultsBody:   document.getElementById('resultsBody'),
+  premiumLow:    document.getElementById('premiumLow'),
+  premiumHigh:   document.getElementById('premiumHigh'),
   premiumMonthly: document.getElementById('premiumMonthly'),
   breakdownRows:  document.getElementById('breakdownRows'),
   mobileSummary:  document.getElementById('mobileSummary'),
   mobileRange:    document.getElementById('mobileRange'),
+  discountTotal:  document.getElementById('discountTotal'),
 };
 
 // ── Formatters ───────────────────────────────────────────────
@@ -64,15 +77,32 @@ function getDisciplineData() {
   });
 }
 
+// ── Get discount multiplier ───────────────────────────────────
+function getDiscountMultiplier() {
+  let totalDiscount = 0;
+  DISCOUNTS.forEach(d => {
+    const el = document.getElementById(d.id);
+    if (el && el.checked) totalDiscount += d.pct;
+  });
+  totalDiscount = Math.min(totalDiscount, DISCOUNT_CAP);
+  if (els.discountTotal) {
+    els.discountTotal.textContent = totalDiscount > 0
+      ? '−' + Math.round(totalDiscount * 100) + '%'
+      : '0%';
+  }
+  return 1 - totalDiscount;
+}
+
 // ── Core calculation ──────────────────────────────────────────
 function calculate() {
-  const data        = getDisciplineData();
-  const coverageLvl = els.coverage();
-  const medicalAdd  = els.medical();
-  const liabilityAdd= els.liability();
-  const locationIdx = els.location();
-  const ageFactor   = els.ageRange();
-  const compFactor  = els.competitive();
+  const data          = getDisciplineData();
+  const coverageLvl   = els.coverage();
+  const medicalAdd    = els.medical();
+  const liabilityAdd  = els.liability();
+  const locationIdx   = els.location();
+  const ageFactor     = els.ageRange();
+  const compFactor    = els.competitive();
+  const discountMult  = getDiscountMultiplier();
 
   let totalHorses = 0;
   let totalInsuredValue = 0;
@@ -89,9 +119,10 @@ function calculate() {
     disciplineBreakdown.push({ label: d.label, count: d.count, value: insuredValue, premium });
   });
 
-  const medicalPremium  = medicalAdd * totalHorses;
+  const medicalPremium   = medicalAdd * totalHorses;
   const liabilityPremium = liabilityAdd;
-  const totalMid = mortalityPremium + medicalPremium + liabilityPremium;
+  const subtotal         = mortalityPremium + medicalPremium + liabilityPremium;
+  const totalMid         = subtotal * discountMult;
 
   // Market spread ±15%
   const low  = totalMid * 0.85;
@@ -101,9 +132,9 @@ function calculate() {
   els.totalHorses.textContent = totalHorses;
   els.totalValue.textContent  = fmtFull(totalInsuredValue);
 
-  if (totalHorses === 0 || totalMid === 0) {
-    els.emptyState.style.display  = '';
-    els.resultsBody.style.display = 'none';
+  if (totalHorses === 0 || subtotal === 0) {
+    els.emptyState.style.display    = '';
+    els.resultsBody.style.display   = 'none';
     els.mobileSummary.style.display = 'none';
     return;
   }
@@ -112,8 +143,8 @@ function calculate() {
   els.emptyState.style.display  = 'none';
   els.resultsBody.style.display = '';
 
-  els.premiumLow.textContent  = fmtCurrency(low);
-  els.premiumHigh.textContent = fmtCurrency(high);
+  els.premiumLow.textContent     = fmtCurrency(low);
+  els.premiumHigh.textContent    = fmtCurrency(high);
   els.premiumMonthly.textContent = fmtCurrency(totalMid / 12);
 
   // Rebuild breakdown rows
@@ -130,7 +161,12 @@ function calculate() {
   if (liabilityPremium > 0) {
     rows += `<tr><td>Equine Liability</td><td>${fmtCurrency(liabilityPremium)}</td></tr>`;
   }
-  // Divider + total
+  // Show discount line if applied
+  const discountAmt = subtotal - totalMid;
+  if (discountAmt > 0) {
+    rows += `<tr><td>Discounts Applied</td><td style="color:var(--success)">−${fmtCurrency(discountAmt)}</td></tr>`;
+  }
+  // Total
   rows += `<tr>
     <td><strong>Estimated Total (midpoint)</strong></td>
     <td><strong>${fmtFull(totalMid)}/yr</strong></td>
@@ -145,14 +181,14 @@ function calculate() {
 
 // ── Event binding ─────────────────────────────────────────────
 function bindAll() {
-  // All number inputs
   document.querySelectorAll('input[type="number"]').forEach(el => {
     el.addEventListener('input', calculate);
     el.addEventListener('change', calculate);
   });
-
-  // All selects
   document.querySelectorAll('select').forEach(el => {
+    el.addEventListener('change', calculate);
+  });
+  document.querySelectorAll('input[type="checkbox"]').forEach(el => {
     el.addEventListener('change', calculate);
   });
 }
@@ -160,5 +196,5 @@ function bindAll() {
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   bindAll();
-  calculate(); // Initial render
+  calculate();
 });
