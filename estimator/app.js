@@ -12,7 +12,7 @@
  * Medical add-on: flat per horse × count
  * Liability add-on: flat annual
  *
- * Output: low/high range (±12% of midpoint to reflect market spread)
+ * Output: low/high range (±15% of midpoint to reflect market spread)
  */
 
 'use strict';
@@ -93,9 +93,9 @@ function calculate() {
   const liabilityPremium = liabilityAdd;
   const totalMid = mortalityPremium + medicalPremium + liabilityPremium;
 
-  // Market spread ±12%
-  const low  = totalMid * 0.88;
-  const high = totalMid * 1.12;
+  // Market spread ±15%
+  const low  = totalMid * 0.85;
+  const high = totalMid * 1.15;
 
   // Update summary totals
   els.totalHorses.textContent = totalHorses;
