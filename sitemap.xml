@@ -3,6 +3,7 @@
 
   <!-- Core -->
   <url><loc>https://horseinsurance.ai/</loc><lastmod>2026-04-09</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://horseinsurance.ai/estimator/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
 
   <!-- Coverage -->
   <url><loc>https://horseinsurance.ai/coverage/</loc><lastmod>2026-04-09</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
