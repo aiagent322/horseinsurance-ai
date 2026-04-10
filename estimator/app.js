@@ -43,48 +43,76 @@ const DISCOUNT_CAP = 0.30;
 
 // ── DOM refs ─────────────────────────────────────────────────
 const els = {
-  coverage:      () => parseFloat(document.getElementById('coverage').value),
-  medical:       () => parseFloat(document.getElementById('medical').value),
-  liability:     () => parseFloat(document.getElementById('liability').value),
-  location:      () => parseFloat(document.getElementById('location').value),
-  ageRange:      () => parseFloat(document.getElementById('ageRange').value),
-  competitive:   () => parseFloat(document.getElementById('competitive').value),
-  gender:        () => parseFloat(document.getElementById('gender').value),
-  ownership:     () => parseFloat(document.getElementById('ownership').value),
-  deductible:    () => parseFloat(document.getElementById('deductible').value),
-  lossofuse:     () => parseFloat(document.getElementById('lossofuse').value),
-  totalHorses:   document.getElementById('totalHorses'),
-  totalValue:    document.getElementById('totalValue'),
-  emptyState:    document.getElementById('emptyState'),
-  resultsBody:   document.getElementById('resultsBody'),
-  premiumLow:    document.getElementById('premiumLow'),
-  premiumHigh:   document.getElementById('premiumHigh'),
+  coverage:       () => parseFloat(document.getElementById('coverage').value),
+  medical:        () => parseFloat(document.getElementById('medical').value),
+  liability:      () => parseFloat(document.getElementById('liability').value),
+  location:       () => parseFloat(document.getElementById('location').value),
+  ageRange:       () => parseFloat(document.getElementById('ageRange').value),
+  competitive:    () => parseFloat(document.getElementById('competitive').value),
+  gender:         () => parseFloat(document.getElementById('gender').value),
+  ownership:      () => parseFloat(document.getElementById('ownership').value),
+  deductible:     () => parseFloat(document.getElementById('deductible').value),
+  lossofuse:      () => parseFloat(document.getElementById('lossofuse').value),
+  totalHorses:    document.getElementById('totalHorses'),
+  totalValue:     document.getElementById('totalValue'),
+  emptyState:     document.getElementById('emptyState'),
+  resultsBody:    document.getElementById('resultsBody'),
+  premiumLow:     document.getElementById('premiumLow'),
+  premiumHigh:    document.getElementById('premiumHigh'),
   premiumMonthly: document.getElementById('premiumMonthly'),
   breakdownRows:  document.getElementById('breakdownRows'),
   mobileSummary:  document.getElementById('mobileSummary'),
   mobileRange:    document.getElementById('mobileRange'),
   discountTotal:  document.getElementById('discountTotal'),
+  resultsPanel:   document.getElementById('resultsPanel'),
 };
 
 // ── Formatters ───────────────────────────────────────────────
 function fmtCurrency(n) {
-  if (n >= 1000) return '$' + (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  if (n >= 1000) {
+    const k = n / 1000;
+    return '$' + (k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)) + 'K';
+  }
   return '$' + Math.round(n).toLocaleString();
 }
 function fmtFull(n) {
   return '$' + Math.round(n).toLocaleString();
 }
 
+// ── Input validation ──────────────────────────────────────────
+function sanitizeCount(val) {
+  const n = parseInt(val) || 0;
+  return Math.max(0, Math.min(n, 99));
+}
+function sanitizeValue(val) {
+  const n = parseFloat(val) || 0;
+  return Math.max(0, Math.min(n, 10000000));
+}
+
 // ── Get discipline inputs ─────────────────────────────────────
 function getDisciplineData() {
   return DISCIPLINES.map(d => {
-    const count = parseInt(document.getElementById(d.id + 'Count').value) || 0;
-    const value = parseFloat(document.getElementById(d.id + 'Value').value) || 0;
-    return { ...d, count, value };
+    const countEl = document.getElementById(d.id + 'Count');
+    const valueEl = document.getElementById(d.id + 'Value');
+    const count = sanitizeCount(countEl ? countEl.value : 0);
+    const value = sanitizeValue(valueEl ? valueEl.value : 0);
+    // Only count horses that have both a count AND a value
+    return { ...d, count: (value > 0 ? count : 0), value };
   });
 }
 
-// ── Get discount multiplier ───────────────────────────────────
+// ── Discount logic ────────────────────────────────────────────
+function handleLargeBarnDependency(changedEl) {
+  // If large barn checked, auto-check multi-horse (dependency)
+  const multiHorse = document.getElementById('disc_multihorse');
+  const largeBarn  = document.getElementById('disc_largebarn');
+  if (!multiHorse || !largeBarn) return;
+  if (largeBarn.checked) {
+    multiHorse.checked = true;
+    multiHorse.closest('.est-discount-item').classList.add('is-checked');
+  }
+}
+
 function getDiscountMultiplier() {
   let totalDiscount = 0;
   DISCOUNTS.forEach(d => {
@@ -98,6 +126,32 @@ function getDiscountMultiplier() {
       : '0%';
   }
   return 1 - totalDiscount;
+}
+
+// ── JS fallback for :has() checkbox styling ───────────────────
+function syncCheckboxStyles() {
+  document.querySelectorAll('.est-discount-item').forEach(item => {
+    const cb = item.querySelector('input[type="checkbox"]');
+    if (cb) item.classList.toggle('is-checked', cb.checked);
+  });
+}
+
+// ── Mobile bar visibility ─────────────────────────────────────
+function updateMobileBarVisibility(hasPremium) {
+  if (!hasPremium) {
+    els.mobileSummary.style.display = 'none';
+    return;
+  }
+  const panel = els.resultsPanel;
+  if (!panel) { els.mobileSummary.style.display = ''; return; }
+  const rect = panel.getBoundingClientRect();
+  const panelVisible = rect.top < window.innerHeight && rect.bottom > 0;
+  // On mobile breakpoint only (< 768px)
+  if (window.innerWidth < 768) {
+    els.mobileSummary.style.display = panelVisible ? 'none' : '';
+  } else {
+    els.mobileSummary.style.display = 'none';
+  }
 }
 
 // ── Core calculation ──────────────────────────────────────────
@@ -115,6 +169,8 @@ function calculate() {
   const louRate       = els.lossofuse();
   const discountMult  = getDiscountMultiplier();
 
+  syncCheckboxStyles();
+
   let totalHorses = 0;
   let totalInsuredValue = 0;
   let mortalityPremium = 0;
@@ -131,13 +187,13 @@ function calculate() {
     disciplineBreakdown.push({ label: d.label, count: d.count, insuredValue, premium });
   });
 
-  // Medical: flat per horse, adjusted by deductible scalar
-  const medicalPremium   = medicalAdd * totalHorses * deductibleScl;
+  // Medical: only applied when a medical option is selected, scaled by deductible
+  const medicalPremium = medicalAdd > 0 ? medicalAdd * totalHorses * deductibleScl : 0;
 
   // Loss of Use: rate × total insured value
-  const louPremium       = louRate * totalInsuredValue;
+  const louPremium = louRate * totalInsuredValue;
 
-  // Liability: flat annual, scaled by operation type
+  // Liability: flat annual, scaled 35% higher for commercial operations
   const liabilityPremium = liabilityAdd * (ownerFactor > 1.0 ? 1.35 : 1.0);
 
   const subtotal = mortalityPremium + medicalPremium + louPremium + liabilityPremium;
@@ -152,9 +208,9 @@ function calculate() {
   els.totalValue.textContent  = fmtFull(totalInsuredValue);
 
   if (totalHorses === 0 || subtotal === 0) {
-    els.emptyState.style.display    = '';
-    els.resultsBody.style.display   = 'none';
-    els.mobileSummary.style.display = 'none';
+    els.emptyState.style.display  = '';
+    els.resultsBody.style.display = 'none';
+    updateMobileBarVisibility(false);
     return;
   }
 
@@ -180,23 +236,17 @@ function calculate() {
   if (liabilityPremium > 0) {
     rows += `<tr><td>Equine Liability</td><td>${fmtCurrency(liabilityPremium)}</td></tr>`;
   }
-
-  // Show discount line if applied
   const discountAmt = subtotal - totalMid;
-  if (discountAmt > 0) {
+  if (discountAmt > 0.5) {
     rows += `<tr><td>Discounts Applied</td><td style="color:var(--success)">−${fmtCurrency(discountAmt)}</td></tr>`;
   }
-
-  // Total
   rows += `<tr>
     <td><strong>Estimated Total (midpoint)</strong></td>
     <td><strong>${fmtFull(totalMid)}/yr</strong></td>
   </tr>`;
 
   els.breakdownRows.innerHTML = rows;
-
-  // Mobile bar
-  els.mobileSummary.style.display = '';
+  updateMobileBarVisibility(true);
   els.mobileRange.textContent = fmtCurrency(low) + ' – ' + fmtCurrency(high);
 }
 
@@ -210,8 +260,20 @@ function bindAll() {
     el.addEventListener('change', calculate);
   });
   document.querySelectorAll('input[type="checkbox"]').forEach(el => {
-    el.addEventListener('change', calculate);
+    el.addEventListener('change', e => {
+      if (e.target.id === 'disc_largebarn') handleLargeBarnDependency(e.target);
+      calculate();
+    });
   });
+  // Mobile bar: hide when results panel scrolls into view
+  window.addEventListener('scroll', () => {
+    const hasPremium = els.resultsBody && els.resultsBody.style.display !== 'none';
+    updateMobileBarVisibility(hasPremium);
+  }, { passive: true });
+  window.addEventListener('resize', () => {
+    const hasPremium = els.resultsBody && els.resultsBody.style.display !== 'none';
+    updateMobileBarVisibility(hasPremium);
+  }, { passive: true });
 }
 
 // ── Init ──────────────────────────────────────────────────────
