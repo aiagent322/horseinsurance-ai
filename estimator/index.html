@@ -200,6 +200,78 @@
 
       </div>
 
+      <!-- STEP 4: Discounts -->
+      <div class="est-card" id="step-discounts">
+        <div class="est-card-header">
+          <span class="est-step-num">4</span>
+          <h2>Available Discounts</h2>
+        </div>
+        <p class="est-card-intro">Check all that apply. Based on real underwriting credits from major equine carriers (Markel, Great American, Broadstone).</p>
+
+        <div class="est-discount-grid">
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_multihorse" value="0.10">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Multi-Horse Policy (5–19 horses)</span>
+              <span class="est-discount-pct">−10%</span>
+              <span class="est-discount-desc">Carriers including Markel and Great American apply 10–20% credits for barn accounts. We use the conservative floor.</span>
+            </div>
+          </label>
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_largebarn" value="0.05">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Large Barn (20+ horses)</span>
+              <span class="est-discount-pct">Additional −5%</span>
+              <span class="est-discount-desc">Stacked on top of the multi-horse credit. Major underwriters extend additional volume discounts at 20+ insured horses on one policy.</span>
+            </div>
+          </label>
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_association" value="0.10">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Association Member (AQHA, APHA, NCHA, NRHA, AHC, etc.)</span>
+              <span class="est-discount-pct">−10%</span>
+              <span class="est-discount-desc">Markel offers a verified 10% association credit on equine and farm policies for members of recognized breed or equine organizations.</span>
+            </div>
+          </label>
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_claimsfree" value="0.05">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Claims-Free 3+ Years</span>
+              <span class="est-discount-pct">−5%</span>
+              <span class="est-discount-desc">No mortality or major medical claims in the past 3 policy years. Underwriter discretionary credit — commonly applied at renewal by most carriers.</span>
+            </div>
+          </label>
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_paidfull" value="0.03">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Paid in Full (Annual Premium)</span>
+              <span class="est-discount-pct">−3%</span>
+              <span class="est-discount-desc">Paying the full annual premium upfront vs. monthly installments. Standard credit offered by most equine carriers.</span>
+            </div>
+          </label>
+
+          <label class="est-discount-item">
+            <input type="checkbox" id="disc_microchip" value="0.02">
+            <div class="est-discount-body">
+              <span class="est-discount-name">Microchipped / Freeze Branded</span>
+              <span class="est-discount-pct">−2%</span>
+              <span class="est-discount-desc">Permanent identification reduces theft exposure and speeds claims processing. Some carriers apply a small premium credit for documented ID.</span>
+            </div>
+          </label>
+
+        </div>
+
+        <div class="est-discount-total-row">
+          Total discount applied: <strong id="discountTotal">0%</strong>
+        </div>
+
+      </div>
+
     </div><!-- /est-form-col -->
 
     <!-- RIGHT: RESULTS PANEL -->
@@ -303,3 +375,4 @@
 <script src="app.js"></script>
 </body>
 </html>
+
