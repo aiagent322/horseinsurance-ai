@@ -8,8 +8,11 @@
  * Coverage level scalar (100% or 80%)
  * Age loading factor
  * Competition loading factor
+ * Gender loading factor (stallions +18%)
+ * Operation type (commercial +22%)
  * State index scalar
- * Medical add-on: flat per horse × count
+ * Medical add-on: flat per horse × count, adjusted by deductible scalar
+ * Loss of Use add-on: rate × total insured value
  * Liability add-on: flat annual
  * Discounts: stacked, capped at 30%
  *
@@ -27,7 +30,7 @@ const DISCIPLINES = [
   { id: 'pleasure', label: 'Pleasure Horses',rate: 0.0325, multiplier: 0.95 },
 ];
 
-// ── Discount config (ids match checkboxes in index.html) ─────
+// ── Discount config ──────────────────────────────────────────
 const DISCOUNTS = [
   { id: 'disc_multihorse',  pct: 0.10 },
   { id: 'disc_largebarn',   pct: 0.05 },
@@ -36,7 +39,7 @@ const DISCOUNTS = [
   { id: 'disc_paidfull',    pct: 0.03 },
   { id: 'disc_microchip',   pct: 0.02 },
 ];
-const DISCOUNT_CAP = 0.30; // 30% max — realistic underwriting ceiling
+const DISCOUNT_CAP = 0.30;
 
 // ── DOM refs ─────────────────────────────────────────────────
 const els = {
@@ -46,6 +49,10 @@ const els = {
   location:      () => parseFloat(document.getElementById('location').value),
   ageRange:      () => parseFloat(document.getElementById('ageRange').value),
   competitive:   () => parseFloat(document.getElementById('competitive').value),
+  gender:        () => parseFloat(document.getElementById('gender').value),
+  ownership:     () => parseFloat(document.getElementById('ownership').value),
+  deductible:    () => parseFloat(document.getElementById('deductible').value),
+  lossofuse:     () => parseFloat(document.getElementById('lossofuse').value),
   totalHorses:   document.getElementById('totalHorses'),
   totalValue:    document.getElementById('totalValue'),
   emptyState:    document.getElementById('emptyState'),
@@ -102,6 +109,10 @@ function calculate() {
   const locationIdx   = els.location();
   const ageFactor     = els.ageRange();
   const compFactor    = els.competitive();
+  const genderFactor  = els.gender();
+  const ownerFactor   = els.ownership();
+  const deductibleScl = els.deductible();
+  const louRate       = els.lossofuse();
   const discountMult  = getDiscountMultiplier();
 
   let totalHorses = 0;
@@ -114,15 +125,23 @@ function calculate() {
     totalHorses += d.count;
     const insuredValue = d.count * d.value * coverageLvl;
     totalInsuredValue += insuredValue;
-    const premium = insuredValue * d.rate * d.multiplier * ageFactor * compFactor * locationIdx;
+    const premium = insuredValue * d.rate * d.multiplier
+                    * ageFactor * compFactor * genderFactor * ownerFactor * locationIdx;
     mortalityPremium += premium;
-    disciplineBreakdown.push({ label: d.label, count: d.count, value: insuredValue, premium });
+    disciplineBreakdown.push({ label: d.label, count: d.count, insuredValue, premium });
   });
 
-  const medicalPremium   = medicalAdd * totalHorses;
-  const liabilityPremium = liabilityAdd;
-  const subtotal         = mortalityPremium + medicalPremium + liabilityPremium;
-  const totalMid         = subtotal * discountMult;
+  // Medical: flat per horse, adjusted by deductible scalar
+  const medicalPremium   = medicalAdd * totalHorses * deductibleScl;
+
+  // Loss of Use: rate × total insured value
+  const louPremium       = louRate * totalInsuredValue;
+
+  // Liability: flat annual, scaled by operation type
+  const liabilityPremium = liabilityAdd * (ownerFactor > 1.0 ? 1.35 : 1.0);
+
+  const subtotal = mortalityPremium + medicalPremium + louPremium + liabilityPremium;
+  const totalMid = subtotal * discountMult;
 
   // Market spread ±15%
   const low  = totalMid * 0.85;
@@ -150,22 +169,24 @@ function calculate() {
   // Rebuild breakdown rows
   let rows = '';
   disciplineBreakdown.forEach(d => {
-    rows += `<tr>
-      <td>${d.label} (${d.count})</td>
-      <td>${fmtCurrency(d.premium)}</td>
-    </tr>`;
+    rows += `<tr><td>${d.label} (${d.count})</td><td>${fmtCurrency(d.premium)}</td></tr>`;
   });
   if (medicalPremium > 0) {
     rows += `<tr><td>Major Medical / Surgical</td><td>${fmtCurrency(medicalPremium)}</td></tr>`;
   }
+  if (louPremium > 0) {
+    rows += `<tr><td>Loss of Use</td><td>${fmtCurrency(louPremium)}</td></tr>`;
+  }
   if (liabilityPremium > 0) {
     rows += `<tr><td>Equine Liability</td><td>${fmtCurrency(liabilityPremium)}</td></tr>`;
   }
+
   // Show discount line if applied
   const discountAmt = subtotal - totalMid;
   if (discountAmt > 0) {
     rows += `<tr><td>Discounts Applied</td><td style="color:var(--success)">−${fmtCurrency(discountAmt)}</td></tr>`;
   }
+
   // Total
   rows += `<tr>
     <td><strong>Estimated Total (midpoint)</strong></td>
