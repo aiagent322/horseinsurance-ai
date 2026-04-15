@@ -615,39 +615,7 @@ img { max-width:100%; height:auto; display:block; }
 }
 .disclaimer-banner strong { color:var(--text); }
 
-/* ═══════════════════════════════════════
-   ROTATING AD BANNER — mobile-first leaderboard
-   ═══════════════════════════════════════ */
-.ad-rotator {
-  width:100%; max-width:var(--max-w);
-  margin:0 auto; padding:6px 16px 8px;
-  position:relative;
-}
-.ad-rotator-inner {
-  display:flex; justify-content:center;
-  position:relative; width:100%; overflow:hidden;
-}
-.ad-slide {
-  display:none;
-}
-.ad-slide.active { display:block; }
-.ad-slide img {
-  display:block;
-  width:100%; max-width:320px; height:auto; aspect-ratio:320/100;
-  cursor:pointer;
-  border-radius:var(--radius);
-}
-.ad-slide a { display:block; line-height:0; }
-.ad-dots {
-  display:none;
-}
-.ad-dot {
-  width:5px; height:5px; border-radius:50%;
-  background:var(--border); cursor:pointer;
-  transition:background var(--transition);
-  border:none; padding:0;
-}
-.ad-dot.active { background:var(--primary); }
+
 
 /* ═══════════════════════════════════════
    BACK TO TOP
@@ -900,38 +868,7 @@ img { max-width:100%; height:auto; display:block; }
   </div>
 </div>
 
-<div class="ad-rotator" id="ad-rotator">
-  <div class="ad-rotator-inner">
-    <div class="ad-slide active" data-index="0">
-      <a href="https://podcastcorral.com" target="_blank" rel="noopener">
-        <img width="320" height="100" src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/horseinsurance-ad-banner-0/public" alt="Podcast Corral — The 100 Best Horse Podcasts" loading="lazy">
-      </a>
-    </div>
-    <div class="ad-slide" data-index="1">
-      <a href="https://www.handlebarj.com" target="_blank" rel="noopener">
-        <img width="320" height="100" src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/horseinsurance-ad-banner-1/public" alt="Handlebar J — Scottsdale's Original Rib House" loading="lazy">
-      </a>
-    </div>
-    <div class="ad-slide" data-index="2">
-      <a href="https://www.gourmetbeef.com" target="_blank" rel="noopener">
-        <img width="320" height="100" src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/horseinsurance-ad-banner-2/public" alt="K4 Gourmet Beef — Prescott, AZ" loading="lazy">
-      </a>
-    </div>
-    <div class="ad-slide" data-index="3">
-      <a href="https://www.blackangus.com" target="_blank" rel="noopener">
-        <img width="320" height="100" src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/horseinsurance-ad-banner-3/public" alt="Black Angus Steakhouse" loading="lazy">
-      </a>
-    </div>
-    </div>
-  <div class="ad-dots" id="ad-dots">
-    <button class="ad-dot active" onclick="adGoTo(0)" aria-label="Ad 1"></button>
-    <button class="ad-dot" onclick="adGoTo(1)" aria-label="Ad 2"></button>
-    <button class="ad-dot" onclick="adGoTo(2)" aria-label="Ad 3"></button>
-    <button class="ad-dot" onclick="adGoTo(3)" aria-label="Ad 4"></button>
-    <button class="ad-dot" onclick="adGoTo(4)" aria-label="Ad 5"></button>
-  </div>
-  <div class="ad-label" style="display:none">Advertisement</div>
-</div>
+
 
 
 <section class="content-section" id="coverage" style="padding-top:10px;">
@@ -1091,8 +1028,6 @@ document.addEventListener('click',function(e){var n=document.querySelector('.mai
 // Header height
 (function(){function u(){var h=document.querySelector('.site-header');if(h)document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px')}u();window.addEventListener('resize',u,{passive:true})})();
 
-// Ad rotator
-(function(){var slides=document.querySelectorAll('.ad-slide');var dots=document.querySelectorAll('.ad-dot');if(!slides.length)return;var current=0;var total=slides.length;var timer;function adGoTo(n){slides[current].classList.remove('active');if(dots[current])dots[current].classList.remove('active');current=(n+total)%total;slides[current].classList.add('active');if(dots[current])dots[current].classList.add('active')}window.adGoTo=adGoTo;function startRotator(){timer=setInterval(function(){adGoTo(current+1)},5000)}var rotator=document.getElementById('ad-rotator');if(rotator){rotator.addEventListener('mouseenter',function(){clearInterval(timer)});rotator.addEventListener('mouseleave',startRotator);rotator.addEventListener('touchstart',function(){clearInterval(timer)},{passive:true});rotator.addEventListener('touchend',function(){startRotator()},{passive:true})}startRotator()})();
 
 </script>
 </body>
