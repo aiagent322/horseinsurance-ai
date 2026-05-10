@@ -3,7 +3,7 @@
   X-Content-Type-Options: nosniff
 
 /*.html
-  Cache-Control: public, max-age=3600, s-maxage=86400
+  Cache-Control: no-cache, must-revalidate
 
 /*.css
   Cache-Control: public, max-age=31536000, immutable
