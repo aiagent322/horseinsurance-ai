@@ -691,6 +691,7 @@ img { max-width:100%; height:auto; display:block; }
   .container { padding:0 24px; }
   .header-top { padding:8px 24px; }
   .site-logo { font-size:1.15rem; }
+  .bb-logo-link { display:block !important; }
   .hero { padding:32px 24px 24px; }
   .hero h1 { font-size:1.85rem; max-width:680px; }
   .hero-sub { font-size:0.95rem; max-width:620px; line-height:1.4; }
@@ -811,9 +812,14 @@ img { max-width:100%; height:auto; display:block; }
 <header class="site-header">
   <div class="header-top">
     <a href="/" class="site-logo" style="text-decoration:none">HorseInsurance<span>.ai</span></a>
-    <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="https://www.bridleandbit.com" target="_blank" rel="noopener noreferrer" class="bb-logo-link" style="display:none;line-height:0;">
+        <img src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/bb-hp-0/public" alt="Bridle &amp; Bit Magazine" style="height:32px;width:auto;filter:brightness(0);">
+      </a>
+      <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
   </div>
   <nav class="main-nav">
     <a href="/coverage/">Coverage</a>
