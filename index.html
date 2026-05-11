@@ -295,7 +295,7 @@ img { max-width:100%; height:auto; display:block; }
 .card-icon.gold { background:rgba(184,134,11,0.1); color:var(--gold); }
 .card-icon.green { background:rgba(4,120,87,0.1); color:var(--success); }
 .card-icon.red { background:rgba(185,28,28,0.1); color:var(--danger); }
-.card h2, .card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; }
+.card h2, .card h3 { font-size:1rem; color:var(--primary); margin-bottom:6px; overflow-wrap:break-word; word-break:break-word; }
 .card p { font-size:0.88rem; color:var(--text-mid); line-height:1.6; }
 /* Cards go 2-col at 500px — gives each card enough width for readable text */
 @media(min-width:500px) {
@@ -580,8 +580,9 @@ img { max-width:100%; height:auto; display:block; }
 .glossary-term:hover { box-shadow:var(--shadow-sm); }
 .glossary-term dt {
   font-weight:700; color:var(--primary); font-size:0.9rem; margin-bottom:3px;
+  overflow-wrap:break-word; word-break:break-word;
 }
-.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
+.glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; overflow-wrap:break-word; }
 .glossary-tag {
   display:inline-block; font-size:0.7rem; text-transform:uppercase;
   letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
