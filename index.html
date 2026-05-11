@@ -88,11 +88,10 @@ img { max-width:100%; height:auto; display:block; }
 .hero-sub-short { display:block; }
 
 /* ── Phone: tighter body font for very small screens ── */
-@media(max-width:359px) {
-  body { font-size:15px; }
-  .hero h1 { font-size:1.3rem; }
-  .hero-btn { font-size:0.72rem; padding:7px 8px; }
-  .container { padding:0 12px; }
+/* Base styles already handle small screens */
+@media(min-width:360px) {
+  body { font-size:16px; }
+  .hero-btn { font-size:0.78rem; padding:8px 10px; }
 }
 
 /* ── Focus styles — keyboard navigation ── */
@@ -144,8 +143,8 @@ img { max-width:100%; height:auto; display:block; }
   padding:8px; min-width:44px; min-height:44px;
 }
 .nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
-.bb-logo-link { display:flex; align-items:center; line-height:0; }
-@media(max-width:599px) { .bb-logo-link { display:none; } }
+.bb-logo-link { display:none; align-items:center; line-height:0; }
+@media(min-width:600px) { .bb-logo-link { display:flex; } }
 .main-nav {
   display:none; flex-direction:column; padding:4px 16px 12px; gap:2px;
   border-top:1px solid var(--border-light);
@@ -199,7 +198,7 @@ img { max-width:100%; height:auto; display:block; }
   padding:8px 10px; border-radius:var(--radius);
   font-size:0.78rem; font-weight:600; color:#fff;
   text-decoration:none; transition: background var(--transition), border-color var(--transition), transform var(--transition);
-  min-height:40px;
+  min-height:44px;
 }
 .hero-btn:hover {
   background:#d42d38; border-color:rgba(255,255,255,0.5);
@@ -321,7 +320,7 @@ img { max-width:100%; height:auto; display:block; }
 .deep-dive-header:hover { background:var(--bg-alt); }
 .deep-dive-header h3 { font-size:0.95rem; color:var(--primary); margin:0; line-height:1.35; }
 .deep-dive-header .tag {
-  font-size:0.67rem; text-transform:uppercase; letter-spacing:0.06em;
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em;
   padding:2px 6px; border-radius:3px; font-weight:700;
   background:rgba(29,111,165,0.1); color:var(--secondary);
   flex-shrink:0; white-space:nowrap;
@@ -417,7 +416,7 @@ img { max-width:100%; height:auto; display:block; }
 .qa-question:hover { background:var(--bg-alt); }
 .qa-question > span:first-child { flex:1; line-height:1.4; }
 .qa-question .qa-cat {
-  font-size:0.67rem; background:var(--bg-alt); color:var(--text-light);
+  font-size:0.7rem; background:var(--bg-alt); color:var(--text-light);
   padding:2px 6px; border-radius:3px; white-space:nowrap;
   text-transform:uppercase; letter-spacing:0.04em; font-weight:600;
   flex-shrink:0; margin-top:3px;
@@ -484,7 +483,7 @@ img { max-width:100%; height:auto; display:block; }
   text-transform:uppercase; letter-spacing:0.04em;
 }
 .blog-card-tag {
-  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  font-size:0.7rem; font-weight:700; text-transform:uppercase;
   letter-spacing:0.05em; padding:2px 7px; border-radius:3px;
   background:rgba(29,111,165,0.1); color:var(--secondary);
 }
@@ -514,7 +513,7 @@ img { max-width:100%; height:auto; display:block; }
 }
 .blog-featured-label {
   display:inline-block; background:var(--primary); color:#fff;
-  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  font-size:0.7rem; font-weight:700; text-transform:uppercase;
   letter-spacing:0.06em; padding:3px 10px; border-radius:0 0 var(--radius) 0;
 }
 .blog-cta {
@@ -582,7 +581,7 @@ img { max-width:100%; height:auto; display:block; }
 }
 .glossary-term dd { font-size:0.85rem; color:var(--text-mid); line-height:1.6; }
 .glossary-tag {
-  display:inline-block; font-size:0.65rem; text-transform:uppercase;
+  display:inline-block; font-size:0.7rem; text-transform:uppercase;
   letter-spacing:0.05em; padding:1px 5px; border-radius:3px;
   margin-left:4px; font-weight:700; vertical-align:middle;
 }
@@ -661,7 +660,7 @@ img { max-width:100%; height:auto; display:block; }
   display:flex; align-items:center;
   color:rgba(255,255,255,0.75); font-size:0.86rem;
   padding:6px 0; transition:color var(--transition);
-  min-height:40px; /* touch-friendly footer links */
+  min-height:44px; /* touch-friendly footer links */
 }
 .footer-col a:hover { color:#fff; text-decoration:none; }
 .footer-bottom {
@@ -797,7 +796,7 @@ img { max-width:100%; height:auto; display:block; }
   .glossary-term { padding:16px 20px; }
   .glossary-term dt { font-size:0.95rem; }
   .glossary-term dd { font-size:0.9rem; }
-  .glossary-tag { font-size:0.62rem; }
+  .glossary-tag { font-size:0.7rem; }
 
   .callout { padding:16px 20px; font-size:0.93rem; }
   .disclaimer-banner { padding:20px 24px; font-size:0.88rem; }
