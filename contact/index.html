@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | HorseInsurance.ai</title>
+  <meta name="description" content="Contact the HorseInsurance.ai team with questions about horse insurance coverage, mortality, medical, liability, and farm & ranch policies.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --primary: #0b3c5d;
+      --primary-light: #144e78;
+      --secondary: #1d6fa5;
+      --accent: #2a8fd4;
+      --gold: #b8860b;
+      --bg: #ffffff;
+      --bg-alt: #f4f6f8;
+      --text: #1f2933;
+      --text-mid: #4a5568;
+      --text-light: #6b7280;
+      --border: #e5e7eb;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+      --radius: 6px;
+      --max-w: 1100px;
+    }
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+
+    /* ── HEADER ── */
+    .site-header {
+      background:#fff; border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:100;
+      box-shadow: var(--shadow-sm);
+    }
+    .header-top {
+      display:flex; justify-content:space-between; align-items:center;
+      max-width:var(--max-w); margin:0 auto; padding:8px 16px;
+    }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .site-logo { font-weight:800; font-size:1.05rem; color:var(--primary); letter-spacing:-0.02em; text-decoration:none; }
+    .site-logo span { color:var(--secondary); }
+    .contact-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      background:var(--primary); color:#fff;
+      border:none; border-radius:var(--radius);
+      padding:7px 14px; font-size:0.8rem; font-weight:600;
+      cursor:pointer; text-decoration:none;
+      transition:background 0.2s;
+    }
+    .contact-btn:hover { background:var(--primary-light); }
+    .nav-toggle {
+      display:flex; align-items:center; justify-content:center;
+      background:none; border:none; cursor:pointer;
+      padding:8px; min-width:44px; min-height:44px;
+    }
+    .nav-toggle svg { width:24px; height:24px; stroke:var(--text); }
+    .main-nav {
+      display:none; flex-direction:column;
+      background:#fff; border-top:1px solid var(--border);
+    }
+    .main-nav.open { display:flex; }
+    .main-nav a {
+      padding:12px 16px; color:var(--text); text-decoration:none;
+      font-size:0.9rem; border-bottom:1px solid var(--border-light);
+    }
+    .main-nav a:hover { background:var(--bg-alt); color:var(--primary); }
+    .main-nav a.active { background:var(--primary); color:#fff; }
+    @media(min-width:900px){
+      .main-nav { display:flex; flex-direction:row; border-top:none; border-bottom:1px solid var(--border); justify-content:center; }
+      .main-nav a { border-bottom:none; padding:8px 14px; font-size:0.85rem; }
+      .nav-toggle { display:none; }
+    }
+
+    /* ── PAGE ── */
+    .page-hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color:#fff; padding:48px 16px 40px;
+      text-align:center;
+    }
+    .page-hero h1 { font-size:clamp(1.6rem,4vw,2.4rem); font-weight:800; margin-bottom:8px; }
+    .page-hero p { font-size:1rem; opacity:0.85; max-width:520px; margin:0 auto; }
+
+    .contact-wrap {
+      max-width:640px; margin:48px auto 64px; padding:0 16px;
+    }
+
+    .contact-card {
+      background:#fff; border:1px solid var(--border);
+      border-radius:10px; padding:32px;
+      box-shadow:var(--shadow-md);
+    }
+
+    .form-group { margin-bottom:20px; }
+    .form-group label {
+      display:block; font-size:0.85rem; font-weight:600;
+      color:var(--text); margin-bottom:6px;
+    }
+    .form-group label .req { color:var(--accent); margin-left:2px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width:100%; padding:10px 12px;
+      border:1px solid var(--border); border-radius:var(--radius);
+      font-size:0.95rem; color:var(--text);
+      background:#fff; transition:border-color 0.2s;
+      font-family:inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline:none; border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(42,143,212,0.12);
+    }
+    .form-group textarea { resize:vertical; min-height:130px; }
+
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:520px){ .form-row { grid-template-columns:1fr; } }
+
+    .submit-btn {
+      width:100%; padding:13px;
+      background:var(--primary); color:#fff;
+      border:none; border-radius:var(--radius);
+      font-size:1rem; font-weight:700; cursor:pointer;
+      transition:background 0.2s;
+      margin-top:4px;
+    }
+    .submit-btn:hover:not(:disabled) { background:var(--primary-light); }
+    .submit-btn:disabled { opacity:0.6; cursor:not-allowed; }
+
+    .form-msg {
+      display:none; margin-top:16px; padding:14px 16px;
+      border-radius:var(--radius); font-size:0.9rem; font-weight:500;
+    }
+    .form-msg.success { display:block; background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; }
+    .form-msg.error   { display:block; background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+
+    .info-strip {
+      display:flex; gap:24px; flex-wrap:wrap;
+      justify-content:center; margin-bottom:32px;
+      font-size:0.85rem; color:var(--text-mid);
+    }
+    .info-strip span { display:flex; align-items:center; gap:6px; }
+
+    /* ── FOOTER ── */
+    footer {
+      background:var(--primary); color:rgba(255,255,255,0.7);
+      text-align:center; padding:20px 16px; font-size:0.8rem;
+    }
+    footer a { color:rgba(255,255,255,0.85); text-decoration:none; }
+    footer a:hover { color:#fff; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-top">
+    <div class="header-left">
+      <a href="/contact/" class="contact-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Contact Us
+      </a>
+      <a href="/" class="site-logo">HorseInsurance<span>.ai</span></a>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="https://www.bridleandbit.com" target="_blank" rel="noopener noreferrer">
+        <img src="https://imagedelivery.net/9VlM7Y9GaQMXOu5Ypg50yA/bb-logo-black-v2/public" alt="Bridle &amp; Bit Magazine" style="height:32px;width:auto;">
+      </a>
+      <button class="nav-toggle" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true');document.querySelector('.main-nav').classList.toggle('open')" aria-label="Toggle navigation" aria-expanded="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="main-nav">
+    <a href="/coverage/">Coverage</a>
+    <a href="/companies/">Companies</a>
+    <a href="/agencies/">Agencies</a>
+    <a href="/disciplines/">Disciplines</a>
+    <a href="/claims/">Claims</a>
+    <a href="/qa/">Q&amp;A</a>
+    <a href="/estimator/">Estimator</a>
+    <a href="https://www.bridleandbit.com" target="_blank" rel="noopener">Bridle &amp; Bit</a>
+  </nav>
+</header>
+
+<section class="page-hero">
+  <h1>Contact Us</h1>
+  <p>Questions about horse insurance coverage, policies, or how to get started? We're here to help.</p>
+</section>
+
+<div class="contact-wrap">
+
+  <div class="info-strip">
+    <span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Typically responds within 24 hours
+    </span>
+    <span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Your info is never sold or shared
+    </span>
+  </div>
+
+  <div class="contact-card">
+    <form id="contactForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="name">Name <span class="req">*</span></label>
+          <input type="text" id="name" name="name" placeholder="Your name" required>
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="email">Email <span class="req">*</span></label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label for="subject">Subject <span class="req">*</span></label>
+        <select id="subject" name="subject" required>
+          <option value="">Select a topic…</option>
+          <option>Horse Mortality Insurance</option>
+          <option>Major Medical Coverage</option>
+          <option>Liability Insurance</option>
+          <option>Farm &amp; Ranch Policy</option>
+          <option>Coverage Question</option>
+          <option>Finding an Agent</option>
+          <option>Claims Question</option>
+          <option>General Inquiry</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="message">Message <span class="req">*</span></label>
+        <textarea id="message" name="message" placeholder="Tell us how we can help…" required></textarea>
+      </div>
+      <input type="hidden" name="source_site" value="HorseInsurance.ai">
+      <button type="submit" class="submit-btn" id="submitBtn">Send Message</button>
+      <div class="form-msg" id="formMsg"></div>
+    </form>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 HorseInsurance.ai &nbsp;·&nbsp; A <a href="https://www.bridleandbit.com" target="_blank" rel="noopener">Bridle &amp; Bit Magazine</a> property</p>
+</footer>
+
+<script>
+document.getElementById('contactForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('formMsg');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  msg.className = 'form-msg';
+
+  const payload = {
+    name:        document.getElementById('name').value.trim(),
+    email:       document.getElementById('email').value.trim(),
+    phone:       document.getElementById('phone').value.trim(),
+    subject:     document.getElementById('subject').value,
+    message:     document.getElementById('message').value.trim(),
+    source_site: 'HorseInsurance.ai'
+  };
+
+  try {
+    const res = await fetch('https://contact-form.bridleandbit.workers.dev', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      msg.className = 'form-msg success';
+      msg.textContent = 'Message sent! We\'ll be in touch within 24 hours.';
+      this.reset();
+    } else {
+      throw new Error(data.error || 'Submission failed');
+    }
+  } catch(err) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Something went wrong. Please try again or email bridleandbit@aol.com directly.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+  }
+});
+
+// Close nav on outside click
+document.addEventListener('click', function(e) {
+  var n = document.querySelector('.main-nav');
+  if (!n || !n.classList.contains('open')) return;
+  if (!document.querySelector('.site-header').contains(e.target)) n.classList.remove('open');
+});
+</script>
+</body>
+</html>
