@@ -87,3 +87,23 @@ export function forbidden() {
     403
   );
 }
+
+/**
+ * Alias for jsonOk(), per the naming used in
+ * internal/specs/22-api-guard-module-plan.md §12 ("safeJson"). No behavior
+ * change from jsonOk() — this exists so route/guard code can use either
+ * name consistently with the guard-module plan's vocabulary.
+ */
+export function safeJson(data, status = 200) {
+  return jsonOk(data, status);
+}
+
+/**
+ * Alias for jsonError(), per the naming used in
+ * internal/specs/22-api-guard-module-plan.md §12 ("safeError"). No behavior
+ * change from jsonError() — same consumer-safe guarantees (no stack traces,
+ * no internal identifiers, no policy text) apply.
+ */
+export function safeError(code, message, status = 400) {
+  return jsonError(code, message, status);
+}
