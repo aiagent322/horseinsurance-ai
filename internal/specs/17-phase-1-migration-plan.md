@@ -63,21 +63,27 @@ Included because everything else references them, or the pipeline can't be exerc
 | `report_sections` | Assembled report structure (05 §2) |
 | `audit_events` | Required from the first pipeline run (10 §13) — must exist before any stage executes |
 | `review_queue_entries` | Routing target; must exist before scoring/verification can route (08 §11, 13 §3) |
+| `missing_items` | **Promoted to first migration (§15.1 approved):** dedicated queryable table for cross-analysis missing-document reporting |
+| `conflict_records` | **Promoted to first migration (§15.2 approved):** dedicated queryable table for cross-analysis conflict reporting |
+| Core association tables (`clause_links`, `coverage_exclusion_links`, `coverage_condition_links`) | **Promoted to first migration (§15.4 approved):** DB-enforced two-way linkage for core coverage/clause/exclusion many-to-many relationships |
 
-Rationale: the pipeline (spec 10) touches every one of these on a single analysis run, so the first migration must stand them all up together for the pipeline to be testable end-to-end. Splitting them across migrations would leave the pipeline unable to run.
+Rationale: the pipeline (spec 10) touches every one of these on a single analysis run, so the first migration must stand them all up together for the pipeline to be testable end-to-end. Splitting them across migrations would leave the pipeline unable to run. Per the §15 approved decisions, `missing_items`, `conflict_records`, and the core association tables are now first-migration tables (not deferred).
 
 ---
 
 ## 5. Tables Deferred from First Migration
 
-| Table | Deferred because | Revisit at |
-|---|---|---|
-| `missing_items` | Dedicated-table decision open (§15.1); may stay embedded as reference fields | Resolved in §15, then included if "dedicated" is chosen |
-| `conflict_records` | Dedicated-table decision open (§15.2); may stay embedded | Resolved in §15, then included if "dedicated" chosen |
-| `value_with_source` | Representation decision open (§15.3) — embedded columns/JSON vs. dedicated table | Resolved in §15; only a table if that path is chosen |
-| Link association tables (e.g. `clause_links`, `coverage_exclusion_links`) | Array-vs-association decision open (§15.4); if arrays chosen, no tables needed | Resolved in §15 |
+The §15 decisions resolved the previously-open representation questions. As a result, `missing_items`, `conflict_records`, and the core association tables are **no longer deferred** — they are now first-migration tables (§4). What remains deferred:
 
-Rule: nothing is deferred that the first-migration tables **hard-depend on** for existence. The deferred items are either representation choices (which change *how* a field is stored, not whether the owning table exists) or optional query-optimization tables. The core tables in §4 can be created with these unresolved by using the interim representation (embedded/array) and migrating to dedicated tables later if chosen.
+| Table / artifact | Deferred because | Revisit at |
+|---|---|---|
+| Rendered report output (PDF) + private report bucket | Structured `report_sections` ship first; rendered output deferred (§15.5 approved) | Bucket-creation gate (§6/§16), when the report-render step is built |
+
+Notes on resolved items (no longer deferred):
+- `value_with_source` — embedded JSON on the owning row (§15.3 approved); not a table, so nothing to defer.
+- Core link relationships — association tables, now in the first migration (§15.4 approved).
+
+Rule: nothing is deferred that the first-migration tables **hard-depend on** for existence. The only deferred item is the rendered report artifact and its storage bucket, which the pipeline does not need to run end-to-end at the structural level.
 
 ---
 
@@ -207,22 +213,22 @@ RLS *enabling* is a separate gate (§16); this states the policy set to implemen
 Each must be decided before (or as part of) writing the first SQL. This plan states a **recommendation**; the decision is the reviewer's.
 
 **15.1 — Does `missing_items` need a dedicated table?**
-*Recommendation: start embedded, add a dedicated table only if reporting needs it.* Keep `missing_item_ids`/records referenced from `policy_analyses`/`coverage_objects` for the first migration. Add a dedicated `missing_items` table **if** the system needs queries like "all analyses with a missing endorsement" (spec 16 §14 note). Deferred from first migration (§5) pending this decision.
+*Decision (approved): dedicated table.* `missing_items` becomes a dedicated queryable table, included in the first migration (moved from §5 to §4). Rationale: supports cross-analysis reporting such as "all analyses with a missing endorsement" (spec 16 §14 note). Carries the standard ownership columns (§7) and links to the `policy_analyses`/`coverage_objects` it affects.
 
 **15.2 — Does `conflict_records` need a dedicated table?**
-*Recommendation: same as 15.1 — start embedded, promote to a dedicated `conflict_records` table if cross-analysis conflict reporting ("all analyses with unresolved clause conflicts") is required.* Deferred (§5) pending decision.
+*Decision (approved): dedicated table.* `conflict_records` becomes a dedicated queryable table, included in the first migration (moved from §5 to §4). Rationale: supports cross-analysis reporting such as "all analyses with unresolved clause conflicts." Carries the standard ownership columns (§7) and links to the clauses/coverages the conflict involves.
 
 **15.3 — `value_with_source`: dedicated table or embedded JSON?**
-*Recommendation: embedded JSON structure for MVP* (a `{value, source_ref_ids, confidence, null_reason}` JSON column on the owning row), avoiding a join for every scalar. Promote to a dedicated table only if these values need independent querying/indexing. A dedicated table adds normalization at the cost of a join on every field read — likely not worth it for MVP.
+*Decision (approved): embedded JSON for MVP.* A `{value, source_ref_ids, confidence, null_reason}` JSON column on the owning row, avoiding a join for every scalar. Rationale: normalization into a dedicated table would add a join on every field read for no MVP benefit; embedded JSON is the lighter choice. May be promoted to a dedicated table later if these values need independent querying/indexing.
 
 **15.4 — `related_clause_ids` / `exclusion_ids`: arrays or association tables?**
-*Recommendation: arrays for MVP*, with app-layer enforcement of two-way-linkage integrity (07 §11). Association tables give referential integrity and cleaner many-to-many queries but add join complexity; revisit if link-integrity bugs or link-heavy queries emerge. If integrity guarantees are deemed essential up front, choose association tables instead — this is the one decision where "correct but heavier" (association tables) is a defensible first-migration choice.
+*Decision (approved): association tables for core many-to-many relationships.* Core coverage/clause/exclusion relationships use dedicated association (join) tables — **arrays are not used for core coverage/clause/exclusion relationships.** Rationale: association tables give database-enforced referential integrity and clean many-to-many queries; the two-way-linkage integrity rule (07 §11) is enforced at the DB layer rather than relying on app-layer discipline. The join tables (e.g. `clause_links`, `coverage_exclusion_links`, `coverage_condition_links`) are included in the first migration (moved from §5 to §4), each carrying ownership columns (§7) and FK-constrained to both linked rows.
 
 **15.5 — Reports: structured sections only, or also rendered output?**
-*Recommendation: both, but separated.* Store structured `report_sections` in the DB (first migration) as the source of truth; store the **rendered PDF** in the private report bucket (later, gated §6/§16) referenced from the analysis. The DB holds structure; object storage holds the rendered artifact — consistent with spec 11 §5.
+*Decision (approved): structured `report_sections` only for the first migration; rendered report output deferred.* The first migration includes structured `report_sections` in the DB as the source of truth. The rendered PDF (and its private report bucket) is **deferred** — provisioned later under the bucket-creation gate (§6/§16), referenced from the analysis when built. Rationale: structure is what the pipeline produces first; the rendered artifact and its storage are a later, separately-gated step (spec 11 §5).
 
 **15.6 — `audit_events`: policy text or references/metadata only?**
-*Decision: references and metadata only — no policy text* (11 §8/§17, 16 §9). This is not a discretionary trade-off; storing policy text in the audit trail would raise its sensitivity and violate the spec 11 §17 logging rule. Snippets needed to justify a decision live in `verification_results` under access control, not in `audit_events`.
+*Decision (confirmed — already fixed by existing specs): references and metadata only — no policy text* (11 §8/§17, 16 §9). This is not a discretionary trade-off; storing policy text in the audit trail would raise its sensitivity and violate the spec 11 §17 logging rule. Snippets needed to justify a decision live in `verification_results` under access control, not in `audit_events`. No change — restated here as the approved position.
 
 ---
 
