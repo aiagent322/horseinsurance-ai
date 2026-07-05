@@ -26,6 +26,10 @@ export async function onRequestPost(context) {
   // upload referenced in the request body BEFORE triggering any pipeline
   // work (spec 12 §6/§7, spec 20 §6). The upload_id ownership check reuses
   // the same requireOwnership() pattern as functions/api/uploads/[upload_id]/files.js.
+  //
+  // TODO(ownership): When ownership checks are implemented, extract the real
+  // upload_id from the validated request body and pass it into
+  // requireOwnership(). Do not leave this as null in functional code.
   const ownershipCheck = requireOwnership(sessionCheck.session, /* uploadId */ null);
   if (!ownershipCheck.ok) {
     return ownershipCheck.response;
