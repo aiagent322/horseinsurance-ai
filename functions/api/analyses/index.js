@@ -10,8 +10,8 @@
  * No real extraction/classification/generation/verification logic here.
  */
 
-import { requireSession, requireOwnership } from '../_lib/guards.js';
-import { notImplemented } from '../_lib/responses.js';
+import { requireSession, requireOwnership, requireAccountMembership, validateRequestBody } from '../_lib/guards.js';
+import { safeError } from '../_lib/responses.js';
 
 export async function onRequestPost(context) {
   const { request } = context;
@@ -20,6 +20,14 @@ export async function onRequestPost(context) {
   const sessionCheck = requireSession(request);
   if (!sessionCheck.ok) {
     return sessionCheck.response;
+  }
+
+  // TODO(account): confirm the validated session is actually a member of
+  // the account it claims to act within (spec 12 §4/§7,
+  // internal/specs/22-api-guard-module-plan.md §8).
+  const membershipCheck = requireAccountMembership(sessionCheck.session, /* accountId */ null);
+  if (!membershipCheck.ok) {
+    return membershipCheck.response;
   }
 
   // TODO(ownership): confirm the validated session owns the underlying
@@ -35,9 +43,21 @@ export async function onRequestPost(context) {
     return ownershipCheck.response;
   }
 
+  // TODO(validation): validate the real request body shape once this route
+  // accepts real input (internal/specs/22-api-guard-module-plan.md §11).
+  // This is a safe placeholder check only — no schema enforcement yet.
+  const bodyCheck = await validateRequestBody(request);
+  if (!bodyCheck.ok) {
+    return bodyCheck.response;
+  }
+
   // TODO(implementation): trigger the spec 10 pipeline asynchronously and
   // return a processing-status handle — never block until the full
   // extract->classify->model->score/route->generate->verify->report
   // sequence completes (spec 10 §5, spec 20 §4/§8).
-  return notImplemented('POST /api/analyses');
+  return safeError(
+    'not_implemented',
+    'This endpoint (POST /api/analyses) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

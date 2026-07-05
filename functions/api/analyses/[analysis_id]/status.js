@@ -11,7 +11,7 @@
  */
 
 import { requireSession, requireOwnership } from '../../_lib/guards.js';
-import { notImplemented } from '../../_lib/responses.js';
+import { safeError } from '../../_lib/responses.js';
 
 export async function onRequestGet(context) {
   const { request, params } = context;
@@ -33,5 +33,9 @@ export async function onRequestGet(context) {
   // TODO(implementation): return a small, fixed set of stage/progress values
   // (spec 20 §10) once the pipeline and database exist. No raw extracted
   // text, no policy text, no other user's data in this response ever.
-  return notImplemented('GET /api/analyses/:analysis_id/status');
+  return safeError(
+    'not_implemented',
+    'This endpoint (GET /api/analyses/:analysis_id/status) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

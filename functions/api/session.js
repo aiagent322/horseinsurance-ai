@@ -10,7 +10,7 @@
  */
 
 import { requireSession } from './_lib/guards.js';
-import { notImplemented } from './_lib/responses.js';
+import { safeError } from './_lib/responses.js';
 
 export async function onRequestGet(context) {
   const { request } = context;
@@ -23,5 +23,9 @@ export async function onRequestGet(context) {
 
   // Unreachable until requireSession is implemented for real — kept here so
   // the route's eventual "authenticated" branch is visible in the skeleton.
-  return notImplemented('GET /api/session (authenticated branch)');
+  return safeError(
+    'not_implemented',
+    'This endpoint (GET /api/session, authenticated branch) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

@@ -12,7 +12,7 @@
  */
 
 import { requireSession, requireOwnership } from '../../_lib/guards.js';
-import { notImplemented } from '../../_lib/responses.js';
+import { safeError } from '../../_lib/responses.js';
 
 export async function onRequestGet(context) {
   const { request, params } = context;
@@ -35,5 +35,9 @@ export async function onRequestGet(context) {
   // spec 09 verification (Fully Supported, or the re-verified remainder of
   // a rescoped statement) — never a blocked or unverified statement
   // (spec 10 §5, spec 05 report structure). Never include a public file URL.
-  return notImplemented('GET /api/analyses/:analysis_id/report');
+  return safeError(
+    'not_implemented',
+    'This endpoint (GET /api/analyses/:analysis_id/report) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

@@ -10,16 +10,33 @@
  * No policy files are accepted or processed by this route yet (task rule 10).
  */
 
-import { requireSession } from '../_lib/guards.js';
-import { notImplemented } from '../_lib/responses.js';
+import { requireSession, requireAccountMembership, validateRequestBody } from '../_lib/guards.js';
+import { safeError } from '../_lib/responses.js';
 
 export async function onRequestPost(context) {
   const { request } = context;
 
   // TODO(auth): validate the real session token here (spec 12 §5/§6).
-  const { ok, response } = requireSession(request);
-  if (!ok) {
-    return response; // unauthenticated placeholder response
+  const sessionCheck = requireSession(request);
+  if (!sessionCheck.ok) {
+    return sessionCheck.response; // unauthenticated placeholder response
+  }
+
+  // TODO(account): confirm the validated session is actually a member of
+  // the account it claims to act within, BEFORE creating any new resource
+  // (spec 12 §4/§7, internal/specs/22-api-guard-module-plan.md §8). This
+  // is distinct from ownership — there is no existing resource to own yet.
+  const membershipCheck = requireAccountMembership(sessionCheck.session, /* accountId */ null);
+  if (!membershipCheck.ok) {
+    return membershipCheck.response;
+  }
+
+  // TODO(validation): validate the real request body shape once this route
+  // accepts real input (internal/specs/22-api-guard-module-plan.md §11).
+  // This is a safe placeholder check only — no schema enforcement yet.
+  const bodyCheck = await validateRequestBody(request);
+  if (!bodyCheck.ok) {
+    return bodyCheck.response;
   }
 
   // TODO(ownership): owner (user_id/account_id) must be set FROM the
@@ -28,5 +45,9 @@ export async function onRequestPost(context) {
   // TODO(implementation): create upload_id/analysis_id in the database once
   // Phase 1 schema is applied and Supabase is connected (spec 19).
   // This route does not accept or process real policy files yet.
-  return notImplemented('POST /api/uploads/init');
+  return safeError(
+    'not_implemented',
+    'This endpoint (POST /api/uploads/init) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

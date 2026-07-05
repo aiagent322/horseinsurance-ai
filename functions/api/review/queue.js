@@ -11,7 +11,8 @@
  */
 
 import { requireSession, requireReviewerRole } from '../_lib/guards.js';
-import { notImplemented } from '../_lib/responses.js';
+import { safeError } from '../_lib/responses.js';
+import { auditSafeLog } from '../_lib/audit.js';
 
 export async function onRequestGet(context) {
   const { request } = context;
@@ -30,8 +31,22 @@ export async function onRequestGet(context) {
     return roleCheck.response;
   }
 
+  // TODO(audit): once real reviewer access exists, record it here — object
+  // IDs, decision, and role only, never policy text (spec 22 §13). Building
+  // the sanitized record now (not yet persisted) so the audit shape is
+  // established alongside the guard integration.
+  auditSafeLog({
+    stage: 'review',
+    decision: 'queue_listed',
+    actorRole: 'reviewer',
+  });
+
   // TODO(implementation): return only items routed/assigned to review
   // (spec 13 §12) — never a general content listing. This route never
   // exposes another user's policy text or unrelated analyses.
-  return notImplemented('GET /api/review/queue');
+  return safeError(
+    'not_implemented',
+    'This endpoint (GET /api/review/queue) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }

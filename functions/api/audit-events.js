@@ -15,8 +15,9 @@
  * default rather than assuming a trusted internal caller.
  */
 
-import { requireSession } from './_lib/guards.js';
-import { notImplemented } from './_lib/responses.js';
+import { requireSession, requireServiceContext, validateRequestBody } from './_lib/guards.js';
+import { safeError } from './_lib/responses.js';
+import { auditSafeLog } from './_lib/audit.js';
 
 export async function onRequestPost(context) {
   const { request } = context;
@@ -31,9 +32,42 @@ export async function onRequestPost(context) {
     return sessionCheck.response;
   }
 
+  // TODO(service): this route's real caller is the orchestration layer
+  // itself, not an ordinary authenticated user — requireSession() above is
+  // kept as a conservative placeholder, and requireServiceContext() is
+  // added alongside it (augmenting, not replacing) since
+  // internal/specs/23-api-route-guard-integration-plan.md §7/§13 leaves the
+  // replace-vs-augment decision open for a future, separately-approved
+  // step. Both checks currently fail closed, so this route remains fully
+  // denied either way.
+  const serviceCheck = requireServiceContext(request);
+  if (!serviceCheck.ok) {
+    return serviceCheck.response;
+  }
+
+  // TODO(validation): validate the real audit-event body shape once this
+  // route accepts real input (internal/specs/22-api-guard-module-plan.md
+  // §11). Safe placeholder only — no schema enforcement yet.
+  const bodyCheck = await validateRequestBody(request);
+  if (!bodyCheck.ok) {
+    return bodyCheck.response;
+  }
+
   // TODO(implementation): write object IDs, stage/decision labels, and
   // reasons only — NEVER policy text (spec 11 §8, spec 17 §15.6, spec 20
   // §12). This route must not log or persist any verbatim policy content
-  // under any circumstance.
-  return notImplemented('POST /api/audit-events');
+  // under any circumstance. auditSafeLog() below builds the sanitized
+  // record shape this route would eventually persist — it is not yet
+  // written anywhere (audit.js §13 TODO).
+  auditSafeLog({
+    stage: 'audit',
+    decision: 'audit_event_write_attempted',
+    actorRole: 'service',
+  });
+
+  return safeError(
+    'not_implemented',
+    'This endpoint (POST /api/audit-events) is a skeleton placeholder and is not implemented yet.',
+    501
+  );
 }
