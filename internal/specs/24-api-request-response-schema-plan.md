@@ -55,6 +55,7 @@ As of this writing:
 - **No schema proposed here may include:** raw policy text, secrets/tokens, private or public file URLs, internal error detail (stack traces, table/query names), or another account's identifiers — consistent with spec 20 §10/§11 and spec 21 §13.
 - **Every user-owned or reviewer-owned schema is scoped to the resolved session identity** — a response schema never includes a field that would require exposing data beyond what the requester's own `user_id`/`account_id` (or `reviewer`/`admin` role) already permits per spec 12.
 - **IDs are opaque** — `upload_id`, `policy_analysis_id`, `report_id`/`analysis_id`, and `item_id` are treated as opaque identifiers in every schema below, never derived from or exposing policy content, insured name, or file name (spec 11 §5, spec 16 §3).
+- **No route accepts or processes real policy files yet.** Upload initialization and file registration schemas are placeholders only until the database, auth, storage buckets, RLS, environment configuration, and production upload gate are explicitly approved and verified.
 
 ---
 
