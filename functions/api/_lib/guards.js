@@ -45,15 +45,18 @@ export function requireSession(request) {
 /**
  * TODO(ownership): Replace with real user_id/account_id ownership check
  * per spec 12 §6/§7 and spec 20 §6.
- *   - Given a validated session and a resource identifier (e.g. upload_id,
- *     analysis_id), query the database FILTERED BY the session's user_id/
- *     account_id — never fetch first and check after.
+ *   - Given a validated session (carrying the server-resolved user_id and
+ *     account_id — never a client-supplied value) and a resource identifier
+ *     for the specific artifact being accessed (e.g. upload_id,
+ *     policy_analysis_id, report_id, or review item id), query the database
+ *     FILTERED BY the session's server-resolved user_id/account_id — never
+ *     fetch first and check after.
  *   - Absence of a positive match is a denial, never a pass (default-deny).
  *
  * This placeholder ALWAYS denies since there is no database connection yet.
  *
- * @param {object} session - resolved session identity (currently never populated)
- * @param {string} resourceId - the resource being accessed
+ * @param {object} session - resolved session identity (user_id/account_id, currently never populated)
+ * @param {string} resourceId - the resource being accessed (e.g. upload_id, policy_analysis_id, report_id, or review item id)
  * @returns {{ ok: boolean, response: Response|null }}
  */
 export function requireOwnership(session, resourceId) {
