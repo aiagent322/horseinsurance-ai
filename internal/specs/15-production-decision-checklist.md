@@ -80,13 +80,13 @@ This is a recommendation, not an authorization — Phase 1 does not start on thi
 
 Phase 1 (persistence schema, spec 14 §5) may begin only when **all** of the following are true:
 
-- [ ] Auth provider approved
-- [ ] Retention window placeholders approved, or explicitly marked pending compliance with build allowed to proceed on the model
-- [ ] Reviewer staffing approach approved
-- [ ] GitHub spec set confirmed current (specs 01–15 present on `origin/main`)
-- [ ] Rex explicitly approves Phase 1 schema build
+- [x] Auth provider approved — Supabase Auth (for Phase 1 planning)
+- [x] Retention window placeholders approved — pending compliance finalization; conservative MVP defaults for schema planning only, no indefinite retention of original policy uploads
+- [x] Reviewer staffing approach approved — manual internal reviewer workflow for MVP planning
+- [x] GitHub spec set confirmed current (specs 01–15 present on `origin/main`)
+- [x] Rex explicitly approves Phase 1 schema build — approved to begin after this checklist update is committed and pushed
 
-Absent any one, Phase 1 does not start.
+All Phase 1 unlock criteria met. Phase 1 schema **planning** is approved to begin once this update is committed and pushed. Phase 1 does not include migrations, buckets, auth wiring, or deployment — those remain separately gated (§8).
 
 ---
 
@@ -108,14 +108,14 @@ Building the schema *model* provider-agnostically is Phase 1 work and is gated b
 
 ## 9. Approval Record
 
-_To be completed by Rex._
+_Recorded per Rex's approval._
 
-- Auth provider approved: ______________________
-- Retention windows approved: ______________________
-- Reviewer staffing approved: ______________________
-- Phase 1 schema build approved: ______________________
-- Approved by: ______________________
-- Date: ______________________
+- Auth provider approved: **Supabase Auth** — approved for Phase 1 planning.
+- Retention windows approved: **Approved as pending compliance finalization** — conservative MVP defaults used for schema planning only, with **no indefinite retention of original policy uploads**. Final legal windows still to be set by compliance (§4).
+- Reviewer staffing approved: **Manual internal reviewer workflow** for MVP planning — **no legal advice workflow, no external reviewer network.**
+- Phase 1 schema build approved: **Yes** — approved to begin after this checklist update is committed and pushed.
+- Approved by: **Rex**
+- Date: **2026-07-05**
 
 ---
 
