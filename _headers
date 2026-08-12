@@ -1,5 +1,5 @@
 /*
-  Cache-Control: public, max-age=3600, s-maxage=86400
+  Cache-Control: no-cache, must-revalidate
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
