@@ -93,22 +93,30 @@ img { max-width:100%; height:auto; display:block; }
 /* ── Container (phone: 16px gutters) ── */
 .container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
 
-/* ── REVIVE AD SLOT (single test placement) ── */
+/* ── REVIVE AD SLOT ──
+   max-height + overflow:hidden on the outer wrapper is a hard cap: whatever
+   Revive injects inside (an <ins>, <img>, or <iframe> with its own inline
+   width/height that may not match this zone's intended 610x154 size) gets
+   clipped to this box rather than blowing up the page layout. !important
+   on the child rule beats any inline style Revive's fill script sets
+   directly on the injected element. */
 .revive-ad-slot {
   max-width: 610px;
   width: 100%;
+  max-height: 154px;
+  overflow: hidden;
   margin: 0 auto 14px;
   text-align: center;
 }
 .revive-ad-slot ins,
 .revive-ad-slot img,
 .revive-ad-slot iframe {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-width: 610px;
-  aspect-ratio: 610 / 154;
-  margin: 0 auto;
+  display: block !important;
+  width: 100% !important;
+  height: 154px !important;
+  max-width: 610px !important;
+  max-height: 154px !important;
+  margin: 0 auto !important;
 }
 
 /* ── Phone: hide verbose SEO subtitle, show compact version ── */
