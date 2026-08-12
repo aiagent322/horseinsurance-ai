@@ -9,6 +9,8 @@
   gtag('js', new Date());
   gtag('config', 'G-SNJS5PCEEF');
 </script>
+<!-- Revive Adserver (Hosted) — loaded once for the page -->
+<script async src="//servedby.revive-adserver.net/asyncjs.php"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="index, follow">
@@ -90,6 +92,24 @@ img { max-width:100%; height:auto; display:block; }
 
 /* ── Container (phone: 16px gutters) ── */
 .container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── REVIVE AD SLOT (single test placement) ── */
+.revive-ad-slot {
+  max-width: 610px;
+  width: 100%;
+  margin: 0 auto 14px;
+  text-align: center;
+}
+.revive-ad-slot ins,
+.revive-ad-slot img,
+.revive-ad-slot iframe {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 610px;
+  aspect-ratio: 610 / 154;
+  margin: 0 auto;
+}
 
 /* ── Phone: hide verbose SEO subtitle, show compact version ── */
 .hero-sub-seo { display:none; }
@@ -893,7 +913,9 @@ img { max-width:100%; height:auto; display:block; }
   </div>
 </div>
 
-
+<div class="container" style="padding-top:20px;">
+  <div class="revive-ad-slot"><ins data-revive-zoneid="30269" data-revive-id="727bec5e09208690b050ccfc6a45d384"></ins></div>
+</div>
 
 
 <section class="content-section" id="coverage" style="padding-top:10px;">
