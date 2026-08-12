@@ -9,6 +9,8 @@
   gtag('js', new Date());
   gtag('config', 'G-SNJS5PCEEF');
 </script>
+<!-- Revive Adserver (Hosted) — loaded once for the page -->
+<script async src="//servedby.revive-adserver.net/asyncjs.php"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="index, follow">
@@ -90,6 +92,32 @@ img { max-width:100%; height:auto; display:block; }
 
 /* ── Container (phone: 16px gutters) ── */
 .container { max-width:var(--max-w); margin:0 auto; padding:0 16px; }
+
+/* ── REVIVE AD SLOT ──
+   max-height + overflow:hidden on the outer wrapper is a hard cap: whatever
+   Revive injects inside (an <ins>, <img>, or <iframe> with its own inline
+   width/height that may not match this zone's intended 610x154 size) gets
+   clipped to this box rather than blowing up the page layout. !important
+   on the child rule beats any inline style Revive's fill script sets
+   directly on the injected element. */
+.revive-ad-slot {
+  max-width: 610px;
+  width: 100%;
+  max-height: 154px;
+  overflow: hidden;
+  margin: 0 auto 14px;
+  text-align: center;
+}
+.revive-ad-slot ins,
+.revive-ad-slot img,
+.revive-ad-slot iframe {
+  display: block !important;
+  width: 100% !important;
+  height: 154px !important;
+  max-width: 610px !important;
+  max-height: 154px !important;
+  margin: 0 auto !important;
+}
 
 /* ── Phone: hide verbose SEO subtitle, show compact version ── */
 .hero-sub-seo { display:none; }
@@ -989,6 +1017,10 @@ img { max-width:100%; height:auto; display:block; }
 
 
 </main>
+
+<div class="container" style="padding-top:8px;">
+  <div class="revive-ad-slot"><ins data-revive-zoneid="30272" data-revive-id="727bec5e09208690b050ccfc6a45d384"></ins></div>
+</div>
 
 <div class="container" style="padding:20px 0 8px;">
   <h2 style="font-size:0.9rem;color:var(--text-mid);margin-bottom:10px;font-weight:600;">Related Coverage</h2>
