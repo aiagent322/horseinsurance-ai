@@ -107,7 +107,8 @@ for f in \
   "$ROOT/supabase/migrations/20260705145522_phase_1_rls_policies.sql" \
   "$ROOT/supabase/migrations/20260903024500_analyzer_auth_persistence.sql" \
   "$ROOT/supabase/migrations/20260903150000_durable_analysis_jobs.sql" \
-  "$ROOT/supabase/migrations/20260903200000_worker_completion_outcomes.sql"
+  "$ROOT/supabase/migrations/20260903200000_worker_completion_outcomes.sql" \
+  "$ROOT/supabase/migrations/20260903220000_fix7_staging_ops.sql"
 do
   docker exec -i "$PG_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <"$f" >/dev/null
 done

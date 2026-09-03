@@ -1,3 +1,4 @@
+import { loadWorkerEnv } from "../lib/deploy/env-contract";
 import { ConfigurationError } from "../lib/persistence/config";
 import { createWorkerPersistence } from "../lib/persistence/worker-factory";
 import { WorkerRpcError } from "../lib/persistence/worker-store";
@@ -8,6 +9,7 @@ import { AnalysisWorker } from "../lib/worker/runtime";
 async function main(): Promise<void> {
   let config;
   try {
+    loadWorkerEnv();
     config = loadWorkerConfig();
     operationalLog({
       event: "worker_start",

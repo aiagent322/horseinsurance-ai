@@ -50,7 +50,11 @@ npm run worker:once   # claim and process one bounded batch, then exit
 npm run worker        # poll continuously with bounded concurrency
 ```
 
-The worker uses the Supabase service role only. It will not start in production with the memory store, and it fails closed if the Supabase URL or service-role key is missing. Do not point `worker` or `worker:once` at a shared project.
+The worker uses the Supabase service role only. It will not start in staging or production with the memory store, and it fails closed if the Supabase URL or service-role key is missing. Do not point `worker` or `worker:once` at a shared project.
+
+## Staging
+
+Web and worker are separate processes from one image. See `deploy/STAGING.md`, `deploy/secrets-checklist.md`, and `deploy/backup-rollback.md`. Staging uploads stay disabled until Auth, database, and the private bucket pass readiness. External hosting is not created by this repository.
 
 ## Package limits
 

@@ -1,0 +1,32 @@
+# Example only. Values belong in a secret store, not in this file.
+services:
+  web:
+    image: horseinsurance-analyzer:local
+    command: ["web"]
+    read_only: true
+    tmpfs:
+      - /tmp/ocr
+      - /tmp/next
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:43147:43147"
+    environment:
+      POLICY_ANALYZER_PROCESS: web
+      POLICY_ANALYZER_ENV: staging
+      POLICY_ANALYZER_UPLOADS_ENABLED: "false"
+      NODE_ENV: production
+    env_file:
+      - /run/secrets/web.env
+  worker:
+    image: horseinsurance-analyzer:local
+    command: ["worker"]
+    read_only: true
+    tmpfs:
+      - /tmp/ocr
+    user: "10001:10001"
+    environment:
+      POLICY_ANALYZER_PROCESS: worker
+      POLICY_ANALYZER_ENV: staging
+      NODE_ENV: production
+    env_file:
+      - /run/secrets/worker.env

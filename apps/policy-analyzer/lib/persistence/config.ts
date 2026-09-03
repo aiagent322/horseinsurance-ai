@@ -12,20 +12,45 @@ export class AuthRequiredError extends Error {
   }
 }
 
+export type DeployTier = "development" | "test" | "staging" | "production";
+
+export function deployTier(): DeployTier {
+  const explicit = (process.env.POLICY_ANALYZER_ENV || "").trim().toLowerCase();
+  if (explicit === "staging" || explicit === "production" || explicit === "test" || explicit === "development") {
+    return explicit;
+  }
+  if (process.env.NODE_ENV === "production") return "production";
+  if (process.env.NODE_ENV === "test") return "test";
+  return "development";
+}
+
 export function isProduction(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
+export function isProtectedDeploy(): boolean {
+  const tier = deployTier();
+  return tier === "staging" || tier === "production";
+}
+
+export function analyzerUploadsEnabled(): boolean {
+  if (process.env.POLICY_ANALYZER_UPLOADS_ENABLED === "false") return false;
+  if (isProtectedDeploy()) {
+    return process.env.POLICY_ANALYZER_UPLOADS_ENABLED === "true";
+  }
+  return true;
+}
+
 export function isFixtureAnalysisEnabled(): boolean {
-  if (isProduction()) return process.env.ENABLE_FIXTURE_ANALYSIS === "true";
+  if (isProtectedDeploy() || isProduction()) return process.env.ENABLE_FIXTURE_ANALYSIS === "true";
   return process.env.ENABLE_FIXTURE_ANALYSIS !== "false";
 }
 
 export function retentionDays(): number {
   const raw = process.env.POLICY_RETENTION_DAYS;
   if (raw && /^\d+$/.test(raw)) return Number(raw);
-  if (isProduction()) {
-    throw new ConfigurationError("POLICY_RETENTION_DAYS is required in production.");
+  if (isProtectedDeploy() || isProduction()) {
+    throw new ConfigurationError("POLICY_RETENTION_DAYS is required in staging and production.");
   }
   return 30;
 }

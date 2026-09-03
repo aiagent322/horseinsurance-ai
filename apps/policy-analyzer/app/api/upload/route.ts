@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { enqueuePolicyPackage } from "@/lib/enqueue";
-import { AuthRequiredError, ConfigurationError } from "@/lib/persistence/config";
+import { AuthRequiredError, ConfigurationError, analyzerUploadsEnabled } from "@/lib/persistence/config";
 import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
 import { RateLimitError, BacklogLimitError } from "@/lib/persistence/types";
 import { assertSameOrigin } from "@/lib/persistence/same-origin";
@@ -32,6 +32,12 @@ function userError(code: string): { message: string; status: number; code: strin
 export async function POST(req: Request) {
   if (!assertSameOrigin(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: PRIVATE_HEADERS });
+  }
+  if (!analyzerUploadsEnabled()) {
+    return NextResponse.json(
+      { error: "Uploads are not enabled.", code: "uploads_disabled" },
+      { status: 503, headers: PRIVATE_HEADERS }
+    );
   }
 
   let form: FormData;

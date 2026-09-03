@@ -1,6 +1,6 @@
 import { UploadForm } from "@/components/upload-form";
 import { getSessionActor } from "@/lib/auth/session";
-import { supabaseConfigured } from "@/lib/persistence/config";
+import { analyzerUploadsEnabled, supabaseConfigured } from "@/lib/persistence/config";
 import Link from "next/link";
 
 export default async function HomePage({
@@ -11,6 +11,7 @@ export default async function HomePage({
   const { error } = await searchParams;
   const actor = await getSessionActor();
   const configured = supabaseConfigured() || process.env.POLICY_ANALYZER_STORE === "memory";
+  const uploadsEnabled = analyzerUploadsEnabled();
 
   return (
     <div className="space-y-8">
@@ -31,6 +32,11 @@ export default async function HomePage({
         <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 text-sm text-[#4a5568]">
           Analyzer persistence is not configured. Set the Supabase URL and publishable key. Missing configuration
           fails closed; uploads are not stored on disk.
+        </div>
+      ) : !uploadsEnabled ? (
+        <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 text-sm text-[#4a5568]">
+          Insurance uploads stay disabled until staging Auth, database, and the private policy-files
+          bucket pass readiness. Sign-in still works. The educational sample PDF remains downloadable.
         </div>
       ) : !actor ? (
         <div className="space-y-3 rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm">

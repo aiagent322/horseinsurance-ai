@@ -3,11 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfigured, supabaseAnonKey, supabaseUrl } from "@/lib/persistence/config";
 
 export async function proxy(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
   const response = NextResponse.next({
     request: {
-      headers: request.headers
+      headers: requestHeaders
     }
   });
+  response.headers.set("x-request-id", requestId);
   if (!supabaseConfigured()) {
     return response;
   }
@@ -35,6 +39,7 @@ export async function proxy(request: NextRequest) {
     }
   });
   await supabase.auth.getUser();
+  supabaseResponse.headers.set("x-request-id", requestId);
   return supabaseResponse;
 }
 

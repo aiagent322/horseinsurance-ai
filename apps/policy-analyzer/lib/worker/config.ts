@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ConfigurationError, isProduction } from "@/lib/persistence/config";
+import { ConfigurationError, isProduction, isProtectedDeploy } from "@/lib/persistence/config";
 import { usesMemoryStore } from "@/lib/persistence/factory";
 import { requireWorkerSupabaseConfig } from "@/lib/persistence/service-client";
 
@@ -28,13 +28,11 @@ function intEnv(name: string, fallback: number, min: number, max: number): numbe
 }
 
 export function loadWorkerConfig(): WorkerConfig {
-  if (isProduction() && usesMemoryStore()) {
-    throw new ConfigurationError("Memory store is not allowed in production.");
+  if ((isProtectedDeploy() || isProduction()) && usesMemoryStore()) {
+    throw new ConfigurationError("Memory store is not allowed in staging or production.");
   }
   if (!usesMemoryStore()) {
     requireWorkerSupabaseConfig();
-  } else if (isProduction()) {
-    throw new ConfigurationError("Memory store is not allowed in production.");
   }
 
   const leaseMs = intEnv("POLICY_ANALYZER_JOB_LEASE_MS", 120_000, 5_000, 3_600_000);

@@ -41,14 +41,17 @@ const EXPECTED_MIGRATIONS = [
   "20260705145522_phase_1_rls_policies.sql",
   "20260903024500_analyzer_auth_persistence.sql",
   "20260903150000_durable_analysis_jobs.sql",
-  "20260903200000_worker_completion_outcomes.sql"
+  "20260903200000_worker_completion_outcomes.sql",
+  "20260903220000_fix7_staging_ops.sql"
 ];
 const WORKER_RPCS = [
   { name: "claim_analysis_jobs", args: { p_worker_id: "probe-worker", p_limit: 1 } },
   { name: "heartbeat_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker" } },
   { name: "update_job_progress", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_stage: "extracting" } },
   { name: "fail_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_error_code: "probe", p_stage: "ocr", p_retryable: false } },
-  { name: "complete_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_report: { policy_id: "00000000-0000-0000-0000-000000000001" } } }
+  { name: "complete_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_report: { policy_id: "00000000-0000-0000-0000-000000000001" } } },
+  { name: "analyzer_ops_snapshot", args: {} },
+  { name: "analyzer_schema_version", args: {} }
 ] as const;
 const AUTH_RPCS = [
   { name: "reserve_analyzer_package", args: { p_file_count: 1 } },

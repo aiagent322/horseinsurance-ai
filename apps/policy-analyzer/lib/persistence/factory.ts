@@ -1,4 +1,4 @@
-import { ConfigurationError, isProduction, requireSupabaseConfig } from "./config";
+import { ConfigurationError, isProduction, isProtectedDeploy, requireSupabaseConfig } from "./config";
 import { MemoryPolicyStore } from "./memory-store";
 import { SupabasePolicyStore } from "./supabase-store";
 import type { PolicyStore } from "./types";
@@ -10,8 +10,8 @@ export function usesMemoryStore(): boolean {
 }
 
 export function getMemoryStore(): MemoryPolicyStore {
-  if (isProduction()) {
-    throw new ConfigurationError("Memory store is not allowed in production.");
+  if (isProtectedDeploy() || isProduction()) {
+    throw new ConfigurationError("Memory store is not allowed in staging or production.");
   }
   if (!memoryStore) memoryStore = new MemoryPolicyStore();
   return memoryStore;
@@ -24,8 +24,8 @@ export function resetMemoryStoreForTests(): MemoryPolicyStore {
 
 export function createPolicyStore(userClient?: import("@supabase/supabase-js").SupabaseClient): PolicyStore {
   if (usesMemoryStore()) {
-    if (isProduction()) {
-      throw new ConfigurationError("Memory store is not allowed in production.");
+    if (isProtectedDeploy() || isProduction()) {
+      throw new ConfigurationError("Memory store is not allowed in staging or production.");
     }
     return getMemoryStore();
   }

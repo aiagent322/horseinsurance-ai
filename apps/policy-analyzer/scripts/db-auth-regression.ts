@@ -277,7 +277,9 @@ function main() {
     { name: "heartbeat_analysis_job", args: "uuid, text" },
     { name: "update_job_progress", args: "uuid, text, text, integer, integer, integer" },
     { name: "fail_analysis_job", args: "uuid, text, text, text, boolean" },
-    { name: "complete_analysis_job", args: "uuid, text, jsonb" }
+    { name: "complete_analysis_job", args: "uuid, text, jsonb" },
+    { name: "analyzer_ops_snapshot", args: "" },
+    { name: "analyzer_schema_version", args: "" }
   ];
 
   for (const fn of workerFunctions) {

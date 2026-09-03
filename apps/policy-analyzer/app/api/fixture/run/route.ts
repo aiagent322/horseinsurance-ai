@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { buildFixturePdf } from "@/lib/build-fixture";
 import { enqueuePolicyPackage } from "@/lib/enqueue";
-import { AuthRequiredError, ConfigurationError, isFixtureAnalysisEnabled } from "@/lib/persistence/config";
+import {
+  AuthRequiredError,
+  ConfigurationError,
+  analyzerUploadsEnabled,
+  isFixtureAnalysisEnabled
+} from "@/lib/persistence/config";
 import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
 import { BacklogLimitError, RateLimitError } from "@/lib/persistence/types";
 import { assertSameOrigin } from "@/lib/persistence/same-origin";
@@ -12,7 +17,7 @@ async function run(req: Request) {
   if (req.method !== "GET" && !assertSameOrigin(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: PRIVATE_HEADERS });
   }
-  if (!isFixtureAnalysisEnabled()) {
+  if (!isFixtureAnalysisEnabled() || !analyzerUploadsEnabled()) {
     return NextResponse.json(
       { error: "Not found" },
       { status: 404, headers: PRIVATE_HEADERS }

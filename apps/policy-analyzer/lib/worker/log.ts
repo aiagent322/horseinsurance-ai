@@ -21,7 +21,14 @@ const SAFE_KEYS = new Set([
   "concurrency",
   "poll_ms",
   "batch",
-  "active"
+  "active",
+  "request_id",
+  "queue_depth",
+  "oldest_queued_age_seconds",
+  "processing_count",
+  "failed_count",
+  "needs_review_count",
+  "schema_version"
 ]);
 
 export type OperationalLog = {
@@ -48,6 +55,13 @@ export type OperationalLog = {
   poll_ms?: number;
   batch?: number;
   active?: number;
+  request_id?: string;
+  queue_depth?: number;
+  oldest_queued_age_seconds?: number;
+  processing_count?: number;
+  failed_count?: number;
+  needs_review_count?: number;
+  schema_version?: string;
 };
 
 export function operationalLog(record: OperationalLog): void {
