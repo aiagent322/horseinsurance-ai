@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { MemoryPolicyStore, MemoryObjectBackend } from "../lib/persistence/memory-store";
 import { TEST_ACTOR_A, TEST_ACTOR_B } from "../lib/persistence/actor-context";
 import { ConfigurationError, isProduction } from "../lib/persistence/config";
+import { parseReservationResult } from "../lib/persistence/reservation";
+import { safeDownloadFilename } from "../lib/original-document";
+import { newId } from "../lib/ids";
 import { sampleFiles, sampleReport, tinyPdf } from "./test-fixtures";
+import { BacklogLimitError } from "../lib/persistence/types";
 import type { IncomingPdf } from "../lib/validate-upload";
+
+const VALID_SHA = "ab".repeat(32);
 
 function makePdf(tag: string): Buffer {
   return tinyPdf(tag);
@@ -14,6 +20,29 @@ function makeFiles(count: number): IncomingPdf[] {
     filename: `policy-${i}.pdf`,
     bytes: makePdf(`file-${i}-${Date.now()}`)
   }));
+}
+
+function submittedFromReservation(
+  reservation: Awaited<ReturnType<MemoryPolicyStore["reservePackage"]>>,
+  overrides: Array<Partial<{ file_id: string; document_id: string; storage_path: string; sha256: string }>> = []
+) {
+  return reservation.files.map((tuple, index) => ({
+    file_id: overrides[index]?.file_id ?? tuple.file_id,
+    document_id: overrides[index]?.document_id ?? tuple.document_id,
+    storage_path: overrides[index]?.storage_path ?? tuple.storage_path,
+    sha256: overrides[index]?.sha256 ?? VALID_SHA
+  }));
+}
+
+async function seedReservedObjects(
+  store: MemoryPolicyStore,
+  fileCount = 2
+) {
+  const reservation = await store.reservePackage(TEST_ACTOR_A, fileCount);
+  for (const file of reservation.files) {
+    await store.backend.put(file.storage_path, makePdf(file.file_id));
+  }
+  return reservation;
 }
 
 async function main() {
@@ -32,7 +61,6 @@ async function main() {
     );
   }
 
-  // --- 1. Upload returns before OCR ---
   await test("upload enqueues without OCR", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -46,20 +74,18 @@ async function main() {
     assert.equal(report, null, "no report before processing");
   });
 
-  // --- 2. Exactly one reservation and job ---
   await test("exactly one job per enqueue", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
     const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(2) });
     let jobCount = 0;
-    for (const job of (store as unknown as { jobs: Map<string, { policyId: string }> }).jobs.values()) {
+    for (const job of store.jobs.values()) {
       if (job.policyId === result.policy_id) jobCount++;
     }
     assert.equal(jobCount, 1, "exactly one job created");
     assert.equal(result.document_count, 2);
   });
 
-  // --- 3. Submitted IDs are ignored ---
   await test("submitted IDs ignored", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -71,8 +97,7 @@ async function main() {
       submittedStoragePath: "/evil/path"
     });
     assert.notEqual(result.policy_id, "evil-policy");
-    const rows = (store as unknown as { rows: Map<string, { accountId: string; ownerUserId: string; files: Array<{ path: string }> }> }).rows;
-    const row = rows.get(result.policy_id);
+    const row = store.rows.get(result.policy_id);
     assert.ok(row);
     assert.equal(row!.accountId, TEST_ACTOR_A.accountId);
     assert.equal(row!.ownerUserId, TEST_ACTOR_A.userId);
@@ -81,7 +106,6 @@ async function main() {
     }
   });
 
-  // --- 4. Failed uploads clean up ---
   await test("failed upload cleans up objects", async () => {
     const backend = new MemoryObjectBackend();
     const store = new MemoryPolicyStore({ backend });
@@ -94,13 +118,11 @@ async function main() {
     assert.equal(backend.objects.size, 0, "objects cleaned up after failure");
   });
 
-  // --- 5. Rate limit ---
   await test("rate limit enforced", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
     for (let i = 0; i < 20; i++) {
       const r = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
-      // Complete each job so backlog limit doesn't fire first
       const claimed = await store.claimJobs("w-rate", 1);
       const job = claimed.find((c) => c.policyId === r.policy_id);
       if (job) {
@@ -114,7 +136,6 @@ async function main() {
     );
   });
 
-  // --- 6. Backlog limit ---
   await test("backlog limit enforced", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -128,7 +149,6 @@ async function main() {
     );
   });
 
-  // --- 7. Cross-account non-enumeration ---
   await test("cross-account does not enumerate", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -140,41 +160,58 @@ async function main() {
     assert.equal(reportB, null, "actor B cannot see actor A's report");
   });
 
-  // --- 8. Missing job fails closed ---
-  await test("missing job returns failed status", async () => {
+  await test("missing job returns failed status and no report", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    await store.ensureAccount(TEST_ACTOR_B.userId);
+    const report = sampleReport();
+    await store.savePackage(TEST_ACTOR_A, { files: sampleFiles(report, "mj"), report });
+    const jobId = store.jobsByPolicy.get(report.policy_id);
+    assert.ok(jobId, "savePackage created a completed durable job");
+    store.jobsByPolicy.delete(report.policy_id);
+    if (jobId) store.jobs.delete(jobId);
+
+    const status = await store.getStatus(TEST_ACTOR_A, report.policy_id);
+    assert.ok(status, "authorized owner still receives a safe status");
+    assert.equal(status!.status, "failed");
+    assert.equal(status!.error_code, "report_unavailable");
+    assert.notEqual(status!.status, "completed");
+    assert.equal(await store.getReport(TEST_ACTOR_A, report.policy_id), null, "missing job never returns a report");
+
+    assert.equal(await store.getStatus(TEST_ACTOR_B, report.policy_id), null, "cross-account status is null");
+    assert.equal(await store.getReport(TEST_ACTOR_B, report.policy_id), null, "cross-account report is null");
+  });
+
+  await test("inconsistent analysis/job relationship fails closed", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
     const report = sampleReport();
-    await store.savePackage(TEST_ACTOR_A, { files: sampleFiles(report, "mj"), report });
-    // Delete the job reference to simulate missing job
-    (store as unknown as { jobsByPolicy: Map<string, string> }).jobsByPolicy.delete(report.policy_id);
-    // With savePackage (no job), report should still be accessible since there's no job to gate
-    // But getStatus should show completed for legacy saves
+    await store.savePackage(TEST_ACTOR_A, { files: sampleFiles(report, "inc"), report });
+    const jobId = store.jobsByPolicy.get(report.policy_id);
+    const job = jobId ? store.jobs.get(jobId) : undefined;
+    assert.ok(job);
+    job!.analysisId = newId();
     const status = await store.getStatus(TEST_ACTOR_A, report.policy_id);
-    assert.ok(status);
-    assert.equal(status!.status, "completed");
+    assert.equal(status!.status, "failed");
+    assert.equal(status!.error_code, "report_unavailable");
+    assert.equal(await store.getReport(TEST_ACTOR_A, report.policy_id), null);
   });
 
-  // --- 9. Missing report fails closed ---
   await test("missing report returns null", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
     const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
-    // Job exists but no report yet
     const report = await store.getReport(TEST_ACTOR_A, result.policy_id);
     assert.equal(report, null, "no report for queued job");
   });
 
-  // --- 10. Nonterminal/failed/cancelled jobs return no report ---
   await test("nonterminal, failed, cancelled jobs return no report", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
 
-    // Queued → no report
     const r1 = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
     assert.equal(await store.getReport(TEST_ACTOR_A, r1.policy_id), null);
 
-    // Processing → no report
     const r2 = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
     const claimed = await store.claimJobs("w1", 1);
     const job2 = claimed.find((c) => c.policyId === r2.policy_id);
@@ -182,7 +219,6 @@ async function main() {
       assert.equal(await store.getReport(TEST_ACTOR_A, r2.policy_id), null, "processing: no report");
     }
 
-    // Failed → no report
     const r3 = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
     const claimed3 = await store.claimJobs("w2", 5);
     const job3 = claimed3.find((c) => c.policyId === r3.policy_id);
@@ -191,13 +227,11 @@ async function main() {
       assert.equal(await store.getReport(TEST_ACTOR_A, r3.policy_id), null, "failed: no report");
     }
 
-    // Cancelled → no report
     const r4 = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
     await store.cancelJob(TEST_ACTOR_A, r4.policy_id);
     assert.equal(await store.getReport(TEST_ACTOR_A, r4.policy_id), null, "cancelled: no report");
   });
 
-  // --- 11. Only valid terminal + complete report returns findings ---
   await test("completed job with report returns findings", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -213,9 +247,10 @@ async function main() {
     const loaded = await store.getReport(TEST_ACTOR_A, result.policy_id);
     assert.ok(loaded, "report available after completion");
     assert.equal(loaded!.policy_id, result.policy_id);
+    await store.completeJob(job!.jobId, "w1", report);
+    assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
   });
 
-  // --- 12. Memory mode prohibited in production ---
   await test("memory store prohibited in production", async () => {
     const prev = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
@@ -233,7 +268,6 @@ async function main() {
     }
   });
 
-  // --- 13. Cancellation prevents report publication ---
   await test("cancelled job cannot publish report", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -250,7 +284,6 @@ async function main() {
     );
   });
 
-  // --- 14. Worker claim uses serialized locking ---
   await test("concurrent claims do not double-claim", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -261,9 +294,12 @@ async function main() {
     ]);
     const total = a.length + b.length;
     assert.equal(total, 1, "only one worker claims the job");
+    const claimedId = (a[0] || b[0]).jobId;
+    const leftovers = [...store.jobs.values()].filter((job) => job.jobId === claimedId && job.status === "processing");
+    assert.equal(leftovers.length, 1);
+    assert.ok(leftovers[0].leaseOwner === "w-a" || leftovers[0].leaseOwner === "w-b");
   });
 
-  // --- 15. Deletion is authenticated, scoped, idempotent ---
   await test("deletion is authenticated and idempotent", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -279,7 +315,6 @@ async function main() {
     assert.equal(await store.getReport(TEST_ACTOR_A, result.policy_id), null);
   });
 
-  // --- 16. loadJobOriginals works ---
   await test("loadJobOriginals returns file bytes", async () => {
     const store = new MemoryPolicyStore();
     await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -291,6 +326,286 @@ async function main() {
     const originals = await store.loadJobOriginals(job!);
     assert.equal(originals.length, 2);
     assert.ok(originals[0].bytes.length > 0);
+  });
+
+  await test("pending reservations consume backlog capacity", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: 6 }, () => store.reservePackage(TEST_ACTOR_A, 1))
+    );
+    const accepted = outcomes.filter((item) => item.status === "fulfilled");
+    const rejected = outcomes.filter((item) => item.status === "rejected");
+    assert.equal(accepted.length, 5, "five pending reservations fill the active-job cap");
+    assert.equal(rejected.length, 1, "sixth concurrent reservation is rejected");
+    assert.ok(
+      rejected[0].status === "rejected" && rejected[0].reason instanceof BacklogLimitError,
+      "overflow reservation is a backlog limit, not a later finalize"
+    );
+    await assert.rejects(
+      () => store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) }),
+      (err: unknown) => err instanceof BacklogLimitError
+    );
+  });
+
+  await test("abandoned and expired reservations release capacity", async () => {
+    let nowMs = Date.now();
+    const store = new MemoryPolicyStore({ now: () => new Date(nowMs) });
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const first = await store.reservePackage(TEST_ACTOR_A, 1);
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    await assert.rejects(() => store.reservePackage(TEST_ACTOR_A, 1), (err: unknown) => err instanceof BacklogLimitError);
+    assert.equal(store.abandonReservation(TEST_ACTOR_A, first.reservation_id), true);
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    nowMs += 31 * 60_000;
+    await store.reservePackage(TEST_ACTOR_A, 1);
+  });
+
+  await test("queued jobs plus pending reservations share one cap", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    for (let i = 0; i < 4; i += 1) {
+      await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    }
+    await store.reservePackage(TEST_ACTOR_A, 1);
+    await assert.rejects(
+      () => store.reservePackage(TEST_ACTOR_A, 1),
+      (err: unknown) => err instanceof BacklogLimitError
+    );
+  });
+
+  await test("finalize rejects swapped reserved tuples", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const reservation = await seedReservedObjects(store, 2);
+    const swapped = submittedFromReservation(reservation, [
+      { file_id: reservation.files[0].file_id, document_id: reservation.files[1].document_id, storage_path: reservation.files[0].storage_path },
+      { file_id: reservation.files[1].file_id, document_id: reservation.files[0].document_id, storage_path: reservation.files[1].storage_path }
+    ]);
+    assert.throws(() => store.finalizeReservation(TEST_ACTOR_A, reservation.reservation_id, swapped), /reserved_tuple_mismatch/);
+  });
+
+  await test("finalize rejects duplicate file, document, and path values", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const reservation = await seedReservedObjects(store, 2);
+    assert.throws(
+      () =>
+        store.finalizeReservation(
+          TEST_ACTOR_A,
+          reservation.reservation_id,
+          submittedFromReservation(reservation, [{ file_id: reservation.files[1].file_id }])
+        ),
+      /duplicate_file_ids/
+    );
+    const reservation2 = await seedReservedObjects(store, 2);
+    assert.throws(
+      () =>
+        store.finalizeReservation(
+          TEST_ACTOR_A,
+          reservation2.reservation_id,
+          submittedFromReservation(reservation2, [{ document_id: reservation2.files[1].document_id }])
+        ),
+      /duplicate_document_ids/
+    );
+    const reservation3 = await seedReservedObjects(store, 2);
+    assert.throws(
+      () =>
+        store.finalizeReservation(
+          TEST_ACTOR_A,
+          reservation3.reservation_id,
+          submittedFromReservation(reservation3, [{ storage_path: reservation3.files[1].storage_path }])
+        ),
+      /duplicate_storage_paths/
+    );
+  });
+
+  await test("finalize rejects missing, extra, foreign, and invalid SHA items", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const missing = await seedReservedObjects(store, 2);
+    assert.throws(
+      () => store.finalizeReservation(TEST_ACTOR_A, missing.reservation_id, submittedFromReservation(missing).slice(0, 1)),
+      /file_count_mismatch/
+    );
+
+    const extra = await seedReservedObjects(store, 1);
+    const extraItem = {
+      file_id: newId(),
+      document_id: newId(),
+      storage_path: extra.files[0].storage_path.replace(extra.files[0].file_id, newId()),
+      sha256: VALID_SHA
+    };
+    assert.throws(
+      () => store.finalizeReservation(TEST_ACTOR_A, extra.reservation_id, [...submittedFromReservation(extra), extraItem]),
+      /file_count_mismatch/
+    );
+
+    const foreign = await seedReservedObjects(store, 1);
+    assert.throws(
+      () =>
+        store.finalizeReservation(
+          TEST_ACTOR_A,
+          foreign.reservation_id,
+          submittedFromReservation(foreign, [
+            { storage_path: `${TEST_ACTOR_B.accountId}/${foreign.upload_id}/${foreign.files[0].file_id}.pdf` }
+          ])
+        ),
+      /storage_path_foreign_account/
+    );
+
+    const sha = await seedReservedObjects(store, 1);
+    assert.throws(
+      () =>
+        store.finalizeReservation(
+          TEST_ACTOR_A,
+          sha.reservation_id,
+          submittedFromReservation(sha, [{ sha256: "not-a-sha256" }])
+        ),
+      /invalid_sha256/
+    );
+  });
+
+  await test("finalize fails closed when storage cannot be verified", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const reservation = await seedReservedObjects(store, 1);
+    store.storageUnavailable = true;
+    assert.throws(
+      () => store.finalizeReservation(TEST_ACTOR_A, reservation.reservation_id, submittedFromReservation(reservation)),
+      /storage_unavailable/
+    );
+    store.storageUnavailable = false;
+    store.backend.objects.clear();
+    assert.throws(
+      () => store.finalizeReservation(TEST_ACTOR_A, reservation.reservation_id, submittedFromReservation(reservation)),
+      /storage_object_missing/
+    );
+  });
+
+  await test("stale worker cannot heartbeat, fail, or complete", async () => {
+    let nowMs = Date.now();
+    const store = new MemoryPolicyStore({ now: () => new Date(nowMs) });
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    const claimed = await store.claimJobs("stale-worker", 1);
+    const job = claimed.find((item) => item.policyId === result.policy_id);
+    assert.ok(job);
+    nowMs += 121_000;
+    assert.equal(await store.heartbeatJob(job!.jobId, "stale-worker"), false);
+    assert.equal(await store.updateJobProgress(job!.jobId, "stale-worker", "ocr"), false);
+    assert.equal(await store.failJob(job!.jobId, "stale-worker", "boom", "ocr", false), false);
+    await assert.rejects(
+      () => store.completeJob(job!.jobId, "stale-worker", sampleReport({ policy_id: result.policy_id })),
+      /lease_mismatch/
+    );
+    const status = await store.getStatus(TEST_ACTOR_A, result.policy_id);
+    assert.equal(status!.status, "processing");
+    assert.equal(await store.getReport(TEST_ACTOR_A, result.policy_id), null);
+  });
+
+  await test("expired lease can be reclaimed by another worker", async () => {
+    let nowMs = Date.now();
+    const store = new MemoryPolicyStore({ now: () => new Date(nowMs) });
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    const first = await store.claimJobs("w-old", 1);
+    assert.equal(first.length, 1);
+    nowMs += 121_000;
+    const second = await store.claimJobs("w-new", 1);
+    assert.equal(second.length, 1);
+    assert.equal(second[0].jobId, first[0].jobId);
+    assert.equal(store.jobs.get(first[0].jobId)?.leaseOwner, "w-new");
+    await store.completeJob(second[0].jobId, "w-new", sampleReport({ policy_id: result.policy_id }));
+    assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
+  });
+
+  await test("exhausted expired jobs are terminalized on claim", async () => {
+    let nowMs = Date.now();
+    const store = new MemoryPolicyStore({ now: () => new Date(nowMs) });
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    let current = await store.claimJobs("w1", 1);
+    for (let attempt = 2; attempt <= 3; attempt += 1) {
+      nowMs += 121_000;
+      current = await store.claimJobs(`w${attempt}`, 1);
+      assert.equal(current.length, 1, `reclaim attempt ${attempt}`);
+    }
+    nowMs += 121_000;
+    const none = await store.claimJobs("w4", 1);
+    assert.equal(none.length, 0, "exhausted job is not claimed again");
+    const job = [...store.jobs.values()].find((item) => item.policyId === result.policy_id);
+    assert.ok(job);
+    assert.equal(job!.status, "failed");
+    assert.equal(job!.errorCode, "attempts_exhausted");
+    assert.equal(job!.leaseOwner, null);
+    const status = await store.getStatus(TEST_ACTOR_A, result.policy_id);
+    assert.equal(status!.status, "failed");
+    assert.equal(await store.getReport(TEST_ACTOR_A, result.policy_id), null);
+  });
+
+  await test("claim batch limits are bounded", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    await assert.rejects(() => store.claimJobs("w", 0), /invalid_claim_limit/);
+    await assert.rejects(() => store.claimJobs("w", 21), /invalid_claim_limit/);
+    const claimed = await store.claimJobs("w", 1);
+    assert.equal(claimed.length, 1);
+  });
+
+  await test("original filenames are normalized before persistence", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, {
+      files: [{ filename: "..\\evil\u0000name.pdf", bytes: makePdf("name") }]
+    });
+    const row = store.rows.get(result.policy_id);
+    assert.ok(row);
+    assert.equal(row!.stubDocuments[0].original_filename, safeDownloadFilename("..\\evil\u0000name.pdf"));
+    assert.ok(!row!.stubDocuments[0].original_filename.includes("\u0000"));
+    assert.ok(!row!.stubDocuments[0].original_filename.includes("\\"));
+    assert.equal(safeDownloadFilename("ok.pdf"), "ok.pdf");
+  });
+
+  await test("reservation RPC responses are validated before use", async () => {
+    const reservation_id = newId();
+    const upload_id = newId();
+    const file_id = newId();
+    const document_id = newId();
+    const valid = {
+      reservation_id,
+      upload_id,
+      analysis_id: newId(),
+      policy_id: newId(),
+      session_id: newId(),
+      job_id: newId(),
+      file_count: 1,
+      files: [
+        {
+          ordinal: 1,
+          file_id,
+          document_id,
+          storage_path: `${TEST_ACTOR_A.accountId}/${upload_id}/${file_id}.pdf`
+        }
+      ],
+      expires_at: new Date().toISOString()
+    };
+    const parsed = parseReservationResult(valid, 1);
+    assert.equal(parsed.files.length, 1);
+    assert.throws(() => parseReservationResult(null, 1), /reservation_malformed/);
+    assert.throws(
+      () => parseReservationResult({ ...valid, files: undefined, file_ids: [file_id], storage_paths: [valid.files[0].storage_path] }, 1),
+      /reservation_malformed/
+    );
+    assert.throws(() => parseReservationResult({ ...valid, file_count: 2 }, 1), /reservation_malformed/);
+    assert.throws(
+      () => parseReservationResult({ ...valid, files: [{ ...valid.files[0], file_id: "not-a-uuid" }] }, 1),
+      /reservation_malformed/
+    );
   });
 
   console.log();

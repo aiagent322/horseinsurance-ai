@@ -4,8 +4,9 @@ import path from "node:path";
 
 // ---------------------------------------------------------------------------
 // Database-authorization regression for the durable jobs migration.
-// Runs as a static analysis of the SQL migration file, verifying security
-// properties that must hold regardless of which Postgres runtime is used.
+// Static analysis of the SQL migration verifies grants, revocations,
+// tuple validation, storage fail-closed, lease ownership, and constraints.
+// Live EXECUTE/RLS behavior requires a Postgres runtime.
 // ---------------------------------------------------------------------------
 
 const MIGRATION_DIR = path.resolve(process.cwd(), "../../supabase/migrations");
@@ -19,11 +20,21 @@ function normalizeWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function extractFunctionBody(sql: string, fnName: string): string {
+  const lower = sql.toLowerCase();
+  const start = lower.indexOf(`function ${fnName.toLowerCase()}(`);
+  if (start === -1) return "";
+  const dollarStart = sql.indexOf("$$", start);
+  if (dollarStart === -1) return "";
+  const dollarEnd = sql.indexOf("$$", dollarStart + 2);
+  if (dollarEnd === -1) return "";
+  return sql.substring(dollarStart + 2, dollarEnd);
+}
+
 function main() {
   const sql = readMigration();
   const normalized = normalizeWhitespace(sql);
 
-  // ---- 1. No authenticated mutation grants on jobs, counters, or config ----
   const protectedTables = [
     "analysis_jobs",
     "account_usage_windows",
@@ -44,15 +55,11 @@ function main() {
       "i"
     );
 
-    assert.equal(insertGrantRe.test(sql), false,
-      `No INSERT grant to authenticated on ${table}`);
-    assert.equal(updateGrantRe.test(sql), false,
-      `No UPDATE grant to authenticated on ${table}`);
-    assert.equal(deleteGrantRe.test(sql), false,
-      `No DELETE grant to authenticated on ${table}`);
+    assert.equal(insertGrantRe.test(sql), false, `No INSERT grant to authenticated on ${table}`);
+    assert.equal(updateGrantRe.test(sql), false, `No UPDATE grant to authenticated on ${table}`);
+    assert.equal(deleteGrantRe.test(sql), false, `No DELETE grant to authenticated on ${table}`);
   }
 
-  // Also check that revoke statements exist for these tables.
   for (const table of protectedTables) {
     assert.ok(
       normalized.includes(`revoke all on ${table} from authenticated`)
@@ -61,55 +68,79 @@ function main() {
     );
   }
 
-  // No RLS INSERT/UPDATE/DELETE policy for authenticated on analysis_jobs.
-  const jobsInsertPolicy = /create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+insert/i;
-  const jobsUpdatePolicy = /create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+update/i;
-  const jobsDeletePolicy = /create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+delete/i;
-  assert.equal(jobsInsertPolicy.test(sql), false, "No INSERT RLS policy on analysis_jobs");
-  assert.equal(jobsUpdatePolicy.test(sql), false, "No UPDATE RLS policy on analysis_jobs");
-  assert.equal(jobsDeletePolicy.test(sql), false, "No DELETE RLS policy on analysis_jobs");
+  assert.equal(/create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+insert/i.test(sql), false, "No INSERT RLS policy on analysis_jobs");
+  assert.equal(/create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+update/i.test(sql), false, "No UPDATE RLS policy on analysis_jobs");
+  assert.equal(/create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+delete/i.test(sql), false, "No DELETE RLS policy on analysis_jobs");
 
-  // No INSERT/UPDATE/DELETE policies on counters or config.
   for (const table of ["account_usage_windows", "analyzer_runtime_config"]) {
     const anyPolicy = new RegExp(`create\\s+policy\\s+\\S+\\s+on\\s+${table}`, "i");
     assert.equal(anyPolicy.test(sql), false, `No RLS policy at all on ${table}`);
   }
 
-  // No policy on upload_reservations (all access via DEFINER functions).
-  assert.equal(
-    /create\s+policy\s+\S+\s+on\s+upload_reservations/i.test(sql),
-    false,
-    "No RLS policy on upload_reservations"
-  );
+  assert.equal(/create\s+policy\s+\S+\s+on\s+upload_reservations/i.test(sql), false, "No RLS policy on upload_reservations");
+  assert.equal(/create\s+policy\s+\S+\s+on\s+upload_reservation_files/i.test(sql), false, "No RLS policy on upload_reservation_files");
 
-  // ---- 2. Authenticated users cannot execute worker functions ----
+  for (const table of ["upload_reservations", "upload_reservation_files"]) {
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+${table}\\s+from\\s+public`, "i").test(sql),
+      `Revoke ALL on ${table} from PUBLIC`
+    );
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+${table}\\s+from\\s+anon`, "i").test(sql),
+      `Revoke ALL on ${table} from anon`
+    );
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+${table}\\s+from\\s+authenticated`, "i").test(sql),
+      `Revoke ALL on ${table} from authenticated`
+    );
+  }
+
   const workerFunctions = [
-    "claim_analysis_jobs",
-    "heartbeat_analysis_job",
-    "update_job_progress",
-    "fail_analysis_job",
-    "complete_analysis_job"
+    { name: "claim_analysis_jobs", args: "text, integer" },
+    { name: "heartbeat_analysis_job", args: "uuid, text" },
+    { name: "update_job_progress", args: "uuid, text, text, integer, integer, integer" },
+    { name: "fail_analysis_job", args: "uuid, text, text, text, boolean" },
+    { name: "complete_analysis_job", args: "uuid, text, jsonb" }
   ];
 
   for (const fn of workerFunctions) {
     const grantAuth = new RegExp(
-      `grant\\s+execute\\s+on\\s+function\\s+${fn}[^;]*to\\s+authenticated`,
+      `grant\\s+execute\\s+on\\s+function\\s+${fn.name}[^;]*to\\s+authenticated`,
       "i"
     );
-    assert.equal(grantAuth.test(sql), false,
-      `No EXECUTE grant to authenticated on ${fn}`);
+    const grantAnon = new RegExp(
+      `grant\\s+execute\\s+on\\s+function\\s+${fn.name}[^;]*to\\s+anon`,
+      "i"
+    );
+    const grantPublic = new RegExp(
+      `grant\\s+execute\\s+on\\s+function\\s+${fn.name}[^;]*to\\s+public`,
+      "i"
+    );
+    assert.equal(grantAuth.test(sql), false, `No EXECUTE grant to authenticated on ${fn.name}`);
+    assert.equal(grantAnon.test(sql), false, `No EXECUTE grant to anon on ${fn.name}`);
+    assert.equal(grantPublic.test(sql), false, `No EXECUTE grant to PUBLIC on ${fn.name}`);
 
-    const revokeAuth = new RegExp(
-      `revoke\\s+all\\s+on\\s+function\\s+${fn}[^;]*from\\s+authenticated`,
-      "i"
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+function\\s+${fn.name}[^;]*from\\s+public`, "i").test(sql),
+      `REVOKE ALL from PUBLIC on ${fn.name}`
     );
-    assert.ok(revokeAuth.test(sql),
-      `REVOKE ALL from authenticated on ${fn}`);
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+function\\s+${fn.name}[^;]*from\\s+anon`, "i").test(sql),
+      `REVOKE ALL from anon on ${fn.name}`
+    );
+    assert.ok(
+      new RegExp(`revoke\\s+all\\s+on\\s+function\\s+${fn.name}[^;]*from\\s+authenticated`, "i").test(sql),
+      `REVOKE ALL from authenticated on ${fn.name}`
+    );
+    assert.ok(
+      new RegExp(
+        `grant\\s+execute\\s+on\\s+function\\s+${fn.name}\\s*\\(\\s*${fn.args.replace(/, /g, ",\\s*")}\\s*\\)\\s+to\\s+service_role`,
+        "i"
+      ).test(sql),
+      `GRANT EXECUTE to service_role on ${fn.name}`
+    );
   }
 
-  // ---- 3. No RPC accepts caller-controlled security limits ----
-  // reserve_analyzer_package takes only p_file_count (an integer).
-  // It must not accept rate limits, attempt counts, etc.
   const reserveSig = sql.match(
     /create\s+or\s+replace\s+function\s+reserve_analyzer_package\(([^)]*)\)/i
   );
@@ -126,7 +157,6 @@ function main() {
     );
   }
 
-  // finalize_analyzer_package takes reservation_id + files array only.
   const finalizeSig = sql.match(
     /create\s+or\s+replace\s+function\s+finalize_analyzer_package\(([^)]*)\)/i
   );
@@ -139,8 +169,6 @@ function main() {
     );
   }
 
-  // ---- 4. Authoritative IDs are database-generated ----
-  // reserve_analyzer_package must generate IDs with gen_random_uuid().
   const reserveBody = extractFunctionBody(sql, "reserve_analyzer_package");
   const generatedIds = [
     "v_reservation_id", "v_upload_id", "v_analysis_id",
@@ -148,71 +176,81 @@ function main() {
   ];
   for (const id of generatedIds) {
     const assignRe = new RegExp(`${id}\\s*:=\\s*gen_random_uuid\\(\\)`, "i");
-    assert.ok(assignRe.test(reserveBody),
-      `${id} is generated by gen_random_uuid() in reserve_analyzer_package`);
+    assert.ok(assignRe.test(reserveBody), `${id} is generated by gen_random_uuid() in reserve_analyzer_package`);
   }
 
-  // ---- 5. Reservation file counts and exact paths enforced ----
+  assert.ok(
+    /from upload_reservations[\s\S]*status = 'pending'[\s\S]*expires_at > now\(\)/i.test(reserveBody)
+    || /upload_reservations[\s\S]*pending[\s\S]*expires_at > now\(\)/i.test(reserveBody),
+    "reserve_analyzer_package counts unexpired pending reservations in backlog"
+  );
+  assert.ok(
+    /status in \('queued',\s*'processing'\)/i.test(reserveBody),
+    "reserve_analyzer_package counts queued and processing jobs in backlog"
+  );
+  assert.ok(
+    /perform 1 from accounts where account_id = v_acc for update/i.test(reserveBody),
+    "reserve_analyzer_package serializes quota decisions with an account lock"
+  );
+
+  assert.ok(
+    /create table upload_reservation_files/i.test(sql),
+    "reserved files live in upload_reservation_files"
+  );
+  assert.ok(
+    /unique\s*\(\s*reservation_id\s*,\s*ordinal\s*\)/i.test(sql),
+    "reservation files unique on (reservation_id, ordinal)"
+  );
+  assert.ok(/unique\s*\(\s*file_id\s*\)/i.test(sql), "reservation files unique on file_id");
+  assert.ok(/unique\s*\(\s*document_id\s*\)/i.test(sql), "reservation files unique on document_id");
+  assert.ok(/unique\s*\(\s*storage_path\s*\)/i.test(sql), "reservation files unique on storage_path");
+
   const finalizeBody = extractFunctionBody(sql, "finalize_analyzer_package");
   assert.ok(
     /jsonb_array_length\(p_files\)\s*<>\s*v_res\.file_count/i.test(finalizeBody),
     "finalize validates file count matches reservation"
   );
+  assert.ok(/reserved_tuple_mismatch/i.test(finalizeBody), "finalize rejects swapped reserved tuples");
+  assert.ok(/storage_path_foreign_account/i.test(finalizeBody), "finalize rejects foreign account paths");
+  assert.ok(/reserved_file_missing/i.test(finalizeBody), "finalize rejects incomplete file submissions");
+  assert.ok(/duplicate_file_ids/i.test(finalizeBody), "finalize rejects duplicate file IDs");
+  assert.ok(/duplicate_document_ids/i.test(finalizeBody), "finalize rejects duplicate document IDs");
+  assert.ok(/duplicate_storage_paths/i.test(finalizeBody), "finalize rejects duplicate storage paths");
+  assert.ok(/invalid_sha256/i.test(finalizeBody), "finalize validates SHA-256 format");
   assert.ok(
-    /file_id_not_reserved/i.test(finalizeBody),
-    "finalize rejects unreserved file IDs"
+    /file_id = v_file_id\s+and\s+document_id = v_doc_id\s+and\s+storage_path = v_path/i.test(finalizeBody),
+    "finalize matches the exact reserved (file_id, document_id, storage_path) tuple"
   );
   assert.ok(
-    /storage_path_mismatch/i.test(finalizeBody),
-    "finalize rejects mismatched storage paths"
+    /to_regclass\('storage\.objects'\) is null/i.test(finalizeBody),
+    "finalize fails closed when storage.objects is unavailable"
+  );
+  assert.ok(/storage_unavailable/i.test(finalizeBody), "finalize raises storage_unavailable");
+  assert.ok(
+    /from storage\.objects\s+where bucket_id = 'policy-files' and name = v_path/i.test(finalizeBody),
+    "finalize requires every reserved object in policy-files at its exact path"
   );
   assert.ok(
-    /storage_path_foreign_account/i.test(finalizeBody),
-    "finalize rejects foreign account paths"
-  );
-  assert.ok(
-    /reserved_file_missing/i.test(finalizeBody),
-    "finalize rejects incomplete file submissions"
-  );
-  assert.ok(
-    /duplicate_file_ids/i.test(finalizeBody),
-    "finalize rejects duplicate file IDs"
-  );
-  assert.ok(
-    /invalid_sha256/i.test(finalizeBody),
-    "finalize validates SHA-256 format"
-  );
-  assert.ok(
-    /document_id_not_reserved/i.test(finalizeBody),
-    "finalize validates document IDs against reservation"
+    !/if to_regclass\('storage\.objects'\) is null then[\s\S]{0,80}null;\s*else/i.test(finalizeBody),
+    "finalize must not skip object verification when Storage is missing"
   );
 
-  // ---- 6. Worker claiming uses FOR UPDATE SKIP LOCKED ----
   const claimBody = extractFunctionBody(sql, "claim_analysis_jobs");
-  assert.ok(
-    /for\s+update\s+skip\s+locked/i.test(claimBody),
-    "claim_analysis_jobs uses FOR UPDATE SKIP LOCKED"
-  );
-
-  // Claim also checks service_role (auth.uid() is not null => reject).
-  assert.ok(
-    /service_role_required/i.test(claimBody),
-    "claim_analysis_jobs rejects non-service_role callers"
-  );
-
-  // Expired leases: reclaim only within attempt limit.
+  assert.ok(/for\s+update\s+skip\s+locked/i.test(claimBody), "claim_analysis_jobs uses FOR UPDATE SKIP LOCKED");
+  assert.ok(/service_role_required/i.test(claimBody), "claim_analysis_jobs rejects non-service_role callers");
+  assert.ok(/invalid_claim_limit/i.test(claimBody), "claim_analysis_jobs bounds the batch limit");
+  assert.ok(/attempts_exhausted/i.test(claimBody), "claim_analysis_jobs terminalizes exhausted expired jobs");
   assert.ok(
     /attempt_count\s*<\s*j\.max_attempts|attempt_count\s*<\s*max_attempts/i.test(claimBody),
     "claim_analysis_jobs enforces attempt limit for expired lease reclaim"
   );
 
-  // ---- 7. All SECURITY DEFINER functions fix their search_path ----
   const definerFunctions = sql.match(
     /create\s+or\s+replace\s+function\s+(\w+)\([^)]*\)[^;]*?security\s+definer/gi
   ) || [];
   assert.ok(definerFunctions.length > 0, "At least one SECURITY DEFINER function found");
 
-  const functionNames = definerFunctions.map(m => {
+  const functionNames = definerFunctions.map((m) => {
     const match = m.match(/function\s+(\w+)\(/i);
     return match ? match[1] : "";
   }).filter(Boolean);
@@ -230,7 +268,6 @@ function main() {
     );
   }
 
-  // Also verify the pre-existing helper functions from migration 2 set search_path.
   const migration2 = readFileSync(
     path.join(MIGRATION_DIR, "20260705145522_phase_1_rls_policies.sql"),
     "utf8"
@@ -240,76 +277,87 @@ function main() {
       migration2.toLowerCase().indexOf(`function ${fn}(`),
       migration2.toLowerCase().indexOf(`function ${fn}(`) + 500
     );
-    assert.ok(
-      /set\s+search_path\s*=\s*public/i.test(fnBlock),
-      `Pre-existing ${fn} sets search_path = public`
-    );
+    assert.ok(/set\s+search_path\s*=\s*public/i.test(fnBlock), `Pre-existing ${fn} sets search_path = public`);
   }
 
-  // ---- 8. Complete job verifies lease, rejects cancelled, idempotent ----
   const completeBody = extractFunctionBody(sql, "complete_analysis_job");
+  assert.ok(/lease_mismatch/i.test(completeBody), "complete_analysis_job verifies active lease");
+  assert.ok(/job_cancelled/i.test(completeBody), "complete_analysis_job rejects cancelled jobs");
+  assert.ok(/v_job\.status\s*=\s*'completed'/i.test(completeBody), "complete_analysis_job is idempotent for already-completed jobs");
   assert.ok(
-    /lease_mismatch/i.test(completeBody),
-    "complete_analysis_job verifies active lease"
+    /on conflict \(policy_analysis_id, section_key\)/i.test(completeBody),
+    "complete_analysis_job cannot create duplicate analyzer_report_v1 sections"
   );
   assert.ok(
-    /job_cancelled/i.test(completeBody),
-    "complete_analysis_job rejects cancelled jobs"
-  );
-  assert.ok(
-    /v_job\.status\s*=\s*'completed'/i.test(completeBody),
-    "complete_analysis_job is idempotent for already-completed jobs"
+    /insert into report_sections/i.test(completeBody)
+    && /set status = 'completed'/i.test(completeBody)
+    && completeBody.toLowerCase().indexOf("insert into report_sections")
+      < completeBody.toLowerCase().indexOf("set status = 'completed'"),
+    "complete marks the job complete only after the report write in the same function"
   );
 
-  // ---- 9. Worker functions check service_role ----
-  for (const fn of workerFunctions) {
+  for (const fn of ["heartbeat_analysis_job", "update_job_progress", "fail_analysis_job", "complete_analysis_job"]) {
     const body = extractFunctionBody(sql, fn);
+    assert.ok(/status = 'processing'|status <> 'processing'/i.test(body), `${fn} requires processing status`);
+    assert.ok(/lease_owner/i.test(body), `${fn} requires matching lease owner`);
     assert.ok(
-      /auth\.uid\(\)\s+is\s+not\s+null/i.test(body),
-      `${fn} checks auth.uid() is not null to verify service_role`
+      /lease_expires_at is not null|lease_expires_at is null/i.test(body),
+      `${fn} requires a non-null lease expiry`
     );
     assert.ok(
-      /service_role_required/i.test(body),
-      `${fn} raises service_role_required`
+      /lease_expires_at > now\(\)|lease_expires_at <= now\(\)/i.test(body),
+      `${fn} compares lease expiry to database now()`
     );
   }
 
-  // ---- 10. Reservation expiry enforced in finalize ----
-  assert.ok(
-    /reservation_expired/i.test(finalizeBody),
-    "finalize rejects expired reservations"
-  );
-  assert.ok(
-    /reservation_already_used/i.test(finalizeBody),
-    "finalize rejects already-used reservations"
-  );
-  assert.ok(
-    /reservation_owner_mismatch/i.test(finalizeBody),
-    "finalize rejects wrong owner"
-  );
+  for (const fn of workerFunctions) {
+    const body = extractFunctionBody(sql, fn.name);
+    assert.ok(/auth\.uid\(\)\s+is\s+not\s+null/i.test(body), `${fn.name} keeps auth.uid() IS NULL as defense in depth`);
+    assert.ok(/service_role_required/i.test(body), `${fn.name} raises service_role_required`);
+  }
 
-  // ---- 11. app_config not executable by authenticated ----
+  assert.ok(/reservation_expired/i.test(finalizeBody), "finalize rejects expired reservations");
+  assert.ok(/reservation_already_used/i.test(finalizeBody), "finalize rejects already-used reservations");
+  assert.ok(/reservation_owner_mismatch/i.test(finalizeBody), "finalize rejects wrong owner");
+
   assert.ok(
     /revoke\s+all\s+on\s+function\s+app_config[^;]*from\s+authenticated/i.test(sql),
     "app_config revoked from authenticated"
   );
 
+  assert.ok(/unique\s*\(\s*analysis_id\s*\)/i.test(sql), "one durable job per analysis");
+  assert.ok(/unique\s*\(\s*policy_id\s*\)/i.test(sql), "one durable job per policy");
+  assert.ok(
+    /max_attempts\s+integer not null default 3 check \(max_attempts between 1 and 20\)/i.test(sql),
+    "max_attempts is positive and bounded"
+  );
+  assert.ok(/document_count\s+integer not null default 0 check \(document_count >= 0\)/i.test(sql));
+  assert.ok(/documents_processed\s+integer not null default 0 check \(documents_processed >= 0\)/i.test(sql));
+  assert.ok(/pages_processed\s+integer not null default 0 check \(pages_processed >= 0\)/i.test(sql));
+  assert.ok(/file_count\s+integer not null check \(file_count between 1 and 10\)/i.test(sql));
+  assert.ok(
+    /status = 'processing' and lease_owner is not null and lease_expires_at is not null/i.test(sql),
+    "processing jobs must hold a lease"
+  );
+  assert.ok(
+    /create unique index if not exists idx_report_sections_analysis_key/i.test(sql),
+    "report_sections unique on (policy_analysis_id, section_key)"
+  );
+
+  const statusBody = extractFunctionBody(sql, "get_own_job_status");
+  assert.ok(/error_code',\s*'report_unavailable'/i.test(statusBody), "missing job returns report_unavailable");
+  assert.ok(/status',\s*'failed'/i.test(statusBody), "missing job returns failed status");
+  assert.ok(
+    !/row\.record|legacy|infer.*completed/i.test(statusBody),
+    "status RPC does not infer completion from a report row"
+  );
+
   console.log("DB-AUTH REGRESSION OK");
   console.log(`  Migration: ${path.basename(JOBS_MIGRATION)}`);
   console.log(`  DEFINER functions verified: ${functionNames.join(", ")}`);
-  console.log(`  Worker functions (service_role only): ${workerFunctions.join(", ")}`);
+  console.log(`  Worker functions (service_role only): ${workerFunctions.map((fn) => fn.name).join(", ")}`);
   console.log(`  Protected tables: ${protectedTables.join(", ")}`);
-}
-
-function extractFunctionBody(sql: string, fnName: string): string {
-  const lower = sql.toLowerCase();
-  const start = lower.indexOf(`function ${fnName.toLowerCase()}(`);
-  if (start === -1) return "";
-  const dollarStart = sql.indexOf("$$", start);
-  if (dollarStart === -1) return "";
-  const dollarEnd = sql.indexOf("$$", dollarStart + 2);
-  if (dollarEnd === -1) return "";
-  return sql.substring(dollarStart + 2, dollarEnd);
+  console.log("  LIVE DATABASE VERIFICATION PENDING");
 }
 
 main();

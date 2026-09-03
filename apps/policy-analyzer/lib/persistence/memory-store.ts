@@ -3,6 +3,7 @@ import { sanitizeAuditEvent, type AuditEvent } from "./audit";
 import { MAX_PURGE_BATCH } from "./constants";
 import { ConfigurationError, isFixtureAnalysisEnabled, retentionExpiresAt } from "./config";
 import { objectStoragePath } from "./object-paths";
+import { safeDownloadFilename } from "@/lib/original-document";
 import type {
   Actor,
   ClaimedJob,
@@ -10,6 +11,8 @@ import type {
   EnqueuePackageResult,
   ObjectBackend,
   PolicyStore,
+  ReservationResult,
+  ReservedFileTuple,
   SafeStatusPayload,
   SavePackageInput,
   SavePackageResult
@@ -53,7 +56,13 @@ type Row = {
   analysisId: string;
   retentionExpiresAt: Date;
   deletedAt: string | null;
-  files: Array<{ documentId: string; fileId: string; path: string; sha256: string }>;
+  files: Array<{
+    documentId: string;
+    fileId: string;
+    path: string;
+    sha256: string;
+    original_filename?: string;
+  }>;
 };
 
 type JobRow = {
@@ -94,9 +103,25 @@ function jobLimits() {
     leaseMs: 120_000,
     reservationExpiryMinutes: 30,
     retentionDays: 30,
-    workerBatchSize: 5
+    workerBatchSize: 5,
+    claimBatchMax: 20
   };
 }
+
+type MemoryReservation = {
+  reservationId: string;
+  accountId: string;
+  ownerUserId: string;
+  uploadId: string;
+  analysisId: string;
+  policyId: string;
+  sessionId: string;
+  jobId: string;
+  fileCount: number;
+  files: ReservedFileTuple[];
+  status: "pending" | "finalized" | "abandoned" | "expired";
+  expiresAt: Date;
+};
 
 function audit(eventName: AuditEvent["eventName"], extra: Partial<AuditEvent> = {}): AuditEvent {
   return sanitizeAuditEvent({ eventName, timestamp: new Date().toISOString(), ...extra });
@@ -109,13 +134,16 @@ export class MemoryPolicyStore implements PolicyStore {
   readonly rows = new Map<string, Row>();
   readonly jobs = new Map<string, JobRow>();
   readonly jobsByPolicy = new Map<string, string>();
+  readonly reservations = new Map<string, MemoryReservation>();
   readonly usageWindows = new Map<string, number>();
   readonly auditEvents: AuditEvent[] = [];
   lastSubmittedOwnership: unknown = null;
   failNextPersist = false;
   failAfterObjectUpload = false;
   persistPartialThenFail = false;
+  storageUnavailable = false;
   private claimChain: Promise<void> = Promise.resolve();
+  private quotaChain: Promise<void> = Promise.resolve();
   readonly now: () => Date;
 
   constructor(options?: { backend?: MemoryObjectBackend; now?: () => Date }) {
@@ -193,6 +221,36 @@ export class MemoryPolicyStore implements PolicyStore {
         deletedAt: null,
         files: uploaded.map((u) => ({ ...u, sha256: "" }))
       });
+      const completedJob: JobRow = {
+        jobId: newId(),
+        policyId: input.report.policy_id,
+        analysisId,
+        accountId: actor.accountId,
+        ownerUserId: actor.userId,
+        status: "completed",
+        attemptCount: 1,
+        maxAttempts: jobLimits().maxAttempts,
+        createdAt: this.now(),
+        availableAt: this.now(),
+        startedAt: this.now(),
+        completedAt: this.now(),
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastHeartbeat: null,
+        errorCode: null,
+        failureStage: null,
+        cancelledAt: null,
+        recovery: {},
+        stage: "completed",
+        documentCount: input.report.documents.length,
+        documentsProcessed: input.report.documents.length,
+        pageCount: input.report.documents.reduce((n, d) => n + d.page_count, 0),
+        pagesProcessed: input.report.documents.reduce((n, d) => n + d.page_count, 0),
+        retryable: false,
+        updatedAt: this.now()
+      };
+      this.jobs.set(completedJob.jobId, completedJob);
+      this.jobsByPolicy.set(input.report.policy_id, completedJob.jobId);
       this.writeAudit("analysis_persisted", {
         actorRole: actor.role,
         objectId: input.report.policy_id,
@@ -229,9 +287,8 @@ export class MemoryPolicyStore implements PolicyStore {
     }
     if (!row.record) return null;
 
-    const jobId = this.jobsByPolicy.get(policyId);
-    const job = jobId ? this.jobs.get(jobId) : undefined;
-    if (job && job.status !== "completed" && job.status !== "needs_review") {
+    const job = this.jobForRow(policyId, row);
+    if (!job || (job.status !== "completed" && job.status !== "needs_review")) {
       return null;
     }
 
@@ -360,6 +417,260 @@ export class MemoryPolicyStore implements PolicyStore {
     throw new Error("audit_append_only");
   }
 
+  private jobForRow(policyId: string, row: Row): JobRow | undefined {
+    const jobId = this.jobsByPolicy.get(policyId);
+    const job = jobId ? this.jobs.get(jobId) : undefined;
+    if (!job || job.policyId !== policyId || job.analysisId !== row.analysisId) {
+      return undefined;
+    }
+    return job;
+  }
+
+  private async withQuotaLock<T>(fn: () => Promise<T> | T): Promise<T> {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const prev = this.quotaChain;
+    this.quotaChain = prev.then(() => gate);
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
+  private expireStaleReservations(accountId: string): void {
+    for (const reservation of this.reservations.values()) {
+      if (
+        reservation.accountId === accountId &&
+        reservation.status === "pending" &&
+        reservation.expiresAt.getTime() <= this.now().getTime()
+      ) {
+        reservation.status = "expired";
+      }
+    }
+  }
+
+  private backlogCount(accountId: string): number {
+    this.expireStaleReservations(accountId);
+    let count = 0;
+    for (const job of this.jobs.values()) {
+      if (job.accountId === accountId && (job.status === "queued" || job.status === "processing")) {
+        count += 1;
+      }
+    }
+    for (const reservation of this.reservations.values()) {
+      if (
+        reservation.accountId === accountId &&
+        reservation.status === "pending" &&
+        reservation.expiresAt.getTime() > this.now().getTime()
+      ) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  async reservePackage(actor: Actor, fileCount: number): Promise<ReservationResult> {
+    return this.withQuotaLock(() => this.reservePackageLocked(actor, fileCount));
+  }
+
+  private reservePackageLocked(actor: Actor, fileCount: number): ReservationResult {
+    const limits = jobLimits();
+    if (fileCount < 1 || fileCount > limits.maxFilesPerPackage) {
+      throw new Error("invalid_file_count");
+    }
+    this.expireStaleReservations(actor.accountId);
+    const windowKey = `${actor.accountId}:${Math.floor(this.now().getTime() / 3600000)}`;
+    const windowCount = this.usageWindows.get(windowKey) || 0;
+    if (windowCount >= limits.uploadsPerHour) {
+      throw new RateLimitError("Too many analysis requests.", 60);
+    }
+    if (this.backlogCount(actor.accountId) >= limits.activeJobsPerAccount) {
+      throw new BacklogLimitError("Analysis backlog is full.", 30);
+    }
+    this.usageWindows.set(windowKey, windowCount + 1);
+
+    const reservationId = newId();
+    const uploadId = newId();
+    const files: ReservedFileTuple[] = [];
+    for (let i = 1; i <= fileCount; i += 1) {
+      const fileId = newId();
+      files.push({
+        ordinal: i,
+        file_id: fileId,
+        document_id: newId(),
+        storage_path: objectStoragePath(actor.accountId, uploadId, fileId)
+      });
+    }
+    const reservation: MemoryReservation = {
+      reservationId,
+      accountId: actor.accountId,
+      ownerUserId: actor.userId,
+      uploadId,
+      analysisId: newId(),
+      policyId: newId(),
+      sessionId: newId(),
+      jobId: newId(),
+      fileCount,
+      files,
+      status: "pending",
+      expiresAt: new Date(this.now().getTime() + limits.reservationExpiryMinutes * 60_000)
+    };
+    this.reservations.set(reservationId, reservation);
+    return {
+      reservation_id: reservation.reservationId,
+      upload_id: reservation.uploadId,
+      analysis_id: reservation.analysisId,
+      policy_id: reservation.policyId,
+      session_id: reservation.sessionId,
+      job_id: reservation.jobId,
+      file_count: reservation.fileCount,
+      files: reservation.files,
+      expires_at: reservation.expiresAt.toISOString()
+    };
+  }
+
+  abandonReservation(actor: Actor, reservationId: string): boolean {
+    const reservation = this.reservations.get(reservationId);
+    if (!reservation || reservation.ownerUserId !== actor.userId || reservation.status !== "pending") {
+      return false;
+    }
+    reservation.status = "abandoned";
+    return true;
+  }
+
+  finalizeReservation(
+    actor: Actor,
+    reservationId: string,
+    submitted: Array<{ file_id: string; document_id: string; storage_path: string; sha256: string; original_filename?: string }>
+  ): EnqueuePackageResult {
+    const reservation = this.reservations.get(reservationId);
+    if (!reservation) throw new Error("reservation_not_found");
+    if (reservation.ownerUserId !== actor.userId) throw new Error("reservation_owner_mismatch");
+    if (reservation.status !== "pending") throw new Error("reservation_already_used");
+    if (reservation.expiresAt.getTime() <= this.now().getTime()) {
+      reservation.status = "expired";
+      throw new Error("reservation_expired");
+    }
+    if (this.storageUnavailable) throw new Error("storage_unavailable");
+    if (submitted.length !== reservation.fileCount) throw new Error("file_count_mismatch");
+
+    const fileIds = submitted.map((item) => item.file_id);
+    const documentIds = submitted.map((item) => item.document_id);
+    const paths = submitted.map((item) => item.storage_path);
+    if (new Set(fileIds).size !== fileIds.length) throw new Error("duplicate_file_ids");
+    if (new Set(documentIds).size !== documentIds.length) throw new Error("duplicate_document_ids");
+    if (new Set(paths).size !== paths.length) throw new Error("duplicate_storage_paths");
+
+    for (const item of submitted) {
+      if (!/^[0-9a-f]{64}$/.test(item.sha256)) throw new Error("invalid_sha256");
+      if (!item.storage_path.startsWith(`${reservation.accountId}/`)) {
+        throw new Error("storage_path_foreign_account");
+      }
+      const match = reservation.files.find(
+        (tuple) =>
+          tuple.file_id === item.file_id &&
+          tuple.document_id === item.document_id &&
+          tuple.storage_path === item.storage_path
+      );
+      if (!match) throw new Error("reserved_tuple_mismatch");
+      if (!this.backend.objects.has(item.storage_path)) {
+        throw new Error("storage_object_missing");
+      }
+    }
+
+    if (this.failNextPersist) {
+      this.failNextPersist = false;
+      throw new Error("database_persist_failed");
+    }
+
+    const uploaded = reservation.files.map((tuple) => {
+      const item = submitted.find(
+        (entry) =>
+          entry.file_id === tuple.file_id &&
+          entry.document_id === tuple.document_id &&
+          entry.storage_path === tuple.storage_path
+      );
+      if (!item) throw new Error("reserved_file_missing");
+      return {
+        documentId: tuple.document_id,
+        fileId: tuple.file_id,
+        path: tuple.storage_path,
+        sha256: item.sha256,
+        original_filename: item.original_filename
+      };
+    });
+    const expires = new Date(retentionExpiresAt(this.now()));
+    this.rows.set(reservation.policyId, {
+      record: null,
+      stubDocuments: uploaded.map((file) => ({
+        document_id: file.documentId,
+        session_id: reservation.sessionId,
+        original_filename: safeDownloadFilename(file.original_filename || `${file.fileId}.pdf`),
+        file_type: "application/pdf",
+        upload_timestamp: this.now().toISOString(),
+        file_hash: file.sha256,
+        page_count: 0,
+        storage_location: file.path,
+        extraction_status: "pending" as const,
+        analysis_status: "pending" as const,
+        classification: "Unknown Document" as const,
+        pages: []
+      })),
+      accountId: reservation.accountId,
+      ownerUserId: reservation.ownerUserId,
+      uploadId: reservation.uploadId,
+      analysisId: reservation.analysisId,
+      retentionExpiresAt: expires,
+      deletedAt: null,
+      files: uploaded
+    });
+
+    const job: JobRow = {
+      jobId: reservation.jobId,
+      policyId: reservation.policyId,
+      analysisId: reservation.analysisId,
+      accountId: reservation.accountId,
+      ownerUserId: reservation.ownerUserId,
+      status: "queued",
+      attemptCount: 0,
+      maxAttempts: jobLimits().maxAttempts,
+      createdAt: this.now(),
+      availableAt: this.now(),
+      startedAt: null,
+      completedAt: null,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      lastHeartbeat: null,
+      errorCode: null,
+      failureStage: null,
+      cancelledAt: null,
+      recovery: {},
+      stage: "queued",
+      documentCount: reservation.fileCount,
+      documentsProcessed: 0,
+      pageCount: null,
+      pagesProcessed: 0,
+      retryable: false,
+      updatedAt: this.now()
+    };
+    this.jobs.set(job.jobId, job);
+    this.jobsByPolicy.set(reservation.policyId, job.jobId);
+    reservation.status = "finalized";
+    return {
+      policy_id: reservation.policyId,
+      session_id: reservation.sessionId,
+      upload_id: reservation.uploadId,
+      analysis_id: reservation.analysisId,
+      job_id: reservation.jobId,
+      document_count: reservation.fileCount,
+      page_count: null
+    };
+  }
+
   async enqueuePackage(actor: Actor, input: EnqueuePackageInput): Promise<EnqueuePackageResult> {
     void input.submittedUserId;
     void input.submittedAccountId;
@@ -370,117 +681,29 @@ export class MemoryPolicyStore implements PolicyStore {
       throw new ConfigurationError("Fixture analysis is disabled.");
     }
 
-    const limits = jobLimits();
-
-    const windowKey = `${actor.accountId}:${Math.floor(this.now().getTime() / 3600000)}`;
-    const windowCount = this.usageWindows.get(windowKey) || 0;
-    if (windowCount >= limits.uploadsPerHour) {
-      throw new RateLimitError("Too many analysis requests.", 60);
-    }
-
-    let activeCount = 0;
-    for (const job of this.jobs.values()) {
-      if (job.accountId === actor.accountId && (job.status === "queued" || job.status === "processing")) {
-        activeCount++;
-      }
-    }
-    if (activeCount >= limits.activeJobsPerAccount) {
-      throw new BacklogLimitError("Analysis backlog is full.", 30);
-    }
-
-    this.usageWindows.set(windowKey, windowCount + 1);
-
-    const policyId = newId();
-    const sessionId = newId();
-    const uploadId = newId();
-    const analysisId = newId();
-    const jobId = newId();
-
-    const uploaded: Row["files"] = [];
+    const reservation = await this.reservePackage(actor, input.files.length);
+    const uploadedPaths: string[] = [];
     try {
-      for (const file of input.files) {
-        const fileId = newId();
-        const documentId = newId();
-        const path = objectStoragePath(actor.accountId, uploadId, fileId);
-        await this.backend.put(path, file.bytes);
-        uploaded.push({ documentId, fileId, path, sha256: computeSha256(file.bytes) });
+      for (let i = 0; i < input.files.length; i += 1) {
+        const path = reservation.files[i].storage_path;
+        await this.backend.put(path, input.files[i].bytes);
+        uploadedPaths.push(path);
       }
-
-      if (this.failNextPersist) {
-        this.failNextPersist = false;
-        throw new Error("database_persist_failed");
-      }
-
-      const expires = new Date(retentionExpiresAt(this.now()));
-      this.rows.set(policyId, {
-        record: null,
-        stubDocuments: uploaded.map((u, i) => ({
-          document_id: u.documentId,
-          session_id: sessionId,
-          original_filename: input.files[i].filename,
-          file_type: "application/pdf",
-          upload_timestamp: this.now().toISOString(),
-          file_hash: u.sha256,
-          page_count: 0,
-          storage_location: u.path,
-          extraction_status: "pending" as const,
-          analysis_status: "pending" as const,
-          classification: "Unknown Document" as const,
-          pages: []
-        })),
-        accountId: actor.accountId,
-        ownerUserId: actor.userId,
-        uploadId,
-        analysisId,
-        retentionExpiresAt: expires,
-        deletedAt: null,
-        files: uploaded
-      });
-
-      const job: JobRow = {
-        jobId,
-        policyId,
-        analysisId,
-        accountId: actor.accountId,
-        ownerUserId: actor.userId,
-        status: "queued",
-        attemptCount: 0,
-        maxAttempts: limits.maxAttempts,
-        createdAt: this.now(),
-        availableAt: this.now(),
-        startedAt: null,
-        completedAt: null,
-        leaseOwner: null,
-        leaseExpiresAt: null,
-        lastHeartbeat: null,
-        errorCode: null,
-        failureStage: null,
-        cancelledAt: null,
-        recovery: {},
-        stage: "queued",
-        documentCount: input.files.length,
-        documentsProcessed: 0,
-        pageCount: null,
-        pagesProcessed: 0,
-        retryable: false,
-        updatedAt: this.now()
-      };
-      this.jobs.set(jobId, job);
-      this.jobsByPolicy.set(policyId, jobId);
-
-      this.writeAudit("upload_initiated", { actorRole: actor.role, objectId: policyId, outcome: "ok" });
-
-      return {
-        policy_id: policyId,
-        session_id: sessionId,
-        upload_id: uploadId,
-        analysis_id: analysisId,
-        job_id: jobId,
-        document_count: input.files.length,
-        page_count: null
-      };
+      this.writeAudit("upload_initiated", { actorRole: actor.role, objectId: reservation.policy_id, outcome: "ok" });
+      return this.finalizeReservation(
+        actor,
+        reservation.reservation_id,
+        input.files.map((file, index) => ({
+          file_id: reservation.files[index].file_id,
+          document_id: reservation.files[index].document_id,
+          storage_path: reservation.files[index].storage_path,
+          sha256: computeSha256(file.bytes),
+          original_filename: file.filename
+        }))
+      );
     } catch (error) {
-      await Promise.all(uploaded.map((item) => this.backend.remove(item.path).catch(() => undefined)));
+      await Promise.all(uploadedPaths.map((path) => this.backend.remove(path).catch(() => undefined)));
+      this.abandonReservation(actor, reservation.reservation_id);
       throw error;
     }
   }
@@ -495,25 +718,10 @@ export class MemoryPolicyStore implements PolicyStore {
       this.writeAudit("access_denied", { actorRole: actor.role, objectId: policyId, outcome: "denied" });
       return null;
     }
-    const jobId = this.jobsByPolicy.get(policyId);
-    const job = jobId ? this.jobs.get(jobId) : undefined;
+    const job = this.jobForRow(policyId, row);
     if (!job) {
-      if (row.record) {
-        return {
-          analysis_id: policyId,
-          status: "completed",
-          stage: "completed",
-          document_count: row.record.documents.length,
-          documents_processed: row.record.documents.length,
-          page_count: row.record.documents.reduce((n, d) => n + d.page_count, 0),
-          pages_processed: row.record.documents.reduce((n, d) => n + d.page_count, 0),
-          error_code: null,
-          retryable: false,
-          updated_at: this.now().toISOString()
-        };
-      }
       return {
-        analysis_id: policyId,
+        analysis_id: row.analysisId,
         status: "failed",
         stage: "failed",
         document_count: row.stubDocuments.length,
@@ -526,7 +734,7 @@ export class MemoryPolicyStore implements PolicyStore {
       };
     }
     return {
-      analysis_id: job.policyId,
+      analysis_id: job.analysisId,
       status: job.status,
       stage: job.stage,
       document_count: job.documentCount,
@@ -550,6 +758,8 @@ export class MemoryPolicyStore implements PolicyStore {
     job.cancelledAt = this.now();
     job.errorCode = "cancelled";
     job.retryable = false;
+    job.leaseOwner = null;
+    job.leaseExpiresAt = null;
     job.updatedAt = this.now();
     this.writeAudit("job_cancelled", { actorRole: actor.role, objectId: policyId, outcome: "ok" });
     return true;
@@ -568,21 +778,56 @@ export class MemoryPolicyStore implements PolicyStore {
     }
   }
 
+  private leaseIsActive(job: JobRow, workerId: string): boolean {
+    return (
+      job.status === "processing" &&
+      job.leaseOwner === workerId &&
+      job.leaseExpiresAt !== null &&
+      job.leaseExpiresAt.getTime() > this.now().getTime()
+    );
+  }
+
   async claimJobs(workerId: string, limit: number): Promise<ClaimedJob[]> {
+    const max = jobLimits().claimBatchMax;
+    if (!Number.isInteger(limit) || limit < 1 || limit > max) {
+      throw new Error("invalid_claim_limit");
+    }
     return this.withClaimLock(() => this.claimJobsLocked(workerId, limit));
   }
 
   private claimJobsLocked(workerId: string, limit: number): ClaimedJob[] {
     const limits = jobLimits();
-    const batch = Math.max(1, Math.min(limit, limits.workerBatchSize));
+    const batch = Math.min(limit, limits.workerBatchSize);
     const now = this.now();
+    for (const job of this.jobs.values()) {
+      if (
+        job.status === "processing" &&
+        job.cancelledAt === null &&
+        job.leaseExpiresAt &&
+        job.leaseExpiresAt.getTime() <= now.getTime() &&
+        job.attemptCount >= job.maxAttempts
+      ) {
+        job.status = "failed";
+        job.errorCode = "attempts_exhausted";
+        job.failureStage = "lease";
+        job.retryable = false;
+        job.leaseOwner = null;
+        job.leaseExpiresAt = null;
+        job.completedAt = now;
+        job.stage = "failed";
+        job.updatedAt = now;
+      }
+    }
     const claimed: ClaimedJob[] = [];
     for (const job of [...this.jobs.values()]) {
       if (claimed.length >= batch) break;
       if (job.cancelledAt) continue;
       const canClaim =
         (job.status === "queued" && job.availableAt <= now) ||
-        (job.status === "processing" && job.leaseExpiresAt && job.leaseExpiresAt < now && job.attemptCount < job.maxAttempts);
+        (job.status === "processing" &&
+          job.leaseExpiresAt !== null &&
+          job.leaseExpiresAt.getTime() <= now.getTime() &&
+          job.attemptCount < job.maxAttempts);
       if (!canClaim) continue;
       const row = this.rows.get(job.policyId);
       if (!row) continue;
@@ -616,7 +861,7 @@ export class MemoryPolicyStore implements PolicyStore {
 
   async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {
     const job = this.jobs.get(jobId);
-    if (!job || job.leaseOwner !== workerId || job.status !== "processing") return false;
+    if (!job || !this.leaseIsActive(job, workerId)) return false;
     job.lastHeartbeat = this.now();
     job.leaseExpiresAt = new Date(this.now().getTime() + jobLimits().leaseMs);
     job.updatedAt = this.now();
@@ -625,7 +870,7 @@ export class MemoryPolicyStore implements PolicyStore {
 
   async updateJobProgress(jobId: string, workerId: string, stage: string, progress?: { documentsProcessed?: number; pageCount?: number; pagesProcessed?: number }): Promise<boolean> {
     const job = this.jobs.get(jobId);
-    if (!job || job.leaseOwner !== workerId || job.status !== "processing") return false;
+    if (!job || !this.leaseIsActive(job, workerId)) return false;
     job.stage = stage;
     if (progress?.documentsProcessed !== undefined) job.documentsProcessed = progress.documentsProcessed;
     if (progress?.pageCount !== undefined) job.pageCount = progress.pageCount;
@@ -638,7 +883,7 @@ export class MemoryPolicyStore implements PolicyStore {
 
   async failJob(jobId: string, workerId: string, errorCode: string, stage: string, retryable: boolean): Promise<boolean> {
     const job = this.jobs.get(jobId);
-    if (!job || job.leaseOwner !== workerId) return false;
+    if (!job || !this.leaseIsActive(job, workerId)) return false;
     if (retryable && job.attemptCount < job.maxAttempts) {
       job.status = "queued";
       job.errorCode = errorCode;
@@ -664,9 +909,10 @@ export class MemoryPolicyStore implements PolicyStore {
 
   async completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void> {
     const job = this.jobs.get(jobId);
-    if (!job || job.leaseOwner !== workerId) throw new Error("lease_mismatch");
-    if (job.cancelledAt) throw Object.assign(new Error("cancelled"), { code: "cancelled" });
+    if (!job) throw new Error("lease_mismatch");
     if (job.status === "completed" && this.rows.get(job.policyId)?.record) return;
+    if (job.cancelledAt) throw Object.assign(new Error("cancelled"), { code: "cancelled" });
+    if (!this.leaseIsActive(job, workerId)) throw new Error("lease_mismatch");
     const row = this.rows.get(job.policyId);
     if (!row) throw new Error("missing_row");
     row.record = report;

@@ -17,6 +17,8 @@ import type {
   SavePackageResult
 } from "./types";
 import { RateLimitError, BacklogLimitError } from "./types";
+import { parseReservationResult } from "./reservation";
+import { safeDownloadFilename } from "@/lib/original-document";
 
 type AnalysisRow = {
   policy_analysis_id: string;
@@ -176,7 +178,7 @@ export class SupabasePolicyStore implements PolicyStore {
     }
 
     const status = await this.getStatus(actor, policyId);
-    if (status && status.status !== "completed" && status.status !== "needs_review") {
+    if (!status || (status.status !== "completed" && status.status !== "needs_review")) {
       return null;
     }
 
@@ -263,7 +265,7 @@ export class SupabasePolicyStore implements PolicyStore {
     });
     return {
       bytes: Buffer.from(await blob.arrayBuffer()),
-      filename: document?.original_filename || "policy.pdf"
+      filename: safeDownloadFilename(document?.original_filename || "policy.pdf")
     };
   }
 
@@ -405,23 +407,17 @@ export class SupabasePolicyStore implements PolicyStore {
       throw new Error("reservation_failed");
     }
 
-    const res = reservation as {
-      reservation_id: string;
-      upload_id: string;
-      analysis_id: string;
-      policy_id: string;
-      session_id: string;
-      job_id: string;
-      file_ids: string[];
-      document_ids: string[];
-      storage_paths: string[];
-      expires_at: string;
-    };
+    let res;
+    try {
+      res = parseReservationResult(reservation, input.files.length);
+    } catch {
+      throw new Error("reservation_malformed");
+    }
 
     const uploaded: Array<{ path: string }> = [];
     try {
       for (let i = 0; i < input.files.length; i++) {
-        const path = res.storage_paths[i];
+        const path = res.files[i].storage_path;
         const { error } = await this.client.storage
           .from(POLICY_FILES_BUCKET)
           .upload(path, input.files[i].bytes, { contentType: "application/pdf", upsert: false });
@@ -431,12 +427,12 @@ export class SupabasePolicyStore implements PolicyStore {
 
       const { createHash } = await import("node:crypto");
       const filesMeta = input.files.map((file, i) => ({
-        file_id: res.file_ids[i],
-        document_id: res.document_ids[i],
+        file_id: res.files[i].file_id,
+        document_id: res.files[i].document_id,
         sha256: createHash("sha256").update(file.bytes).digest("hex"),
-        storage_path: res.storage_paths[i],
+        storage_path: res.files[i].storage_path,
         page_count: null,
-        original_filename: file.filename
+        original_filename: safeDownloadFilename(file.filename)
       }));
 
       const { error: finError } = await this.client.rpc("finalize_analyzer_package", {

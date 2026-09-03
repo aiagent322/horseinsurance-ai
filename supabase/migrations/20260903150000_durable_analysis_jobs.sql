@@ -9,7 +9,7 @@
 create extension if not exists pgcrypto;
 
 -- =============================================================================
--- 1. PROTECTED CONFIGURATION (not readable or writable by authenticated users)
+-- 1. PROTECTED CONFIGURATION
 -- =============================================================================
 
 create table analyzer_runtime_config (
@@ -24,17 +24,16 @@ insert into analyzer_runtime_config (config_key, config_value) values
   ('max_files_per_package',        '10'),
   ('max_job_attempts',             '3'),
   ('reservation_expiry_minutes',   '30'),
-  ('retention_days',               '30')
+  ('retention_days',               '30'),
+  ('claim_batch_max',              '20')
 on conflict (config_key) do nothing;
 
 alter table analyzer_runtime_config enable row level security;
--- No RLS policy created: authenticated/anon/public cannot read or write.
 
 revoke all on analyzer_runtime_config from public;
 revoke all on analyzer_runtime_config from anon;
 revoke all on analyzer_runtime_config from authenticated;
 
--- Helper: read a config value (SECURITY DEFINER so it can read the table).
 create or replace function app_config(p_key text)
 returns text
 language sql
@@ -56,49 +55,54 @@ revoke all on function app_config(text) from authenticated;
 create table account_usage_windows (
     account_id    uuid not null references accounts(account_id) on delete cascade,
     window_start  timestamptz not null,
-    upload_count  integer not null default 0,
+    upload_count  integer not null default 0 check (upload_count >= 0),
     primary key (account_id, window_start)
 );
 
 alter table account_usage_windows enable row level security;
--- No RLS policy: authenticated users cannot read or write counters.
 
 revoke all on account_usage_windows from public;
 revoke all on account_usage_windows from anon;
 revoke all on account_usage_windows from authenticated;
 
 -- =============================================================================
--- 3. ANALYSIS JOBS TABLE
+-- 3. ANALYSIS JOBS
 -- =============================================================================
 
 create table analysis_jobs (
-    job_id             uuid primary key default gen_random_uuid(),
-    policy_id          uuid not null,
-    analysis_id        uuid not null references policy_analyses(policy_analysis_id) on delete cascade,
-    account_id         uuid not null references accounts(account_id) on delete cascade,
-    owner_user_id      uuid not null,
-    status             text not null default 'queued'
-                         check (status in ('queued','processing','completed','failed','needs_review','cancelled')),
-    attempt_count      integer not null default 0,
-    max_attempts       integer not null default 3,
-    created_at         timestamptz not null default now(),
-    available_at       timestamptz not null default now(),
-    started_at         timestamptz,
-    completed_at       timestamptz,
-    lease_owner        text,
-    lease_expires_at   timestamptz,
-    last_heartbeat     timestamptz,
-    error_code         text,
-    failure_stage      text,
-    cancelled_at       timestamptz,
-    recovery           jsonb not null default '{}'::jsonb,
-    stage              text not null default 'queued',
-    document_count     integer not null default 0,
-    documents_processed integer not null default 0,
-    page_count         integer,
-    pages_processed    integer not null default 0,
-    retryable          boolean not null default false,
-    updated_at         timestamptz not null default now()
+    job_id              uuid primary key default gen_random_uuid(),
+    policy_id           uuid not null,
+    analysis_id         uuid not null references policy_analyses(policy_analysis_id) on delete cascade,
+    account_id          uuid not null references accounts(account_id) on delete cascade,
+    owner_user_id       uuid not null,
+    status              text not null default 'queued'
+                          check (status in ('queued','processing','completed','failed','needs_review','cancelled')),
+    attempt_count       integer not null default 0 check (attempt_count >= 0),
+    max_attempts        integer not null default 3 check (max_attempts between 1 and 20),
+    created_at          timestamptz not null default now(),
+    available_at        timestamptz not null default now(),
+    started_at          timestamptz,
+    completed_at        timestamptz,
+    lease_owner         text,
+    lease_expires_at    timestamptz,
+    last_heartbeat      timestamptz,
+    error_code          text,
+    failure_stage       text,
+    cancelled_at        timestamptz,
+    recovery            jsonb not null default '{}'::jsonb,
+    stage               text not null default 'queued',
+    document_count      integer not null default 0 check (document_count >= 0),
+    documents_processed integer not null default 0 check (documents_processed >= 0),
+    page_count          integer check (page_count is null or page_count >= 0),
+    pages_processed     integer not null default 0 check (pages_processed >= 0),
+    retryable           boolean not null default false,
+    updated_at          timestamptz not null default now(),
+    unique (analysis_id),
+    unique (policy_id),
+    check (
+      (status = 'processing' and lease_owner is not null and lease_expires_at is not null)
+      or (status <> 'processing' and lease_owner is null)
+    )
 );
 
 create index idx_analysis_jobs_claimable
@@ -108,13 +112,8 @@ create index idx_analysis_jobs_claimable
 create index idx_analysis_jobs_account
   on analysis_jobs (account_id, status);
 
-create index idx_analysis_jobs_policy
-  on analysis_jobs (policy_id);
-
 alter table analysis_jobs enable row level security;
 
--- Authenticated users: SELECT own safe status only (via function below).
--- No INSERT/UPDATE/DELETE policy for authenticated on analysis_jobs.
 revoke all on analysis_jobs from public;
 revoke all on analysis_jobs from anon;
 revoke insert, update, delete on analysis_jobs from authenticated;
@@ -126,8 +125,11 @@ create policy jobs_select_own on analysis_jobs
     and app_is_account_member(account_id)
   );
 
+create unique index if not exists idx_report_sections_analysis_key
+  on report_sections (policy_analysis_id, section_key);
+
 -- =============================================================================
--- 4. UPLOAD RESERVATIONS
+-- 4. UPLOAD RESERVATIONS + FILE TUPLES
 -- =============================================================================
 
 create table upload_reservations (
@@ -139,10 +141,7 @@ create table upload_reservations (
     policy_id       uuid not null unique,
     session_id      uuid not null,
     job_id          uuid not null unique,
-    file_count      integer not null,
-    file_ids        uuid[] not null,
-    document_ids    uuid[] not null,
-    storage_paths   text[] not null,
+    file_count      integer not null check (file_count between 1 and 10),
     status          text not null default 'pending'
                       check (status in ('pending','finalized','abandoned','expired')),
     expires_at      timestamptz not null,
@@ -150,24 +149,36 @@ create table upload_reservations (
     finalized_at    timestamptz
 );
 
+create table upload_reservation_files (
+    reservation_file_id uuid primary key default gen_random_uuid(),
+    reservation_id      uuid not null references upload_reservations(reservation_id) on delete cascade,
+    ordinal             integer not null check (ordinal >= 1),
+    file_id             uuid not null,
+    document_id         uuid not null,
+    storage_path        text not null,
+    unique (reservation_id, ordinal),
+    unique (file_id),
+    unique (document_id),
+    unique (storage_path)
+);
+
 create index idx_reservations_owner on upload_reservations (account_id, owner_user_id);
 create index idx_reservations_status on upload_reservations (status, expires_at);
+create index idx_reservation_files_reservation on upload_reservation_files (reservation_id);
 
 alter table upload_reservations enable row level security;
--- No direct DML from authenticated users; only via SECURITY DEFINER functions.
+alter table upload_reservation_files enable row level security;
 
 revoke all on upload_reservations from public;
 revoke all on upload_reservations from anon;
 revoke all on upload_reservations from authenticated;
+revoke all on upload_reservation_files from public;
+revoke all on upload_reservation_files from anon;
+revoke all on upload_reservation_files from authenticated;
 
 -- =============================================================================
--- 5. RESERVE PACKAGE (SECURITY DEFINER — authenticated only)
+-- 5. RESERVE PACKAGE
 -- =============================================================================
--- Derives user from auth.uid(), account from account_members.
--- Generates all IDs in trusted DB code.
--- Enforces rate and backlog limits transactionally.
--- Serializes concurrent account quota decisions via SELECT ... FOR UPDATE.
--- Reservation expires safely. Worker cannot claim before finalization.
 
 create or replace function reserve_analyzer_package(p_file_count integer)
 returns jsonb
@@ -191,17 +202,17 @@ declare
   v_policy_id uuid;
   v_session_id uuid;
   v_job_id uuid;
-  v_file_ids uuid[];
-  v_document_ids uuid[];
-  v_storage_paths text[];
+  v_file_id uuid;
+  v_document_id uuid;
+  v_path text;
   v_expires_at timestamptz;
+  v_files jsonb := '[]'::jsonb;
   i integer;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
   end if;
 
-  -- Resolve account from membership (never caller-supplied).
   select m.account_id into v_acc
   from account_members m
   where m.user_id = v_uid and m.user_role = 'owner'
@@ -211,7 +222,6 @@ begin
     raise exception 'no_account';
   end if;
 
-  -- Read protected limits.
   v_max_files := coalesce(app_config('max_files_per_package')::integer, 10);
   v_rate_limit := coalesce(app_config('uploads_per_account_per_hour')::integer, 20);
   v_active_limit := coalesce(app_config('active_jobs_per_account')::integer, 5);
@@ -221,10 +231,14 @@ begin
     raise exception 'invalid_file_count';
   end if;
 
-  -- Serialize concurrent quota decisions for this account.
   perform 1 from accounts where account_id = v_acc for update;
 
-  -- Rate limit: uploads per account per hour.
+  update upload_reservations
+  set status = 'expired'
+  where account_id = v_acc
+    and status = 'pending'
+    and expires_at < now();
+
   v_window_start := date_trunc('hour', now());
   insert into account_usage_windows (account_id, window_start, upload_count)
   values (v_acc, v_window_start, 0)
@@ -239,50 +253,54 @@ begin
     raise exception 'rate_limited';
   end if;
 
-  -- Active jobs backlog limit.
-  select count(*) into v_active_count
-  from analysis_jobs
-  where account_id = v_acc and status in ('queued', 'processing');
+  select
+    (select count(*) from analysis_jobs
+      where account_id = v_acc and status in ('queued', 'processing'))
+    +
+    (select count(*) from upload_reservations
+      where account_id = v_acc and status = 'pending' and expires_at > now())
+  into v_active_count;
 
   if v_active_count >= v_active_limit then
     raise exception 'backlog_limited';
   end if;
 
-  -- Generate all authoritative IDs.
   v_reservation_id := gen_random_uuid();
   v_upload_id := gen_random_uuid();
   v_analysis_id := gen_random_uuid();
   v_policy_id := gen_random_uuid();
   v_session_id := gen_random_uuid();
   v_job_id := gen_random_uuid();
-
-  v_file_ids := array[]::uuid[];
-  v_document_ids := array[]::uuid[];
-  v_storage_paths := array[]::text[];
-
-  for i in 1..p_file_count loop
-    v_file_ids := v_file_ids || gen_random_uuid();
-    v_document_ids := v_document_ids || gen_random_uuid();
-    v_storage_paths := v_storage_paths || (v_acc::text || '/' || v_upload_id::text || '/' || v_file_ids[i]::text || '.pdf');
-  end loop;
-
   v_expires_at := now() + (v_expiry_minutes || ' minutes')::interval;
 
-  -- Increment usage counter.
   update account_usage_windows
   set upload_count = upload_count + 1
   where account_id = v_acc and window_start = v_window_start;
 
-  -- Create the reservation.
   insert into upload_reservations (
     reservation_id, account_id, owner_user_id, upload_id, analysis_id,
-    policy_id, session_id, job_id, file_count, file_ids, document_ids,
-    storage_paths, status, expires_at
+    policy_id, session_id, job_id, file_count, status, expires_at
   ) values (
     v_reservation_id, v_acc, v_uid, v_upload_id, v_analysis_id,
-    v_policy_id, v_session_id, v_job_id, p_file_count, v_file_ids, v_document_ids,
-    v_storage_paths, 'pending', v_expires_at
+    v_policy_id, v_session_id, v_job_id, p_file_count, 'pending', v_expires_at
   );
+
+  for i in 1..p_file_count loop
+    v_file_id := gen_random_uuid();
+    v_document_id := gen_random_uuid();
+    v_path := v_acc::text || '/' || v_upload_id::text || '/' || v_file_id::text || '.pdf';
+    insert into upload_reservation_files (
+      reservation_id, ordinal, file_id, document_id, storage_path
+    ) values (
+      v_reservation_id, i, v_file_id, v_document_id, v_path
+    );
+    v_files := v_files || jsonb_build_object(
+      'ordinal', i,
+      'file_id', v_file_id,
+      'document_id', v_document_id,
+      'storage_path', v_path
+    );
+  end loop;
 
   return jsonb_build_object(
     'reservation_id', v_reservation_id,
@@ -291,9 +309,8 @@ begin
     'policy_id', v_policy_id,
     'session_id', v_session_id,
     'job_id', v_job_id,
-    'file_ids', to_jsonb(v_file_ids),
-    'document_ids', to_jsonb(v_document_ids),
-    'storage_paths', to_jsonb(v_storage_paths),
+    'file_count', p_file_count,
+    'files', v_files,
     'expires_at', v_expires_at
   );
 end;
@@ -304,17 +321,12 @@ revoke all on function reserve_analyzer_package(integer) from anon;
 grant execute on function reserve_analyzer_package(integer) to authenticated;
 
 -- =============================================================================
--- 6. FINALIZE PACKAGE (SECURITY DEFINER — authenticated only)
+-- 6. FINALIZE PACKAGE
 -- =============================================================================
--- Locks and verifies reservation. Requires same authenticated owner.
--- Requires exactly the reserved files with SHA-256 and exact storage paths.
--- Verifies every Storage object exists (via storage.objects).
--- Creates upload, analysis, file metadata, and queued job atomically.
--- Uses database-controlled retry and retention settings.
 
 create or replace function finalize_analyzer_package(
   p_reservation_id uuid,
-  p_files jsonb  -- [{file_id, document_id, sha256, storage_path, page_count, original_filename}]
+  p_files jsonb
 )
 returns jsonb
 language plpgsql
@@ -331,15 +343,15 @@ declare
   v_doc_id uuid;
   v_path text;
   v_sha text;
-  v_submitted_ids uuid[];
-  v_submitted_paths text[];
+  v_ordinal integer;
+  v_matched integer;
+  v_filename text;
   i integer;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
   end if;
 
-  -- Lock the reservation row.
   select * into v_res
   from upload_reservations
   where reservation_id = p_reservation_id
@@ -362,22 +374,55 @@ begin
     raise exception 'reservation_expired';
   end if;
 
-  -- Validate file count matches exactly.
+  if p_files is null or jsonb_typeof(p_files) <> 'array' then
+    raise exception 'file_count_mismatch';
+  end if;
+
   if jsonb_array_length(p_files) <> v_res.file_count then
     raise exception 'file_count_mismatch';
   end if;
 
-  -- Read protected settings.
+  if to_regclass('storage.objects') is null then
+    raise exception 'storage_unavailable';
+  end if;
+
+  if not exists (select 1 from storage.buckets where id = 'policy-files') then
+    raise exception 'storage_unavailable';
+  end if;
+
   v_max_attempts := coalesce(app_config('max_job_attempts')::integer, 3);
   v_retention_days := coalesce(app_config('retention_days')::integer, 30);
 
-  -- Validate each file: exact IDs, exact paths, SHA-256 present.
-  v_submitted_ids := array[]::uuid[];
-  v_submitted_paths := array[]::text[];
+  if (
+    select count(*) from (
+      select value->>'file_id' as fid from jsonb_array_elements(p_files)
+    ) s
+  ) <> (
+    select count(distinct value->>'file_id') from jsonb_array_elements(p_files)
+  ) then
+    raise exception 'duplicate_file_ids';
+  end if;
+
+  if (
+    select count(*) from (select value->>'document_id' as did from jsonb_array_elements(p_files)) s
+  ) <> (
+    select count(distinct value->>'document_id') from jsonb_array_elements(p_files)
+  ) then
+    raise exception 'duplicate_document_ids';
+  end if;
+
+  if (
+    select count(*) from (select value->>'storage_path' as p from jsonb_array_elements(p_files)) s
+  ) <> (
+    select count(distinct value->>'storage_path') from jsonb_array_elements(p_files)
+  ) then
+    raise exception 'duplicate_storage_paths';
+  end if;
+
   for i in 0..jsonb_array_length(p_files) - 1 loop
     v_file := p_files->i;
-    v_file_id := (v_file->>'file_id')::uuid;
-    v_doc_id := (v_file->>'document_id')::uuid;
+    v_file_id := nullif(v_file->>'file_id','')::uuid;
+    v_doc_id := nullif(v_file->>'document_id','')::uuid;
     v_path := v_file->>'storage_path';
     v_sha := v_file->>'sha256';
 
@@ -385,58 +430,46 @@ begin
       raise exception 'file_field_missing';
     end if;
 
-    -- SHA-256 must be lowercase hex, exactly 64 chars.
     if length(v_sha) <> 64 or v_sha !~ '^[0-9a-f]{64}$' then
       raise exception 'invalid_sha256';
     end if;
 
-    -- File ID must be one of the reserved IDs.
-    if not (v_file_id = any(v_res.file_ids)) then
-      raise exception 'file_id_not_reserved';
-    end if;
-
-    -- Document ID must match the corresponding reserved document ID.
-    if not (v_doc_id = any(v_res.document_ids)) then
-      raise exception 'document_id_not_reserved';
-    end if;
-
-    -- Storage path must exactly match the reserved path.
-    if not (v_path = any(v_res.storage_paths)) then
-      raise exception 'storage_path_mismatch';
-    end if;
-
-    -- Path must start with account_id/ (no foreign account injection).
     if split_part(v_path, '/', 1) <> v_res.account_id::text then
       raise exception 'storage_path_foreign_account';
     end if;
 
-    -- Verify the Storage object exists (requires storage schema).
-    if to_regclass('storage.objects') is not null then
-      if not exists (
-        select 1 from storage.objects
-        where bucket_id = 'policy-files' and name = v_path
-      ) then
-        raise exception 'storage_object_missing';
-      end if;
+    select ordinal into v_ordinal
+    from upload_reservation_files
+    where reservation_id = p_reservation_id
+      and file_id = v_file_id
+      and document_id = v_doc_id
+      and storage_path = v_path;
+
+    if v_ordinal is null then
+      raise exception 'reserved_tuple_mismatch';
     end if;
 
-    v_submitted_ids := v_submitted_ids || v_file_id;
-    v_submitted_paths := v_submitted_paths || v_path;
-  end loop;
-
-  -- Every reserved file ID must be submitted (no omissions).
-  for i in 1..array_length(v_res.file_ids, 1) loop
-    if not (v_res.file_ids[i] = any(v_submitted_ids)) then
-      raise exception 'reserved_file_missing';
+    if not exists (
+      select 1 from storage.objects
+      where bucket_id = 'policy-files' and name = v_path
+    ) then
+      raise exception 'storage_object_missing';
     end if;
   end loop;
 
-  -- No duplicate file IDs.
-  if array_length(v_submitted_ids, 1) <> (select count(distinct u) from unnest(v_submitted_ids) u) then
-    raise exception 'duplicate_file_ids';
+  select count(*) into v_matched
+  from upload_reservation_files rf
+  where rf.reservation_id = p_reservation_id
+    and exists (
+      select 1 from jsonb_array_elements(p_files) f
+      where (f->>'file_id')::uuid = rf.file_id
+        and (f->>'document_id')::uuid = rf.document_id
+        and f->>'storage_path' = rf.storage_path
+    );
+
+  if v_matched <> v_res.file_count then
+    raise exception 'reserved_file_missing';
   end if;
-
-  -- ---- Atomic creation of upload, analysis, files, queued job ----
 
   insert into uploads (upload_id, account_id, user_id, status)
   values (v_res.upload_id, v_res.account_id, v_uid, 'received');
@@ -452,9 +485,12 @@ begin
     'active'
   );
 
-  -- Insert file metadata.
   for i in 0..jsonb_array_length(p_files) - 1 loop
     v_file := p_files->i;
+    v_filename := coalesce(v_file->>'original_filename', (v_file->>'file_id') || '.pdf');
+    v_filename := regexp_replace(v_filename, E'[\\n\\r\\t\\x00-\\x1f]+', '_', 'g');
+    v_filename := regexp_replace(v_filename, '[/\\\\]+', '_', 'g');
+    v_filename := left(v_filename, 120);
     insert into uploaded_policy_files (
       file_id, upload_id, account_id, user_id,
       file_name, file_type, object_storage_key,
@@ -464,7 +500,7 @@ begin
       v_res.upload_id,
       v_res.account_id,
       v_uid,
-      coalesce(v_file->>'original_filename', (v_file->>'file_id') || '.pdf'),
+      v_filename,
       'pdf',
       v_file->>'storage_path',
       nullif(v_file->>'page_count', '')::integer,
@@ -474,7 +510,6 @@ begin
     );
   end loop;
 
-  -- Create the queued job.
   insert into analysis_jobs (
     job_id, policy_id, analysis_id, account_id, owner_user_id,
     status, attempt_count, max_attempts,
@@ -485,7 +520,6 @@ begin
     v_res.file_count, 'queued'
   );
 
-  -- Mark reservation finalized.
   update upload_reservations
   set status = 'finalized', finalized_at = now()
   where reservation_id = p_reservation_id;
@@ -506,7 +540,7 @@ revoke all on function finalize_analyzer_package(uuid, jsonb) from anon;
 grant execute on function finalize_analyzer_package(uuid, jsonb) to authenticated;
 
 -- =============================================================================
--- 7. ABANDON RESERVATION (SECURITY DEFINER — authenticated only)
+-- 7. ABANDON RESERVATION
 -- =============================================================================
 
 create or replace function abandon_analyzer_reservation(p_reservation_id uuid)
@@ -553,10 +587,8 @@ revoke all on function abandon_analyzer_reservation(uuid) from anon;
 grant execute on function abandon_analyzer_reservation(uuid) to authenticated;
 
 -- =============================================================================
--- 8. SAFE JOB STATUS (SECURITY DEFINER — authenticated only)
+-- 8. SAFE JOB STATUS
 -- =============================================================================
--- Returns a safe subset of job state. The SELECT policy on analysis_jobs
--- already restricts to own rows, but this function provides a typed safe view.
 
 create or replace function get_own_job_status(p_policy_id uuid)
 returns jsonb
@@ -568,25 +600,49 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_job record;
+  v_analysis record;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
   end if;
 
-  select * into v_job
-  from analysis_jobs
-  where policy_id = p_policy_id
-    and owner_user_id = v_uid
+  select * into v_analysis
+  from policy_analyses
+  where analyzer_policy_id = p_policy_id
+    and user_id = v_uid
     and app_is_account_member(account_id)
-  order by created_at desc
-  limit 1;
+    and deletion_status = 'active'
+    and deleted_at is null
+    and (retention_expires_at is null or retention_expires_at > now());
 
-  if v_job is null then
+  if v_analysis is null then
     return null;
   end if;
 
+  select * into v_job
+  from analysis_jobs
+  where policy_id = p_policy_id
+    and analysis_id = v_analysis.policy_analysis_id
+    and owner_user_id = v_uid
+    and app_is_account_member(account_id);
+
+  if v_job is null then
+    return jsonb_build_object(
+      'analysis_id', v_analysis.policy_analysis_id,
+      'status', 'failed',
+      'stage', 'failed',
+      'document_count', 0,
+      'documents_processed', 0,
+      'page_count', null,
+      'pages_processed', 0,
+      'error_code', 'report_unavailable',
+      'retryable', false,
+      'updated_at', now()
+    );
+  end if;
+
   return jsonb_build_object(
-    'analysis_id', v_job.policy_id,
+    'analysis_id', v_job.analysis_id,
     'status', v_job.status,
     'stage', v_job.stage,
     'document_count', v_job.document_count,
@@ -605,7 +661,7 @@ revoke all on function get_own_job_status(uuid) from anon;
 grant execute on function get_own_job_status(uuid) to authenticated;
 
 -- =============================================================================
--- 9. CANCEL OWN JOB (SECURITY DEFINER — authenticated only)
+-- 9. CANCEL OWN JOB
 -- =============================================================================
 
 create or replace function cancel_own_analysis_job(p_policy_id uuid)
@@ -639,6 +695,8 @@ begin
       cancelled_at = now(),
       error_code = 'cancelled',
       retryable = false,
+      lease_owner = null,
+      lease_expires_at = null,
       updated_at = now()
   where job_id = v_job.job_id;
 
@@ -651,12 +709,9 @@ revoke all on function cancel_own_analysis_job(uuid) from anon;
 grant execute on function cancel_own_analysis_job(uuid) to authenticated;
 
 -- =============================================================================
--- 10. WORKER FUNCTIONS (service_role only)
+-- 10. WORKER FUNCTIONS — EXECUTE granted only to service_role
+-- auth.uid() IS NULL is defense in depth, not the authorization boundary.
 -- =============================================================================
-
--- CLAIM JOBS: FOR UPDATE SKIP LOCKED.
--- Only claims finalized reservations (job exists in analysis_jobs).
--- Expired leases may be reclaimed within attempt limit.
 
 create or replace function claim_analysis_jobs(p_worker_id text, p_limit integer default 1)
 returns jsonb
@@ -670,12 +725,38 @@ declare
   v_claimed jsonb := '[]'::jsonb;
   v_job record;
   v_files jsonb;
+  v_batch integer;
+  v_max integer;
 begin
-  -- service_role check: auth.uid() is null for service role calls.
-  -- If auth.uid() is set, this is NOT a service_role call.
   if auth.uid() is not null then
     raise exception 'service_role_required';
   end if;
+
+  if p_worker_id is null or length(trim(p_worker_id)) = 0 then
+    raise exception 'invalid_worker_id';
+  end if;
+
+  v_max := coalesce(app_config('claim_batch_max')::integer, 20);
+  if p_limit is null or p_limit < 1 or p_limit > v_max then
+    raise exception 'invalid_claim_limit';
+  end if;
+  v_batch := p_limit;
+
+  update analysis_jobs
+  set status = 'failed',
+      error_code = 'attempts_exhausted',
+      failure_stage = 'lease',
+      retryable = false,
+      lease_owner = null,
+      lease_expires_at = null,
+      completed_at = v_now,
+      stage = 'failed',
+      updated_at = v_now
+  where status = 'processing'
+    and cancelled_at is null
+    and lease_expires_at is not null
+    and lease_expires_at <= v_now
+    and attempt_count >= max_attempts;
 
   for v_job in
     select j.*
@@ -684,11 +765,11 @@ begin
       and j.cancelled_at is null
       and (
         (j.status = 'queued' and j.available_at <= v_now)
-        or (j.status = 'processing' and j.lease_expires_at is not null and j.lease_expires_at < v_now
+        or (j.status = 'processing' and j.lease_expires_at is not null and j.lease_expires_at <= v_now
             and j.attempt_count < j.max_attempts)
       )
     order by j.available_at asc
-    limit p_limit
+    limit v_batch
     for update skip locked
   loop
     update analysis_jobs
@@ -702,14 +783,13 @@ begin
         updated_at = v_now
     where job_id = v_job.job_id;
 
-    -- Gather file metadata for the worker.
     select coalesce(jsonb_agg(jsonb_build_object(
       'file_id', f.file_id,
       'document_id', f.document_id,
       'storage_path', f.object_storage_key,
       'sha256', f.file_sha256,
       'original_filename', f.file_name
-    )), '[]'::jsonb)
+    ) order by f.created_at), '[]'::jsonb)
     into v_files
     from uploaded_policy_files f
     where f.upload_id = (
@@ -735,8 +815,7 @@ $$;
 revoke all on function claim_analysis_jobs(text, integer) from public;
 revoke all on function claim_analysis_jobs(text, integer) from anon;
 revoke all on function claim_analysis_jobs(text, integer) from authenticated;
-
--- HEARTBEAT JOB
+grant execute on function claim_analysis_jobs(text, integer) to service_role;
 
 create or replace function heartbeat_analysis_job(p_job_id uuid, p_worker_id text)
 returns boolean
@@ -754,8 +833,10 @@ begin
       lease_expires_at = now() + interval '120 seconds',
       updated_at = now()
   where job_id = p_job_id
+    and status = 'processing'
     and lease_owner = p_worker_id
-    and status = 'processing';
+    and lease_expires_at is not null
+    and lease_expires_at > now();
 
   return found;
 end;
@@ -764,8 +845,7 @@ $$;
 revoke all on function heartbeat_analysis_job(uuid, text) from public;
 revoke all on function heartbeat_analysis_job(uuid, text) from anon;
 revoke all on function heartbeat_analysis_job(uuid, text) from authenticated;
-
--- UPDATE JOB PROGRESS
+grant execute on function heartbeat_analysis_job(uuid, text) to service_role;
 
 create or replace function update_job_progress(
   p_job_id uuid,
@@ -794,8 +874,10 @@ begin
       lease_expires_at = now() + interval '120 seconds',
       updated_at = now()
   where job_id = p_job_id
+    and status = 'processing'
     and lease_owner = p_worker_id
-    and status = 'processing';
+    and lease_expires_at is not null
+    and lease_expires_at > now();
 
   return found;
 end;
@@ -804,8 +886,7 @@ $$;
 revoke all on function update_job_progress(uuid, text, text, integer, integer, integer) from public;
 revoke all on function update_job_progress(uuid, text, text, integer, integer, integer) from anon;
 revoke all on function update_job_progress(uuid, text, text, integer, integer, integer) from authenticated;
-
--- FAIL JOB
+grant execute on function update_job_progress(uuid, text, text, integer, integer, integer) to service_role;
 
 create or replace function fail_analysis_job(
   p_job_id uuid,
@@ -829,10 +910,16 @@ begin
   select * into v_job
   from analysis_jobs
   where job_id = p_job_id
-    and lease_owner = p_worker_id
   for update;
 
   if v_job is null then
+    return false;
+  end if;
+
+  if v_job.status <> 'processing'
+     or v_job.lease_owner is distinct from p_worker_id
+     or v_job.lease_expires_at is null
+     or v_job.lease_expires_at <= now() then
     return false;
   end if;
 
@@ -869,10 +956,7 @@ $$;
 revoke all on function fail_analysis_job(uuid, text, text, text, boolean) from public;
 revoke all on function fail_analysis_job(uuid, text, text, text, boolean) from anon;
 revoke all on function fail_analysis_job(uuid, text, text, text, boolean) from authenticated;
-
--- COMPLETE JOB
--- Verifies active lease. Rejects cancelled jobs. Idempotent.
--- Findings published only after full report transaction succeeds.
+grant execute on function fail_analysis_job(uuid, text, text, text, boolean) to service_role;
 
 create or replace function complete_analysis_job(
   p_job_id uuid,
@@ -900,22 +984,25 @@ begin
     return false;
   end if;
 
-  -- Idempotent: already completed with a report.
   if v_job.status = 'completed' then
     return true;
   end if;
 
-  -- Reject cancelled jobs.
   if v_job.cancelled_at is not null or v_job.status = 'cancelled' then
     raise exception 'job_cancelled';
   end if;
 
-  -- Verify active lease.
-  if v_job.lease_owner <> p_worker_id then
+  if v_job.status <> 'processing'
+     or v_job.lease_owner is distinct from p_worker_id
+     or v_job.lease_expires_at is null
+     or v_job.lease_expires_at <= now() then
     raise exception 'lease_mismatch';
   end if;
 
-  -- Store the report in report_sections atomically.
+  if p_report is null or jsonb_typeof(p_report) <> 'object' then
+    raise exception 'report_unavailable';
+  end if;
+
   insert into report_sections (
     policy_analysis_id, account_id, user_id,
     section_key, section_confidence, section_payload
@@ -923,9 +1010,10 @@ begin
     v_job.analysis_id, v_job.account_id, v_job.owner_user_id,
     'analyzer_report_v1', 'HIGH', p_report
   )
-  on conflict do nothing;
+  on conflict (policy_analysis_id, section_key) do update
+    set section_payload = excluded.section_payload,
+        updated_at = now();
 
-  -- Update the analysis status.
   update policy_analyses
   set analysis_status = 'complete',
       completeness_status = p_report->>'completeness_status',
@@ -933,7 +1021,6 @@ begin
       updated_at = now()
   where policy_analysis_id = v_job.analysis_id;
 
-  -- Mark job completed.
   update analysis_jobs
   set status = 'completed',
       stage = 'completed',
@@ -955,16 +1042,17 @@ $$;
 revoke all on function complete_analysis_job(uuid, text, jsonb) from public;
 revoke all on function complete_analysis_job(uuid, text, jsonb) from anon;
 revoke all on function complete_analysis_job(uuid, text, jsonb) from authenticated;
+grant execute on function complete_analysis_job(uuid, text, jsonb) to service_role;
 
 -- =============================================================================
--- 11. OWNERSHIP IMMUTABILITY on new tables
+-- 11. OWNERSHIP IMMUTABILITY
 -- =============================================================================
 
 do $$
 declare
   t text;
 begin
-  foreach t in array array['analysis_jobs', 'upload_reservations', 'account_usage_windows']
+  foreach t in array array['analysis_jobs', 'upload_reservations']
   loop
     execute format('drop trigger if exists trg_reject_ownership_mutation on %I', t);
   end loop;
@@ -974,8 +1062,6 @@ create trigger trg_reject_ownership_mutation
   before update on analysis_jobs
   for each row execute function reject_ownership_mutation();
 
--- account_usage_windows has account_id but no user_id column,
--- so we add a specific guard.
 create or replace function reject_usage_account_change()
 returns trigger
 language plpgsql
@@ -989,10 +1075,7 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_reject_usage_account_change on account_usage_windows;
 create trigger trg_reject_usage_account_change
   before update on account_usage_windows
   for each row execute function reject_usage_account_change();
-
--- =============================================================================
--- END — Durable analysis jobs, reservations, protected limits
--- =============================================================================

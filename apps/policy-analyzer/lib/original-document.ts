@@ -10,7 +10,8 @@ export function isUuid(value: string): boolean {
 }
 
 export function safeDownloadFilename(original: string): string {
-  const base = path.basename(original || "policy.pdf").replace(/[/\\]/g, "");
+  const stripped = String(original || "policy.pdf").replace(/[\u0000-\u001f\u007f]/g, "");
+  const base = path.basename(stripped).replace(/[/\\]/g, "");
   const cleaned =
     base
       .replace(/[^\w.\- ()[\]]+/g, "_")

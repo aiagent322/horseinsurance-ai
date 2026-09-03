@@ -49,6 +49,13 @@ export type SafeStatusPayload = {
   updated_at?: string;
 };
 
+export type ReservedFileTuple = {
+  ordinal: number;
+  file_id: string;
+  document_id: string;
+  storage_path: string;
+};
+
 export type ReservationResult = {
   reservation_id: string;
   upload_id: string;
@@ -56,9 +63,8 @@ export type ReservationResult = {
   policy_id: string;
   session_id: string;
   job_id: string;
-  file_ids: string[];
-  document_ids: string[];
-  storage_paths: string[];
+  file_count: number;
+  files: ReservedFileTuple[];
   expires_at: string;
 };
 
