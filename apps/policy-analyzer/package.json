@@ -15,7 +15,8 @@
     "test:security": "POLICY_ANALYZER_STORE=memory tsx scripts/security.ts",
     "test:retention": "POLICY_ANALYZER_STORE=memory tsx scripts/retention.ts",
     "test:db-auth": "POLICY_ANALYZER_STORE=memory tsx scripts/db-auth-regression.ts",
-    "test:jobs": "POLICY_ANALYZER_STORE=memory tsx scripts/jobs.ts"
+    "test:jobs": "POLICY_ANALYZER_STORE=memory tsx scripts/jobs.ts",
+    "test:db-live": "tsx scripts/live-db-regression.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

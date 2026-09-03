@@ -20,10 +20,23 @@ npm run test:ingestion
 npm run test:persistence
 npm run test:security
 npm run test:retention
+npm run test:db-auth
+npm run test:jobs
+npm run test:db-live
 npm run dev
 ```
 
 Open http://127.0.0.1:43147/
+
+`test:db-live` talks to a disposable loopback Postgres, Auth, PostgREST, and Storage stack. It never targets a shared or production project. From `apps/policy-analyzer`:
+
+```bash
+bash scripts/live-stack-start.sh
+set -a && source /tmp/fix5-live-stack/env && set +a
+npm run test:db-live
+```
+
+Remote destructive runs additionally require an exact `POLICY_ANALYZER_TEST_PROJECT_REF` match, `ALLOW_DESTRUCTIVE_SUPABASE_TESTS=YES`, and confirmation the project is empty of non-test data.
 
 Sign in with a passwordless email link or one-time code. Then upload a policy package of up to 10 PDFs, or run the educational fixture as a stored analysis.
 

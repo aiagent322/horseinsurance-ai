@@ -639,26 +639,30 @@ begin
   end if;
 
   begin
-    select coalesce(array_agg((d->>'document_id')::uuid order by 1), '{}')
+    select coalesce(array_agg((d->>'document_id')::uuid order by 1), '{}'::uuid[])
       into v_report_ids
     from jsonb_array_elements(p_report->'documents') d;
   exception when invalid_text_representation then
     return 'report_foreign_document';
   end;
 
-  select coalesce(array_agg(document_id order by document_id), '{}')
+  select coalesce(array_agg(document_id order by document_id), '{}'::uuid[])
     into v_file_ids
   from uploaded_policy_files
   where upload_id = v_analysis.upload_id;
 
   if exists (
-    select 1 from unnest(v_report_ids) except select unnest(v_file_ids)
+    select unnest(v_report_ids)
+    except
+    select unnest(v_file_ids)
   ) then
     return 'report_foreign_document';
   end if;
 
   if exists (
-    select 1 from unnest(v_file_ids) except select unnest(v_report_ids)
+    select unnest(v_file_ids)
+    except
+    select unnest(v_report_ids)
   ) then
     return 'report_missing_document';
   end if;
@@ -1165,8 +1169,49 @@ revoke all on function complete_analysis_job(uuid, text, jsonb) from authenticat
 grant execute on function complete_analysis_job(uuid, text, jsonb) to service_role;
 
 -- =============================================================================
--- 11. OWNERSHIP IMMUTABILITY
+-- 11. IDENTITY IMMUTABILITY
+-- Dedicated trigger functions, one per table. reject_ownership_mutation()
+-- reads NEW.user_id / OLD.user_id and is valid only for tables that have
+-- both account_id and user_id. analysis_jobs and upload_reservations use
+-- owner_user_id, so they must not share that generic trigger.
+-- upload_reservation_files has no UPDATE trigger: no RPC mutates it, and
+-- it has neither user_id nor owner_user_id.
 -- =============================================================================
+
+create or replace function reject_analysis_job_identity_mutation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.account_id is distinct from old.account_id
+     or new.owner_user_id is distinct from old.owner_user_id
+     or new.policy_id is distinct from old.policy_id
+     or new.analysis_id is distinct from old.analysis_id then
+    raise exception 'job identity columns are immutable';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function reject_upload_reservation_identity_mutation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.account_id is distinct from old.account_id
+     or new.owner_user_id is distinct from old.owner_user_id
+     or new.upload_id is distinct from old.upload_id
+     or new.analysis_id is distinct from old.analysis_id
+     or new.policy_id is distinct from old.policy_id
+     or new.session_id is distinct from old.session_id
+     or new.job_id is distinct from old.job_id then
+    raise exception 'reservation identity columns are immutable';
+  end if;
+  return new;
+end;
+$$;
 
 do $$
 declare
@@ -1178,9 +1223,15 @@ begin
   end loop;
 end $$;
 
-create trigger trg_reject_ownership_mutation
+drop trigger if exists trg_reject_analysis_job_identity_mutation on analysis_jobs;
+create trigger trg_reject_analysis_job_identity_mutation
   before update on analysis_jobs
-  for each row execute function reject_ownership_mutation();
+  for each row execute function reject_analysis_job_identity_mutation();
+
+drop trigger if exists trg_reject_upload_reservation_identity_mutation on upload_reservations;
+create trigger trg_reject_upload_reservation_identity_mutation
+  before update on upload_reservations
+  for each row execute function reject_upload_reservation_identity_mutation();
 
 create or replace function reject_usage_account_change()
 returns trigger
@@ -1189,7 +1240,7 @@ set search_path = public
 as $$
 begin
   if new.account_id is distinct from old.account_id then
-    raise exception 'ownership columns are immutable';
+    raise exception 'usage account_id is immutable';
   end if;
   return new;
 end;

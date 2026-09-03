@@ -709,6 +709,26 @@ async function main() {
     assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
   });
 
+  await test("job identity trigger is table-correct and does not freeze status", async () => {
+    const sql = readFileSync(
+      path.resolve(process.cwd(), "../../supabase/migrations/20260903150000_durable_analysis_jobs.sql"),
+      "utf8"
+    );
+    assert.ok(/reject_analysis_job_identity_mutation/i.test(sql));
+    assert.ok(/reject_upload_reservation_identity_mutation/i.test(sql));
+    assert.equal(
+      /create\s+trigger[\s\S]{0,160}on\s+analysis_jobs[\s\S]{0,80}reject_ownership_mutation/i.test(sql),
+      false
+    );
+    const start = sql.toLowerCase().lastIndexOf("create or replace function reject_analysis_job_identity_mutation(");
+    const body = sql.slice(sql.indexOf("$$", start) + 2, sql.indexOf("$$", sql.indexOf("$$", start) + 2));
+    for (const col of ["account_id", "owner_user_id", "policy_id", "analysis_id"]) {
+      assert.ok(body.includes(`new.${col} is distinct from old.${col}`), col);
+    }
+    assert.equal(/new\.user_id|old\.user_id/i.test(body), false);
+    assert.equal(/lease_owner|status =/i.test(body), false);
+  });
+
   await test("supabase store and fixture route use the durable enqueue path", async () => {
     const storeSource = readFileSync(
       path.resolve(process.cwd(), "lib/persistence/supabase-store.ts"),

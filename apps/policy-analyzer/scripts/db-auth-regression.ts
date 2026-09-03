@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -22,13 +22,194 @@ function normalizeWhitespace(s: string): string {
 
 function extractFunctionBody(sql: string, fnName: string): string {
   const lower = sql.toLowerCase();
-  const start = lower.indexOf(`function ${fnName.toLowerCase()}(`);
+  const needles = [
+    `create or replace function ${fnName.toLowerCase()}(`,
+    `create function ${fnName.toLowerCase()}(`
+  ];
+  let start = -1;
+  for (const needle of needles) {
+    let from = 0;
+    while (true) {
+      const next = lower.indexOf(needle, from);
+      if (next === -1) break;
+      start = next;
+      from = next + needle.length;
+    }
+  }
   if (start === -1) return "";
   const dollarStart = sql.indexOf("$$", start);
   if (dollarStart === -1) return "";
   const dollarEnd = sql.indexOf("$$", dollarStart + 2);
   if (dollarEnd === -1) return "";
   return sql.substring(dollarStart + 2, dollarEnd);
+}
+
+function stripSqlComments(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+}
+
+function readAllMigrations(): string {
+  return readdirSync(MIGRATION_DIR)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((name) => readFileSync(path.join(MIGRATION_DIR, name), "utf8"))
+    .join("\n");
+}
+
+function parseCreateTableColumns(sql: string): Map<string, Set<string>> {
+  const tables = new Map<string, Set<string>>();
+  const stripped = stripSqlComments(sql);
+  const tableRe = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?([a-z_][a-z0-9_]*)\s*\(/gi;
+  let match: RegExpExecArray | null;
+  while ((match = tableRe.exec(stripped))) {
+    const table = match[1];
+    let depth = 1;
+    let i = match.index + match[0].length;
+    let body = "";
+    while (i < stripped.length && depth > 0) {
+      const ch = stripped[i];
+      if (ch === "(") depth += 1;
+      else if (ch === ")") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      body += ch;
+      i += 1;
+    }
+    const cols = tables.get(table) ?? new Set<string>();
+    for (const part of body.split(",")) {
+      const token = part.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+      if (
+        !token ||
+        ["unique", "check", "primary", "constraint", "foreign", "exclude", "like"].includes(token)
+      ) {
+        continue;
+      }
+      cols.add(token.replace(/"/g, ""));
+    }
+    tables.set(table, cols);
+  }
+  const alterRe =
+    /alter\s+table\s+(?:if\s+exists\s+)?(?:public\.)?([a-z_][a-z0-9_]*)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)/gi;
+  while ((match = alterRe.exec(stripped))) {
+    const cols = tables.get(match[1]) ?? new Set<string>();
+    cols.add(match[2].toLowerCase());
+    tables.set(match[1], cols);
+  }
+  return tables;
+}
+
+function parseTriggerFunctions(sql: string): Map<string, Set<string>> {
+  const functions = new Map<string, Set<string>>();
+  const stripped = stripSqlComments(sql);
+  const fnRe =
+    /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\([^)]*\)\s*returns\s+trigger/gi;
+  let match: RegExpExecArray | null;
+  while ((match = fnRe.exec(stripped))) {
+    const name = match[1].toLowerCase();
+    const body = extractFunctionBody(sql, name);
+    const cols = new Set<string>();
+    const colRe = /\b(?:new|old)\.([a-z_][a-z0-9_]*)/gi;
+    let colMatch: RegExpExecArray | null;
+    while ((colMatch = colRe.exec(body))) {
+      cols.add(colMatch[1].toLowerCase());
+    }
+    functions.set(name, cols);
+  }
+  return functions;
+}
+
+function parseTriggerAttachments(sql: string): Array<{ table: string; fn: string; name: string }> {
+  const attachments: Array<{ table: string; fn: string; name: string }> = [];
+  const stripped = stripSqlComments(sql);
+  const triggerRe =
+    /create\s+trigger\s+([a-z_][a-z0-9_]*)\s+before\s+update\s+on\s+(?:public\.)?([a-z_][a-z0-9_]*)[\s\S]*?execute\s+(?:function|procedure)\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\(/gi;
+  let match: RegExpExecArray | null;
+  while ((match = triggerRe.exec(stripped))) {
+    attachments.push({
+      name: match[1].toLowerCase(),
+      table: match[2].toLowerCase(),
+      fn: match[3].toLowerCase()
+    });
+  }
+  const dynamicRe =
+    /foreach\s+(\w+)\s+in\s+array\s+array\[([^\]]+)\][\s\S]*?create\s+trigger\s+([a-z_][a-z0-9_]*)[^']*on\s+%I[^']*execute\s+function\s+([a-z_][a-z0-9_]*)\s*\(/gi;
+  while ((match = dynamicRe.exec(stripped))) {
+    const tables = match[2]
+      .split(",")
+      .map((item) => item.trim().replace(/^'|'$/g, "").toLowerCase())
+      .filter(Boolean);
+    for (const table of tables) {
+      attachments.push({
+        name: match[3].toLowerCase(),
+        table,
+        fn: match[4].toLowerCase()
+      });
+    }
+  }
+  return attachments;
+}
+
+function assertTriggerColumnCompatibility(allSql: string) {
+  const tables = parseCreateTableColumns(allSql);
+  const functions = parseTriggerFunctions(allSql);
+  const attachments = parseTriggerAttachments(allSql);
+  assert.ok(attachments.length > 0, "At least one UPDATE trigger attachment must exist");
+
+  const byTable = new Map<string, Array<{ fn: string; name: string }>>();
+  for (const attachment of attachments) {
+    const cols = tables.get(attachment.table);
+    assert.ok(cols, `Trigger ${attachment.name} targets unknown table ${attachment.table}`);
+    const referenced = functions.get(attachment.fn);
+    assert.ok(
+      referenced,
+      `Trigger ${attachment.name} on ${attachment.table} executes unknown trigger function ${attachment.fn}`
+    );
+    for (const col of referenced) {
+      assert.ok(
+        cols!.has(col),
+        `Trigger function ${attachment.fn} referenced ${col} which is absent from ${attachment.table}`
+      );
+    }
+    const list = byTable.get(attachment.table) ?? [];
+    list.push({ fn: attachment.fn, name: attachment.name });
+    byTable.set(attachment.table, list);
+  }
+
+  const jobFns = byTable.get("analysis_jobs") ?? [];
+  assert.ok(
+    jobFns.some((item) => item.fn === "reject_analysis_job_identity_mutation"),
+    "analysis_jobs must use reject_analysis_job_identity_mutation"
+  );
+  assert.equal(
+    jobFns.some((item) => item.fn === "reject_ownership_mutation"),
+    false,
+    "analysis_jobs must not use generic reject_ownership_mutation"
+  );
+
+  const reservationFns = byTable.get("upload_reservations") ?? [];
+  assert.ok(
+    reservationFns.some((item) => item.fn === "reject_upload_reservation_identity_mutation"),
+    "upload_reservations must use reject_upload_reservation_identity_mutation"
+  );
+  assert.equal(
+    reservationFns.some((item) => item.fn === "reject_ownership_mutation"),
+    false,
+    "upload_reservations must not use generic reject_ownership_mutation"
+  );
+
+  const fileFns = byTable.get("upload_reservation_files") ?? [];
+  assert.equal(
+    fileFns.some((item) => item.fn === "reject_ownership_mutation"),
+    false,
+    "upload_reservation_files must not use generic reject_ownership_mutation"
+  );
+
+  const usageFns = byTable.get("account_usage_windows") ?? [];
+  assert.ok(
+    usageFns.some((item) => item.fn === "reject_usage_account_change"),
+    "account_usage_windows must use reject_usage_account_change"
+  );
 }
 
 function main() {
@@ -317,6 +498,19 @@ function main() {
   assert.ok(/report_duplicate_document_ids/i.test(bindBody), "binding rejects duplicate document IDs");
   assert.ok(/uploaded_policy_files/i.test(bindBody), "binding compares against uploaded files for the analysis");
   assert.ok(
+    /'\{\}'::uuid\[\]/i.test(bindBody),
+    "binding empty document arrays are typed uuid[] so EXCEPT cannot mix integer and uuid"
+  );
+  assert.equal(
+    /select\s+1\s+from\s+unnest\(/i.test(bindBody),
+    false,
+    "binding EXCEPT must compare document UUIDs, not SELECT 1"
+  );
+  assert.ok(
+    /select\s+unnest\(v_report_ids\)\s+except\s+select\s+unnest\(v_file_ids\)/i.test(bindBody),
+    "binding EXCEPT compares report document IDs to uploaded file IDs"
+  );
+  assert.ok(
     /revoke\s+all\s+on\s+function\s+analyzer_report_binding_error[^;]*from\s+authenticated/i.test(sql),
     "report binding helper is not executable by authenticated"
   );
@@ -404,6 +598,85 @@ function main() {
   );
   assert.equal(/ingestPdfBuffer|ingestPolicyPackage/.test(fixtureSource), false);
   assert.ok(/enqueuePolicyPackage/.test(fixtureSource));
+
+  const jobIdentityBody = extractFunctionBody(sql, "reject_analysis_job_identity_mutation");
+  assert.ok(jobIdentityBody, "reject_analysis_job_identity_mutation must exist");
+  for (const col of ["account_id", "owner_user_id", "policy_id", "analysis_id"]) {
+    assert.ok(
+      new RegExp(`new\\.${col}\\s+is distinct from\\s+old\\.${col}`, "i").test(jobIdentityBody),
+      `analysis_jobs identity trigger must reject ${col} changes`
+    );
+  }
+  assert.equal(
+    /new\.user_id|old\.user_id/i.test(jobIdentityBody),
+    false,
+    "analysis_jobs identity trigger must not reference user_id"
+  );
+  assert.equal(
+    /new\.(status|lease_owner|lease_expires_at|stage|error_code)/i.test(jobIdentityBody),
+    false,
+    "analysis_jobs identity trigger must not freeze status or lease columns"
+  );
+
+  const reservationIdentityBody = extractFunctionBody(sql, "reject_upload_reservation_identity_mutation");
+  assert.ok(reservationIdentityBody, "reject_upload_reservation_identity_mutation must exist");
+  for (const col of ["account_id", "owner_user_id", "upload_id", "analysis_id", "policy_id", "session_id", "job_id"]) {
+    assert.ok(
+      new RegExp(`new\\.${col}\\s+is distinct from\\s+old\\.${col}`, "i").test(reservationIdentityBody),
+      `upload_reservations identity trigger must reject ${col} changes`
+    );
+  }
+  assert.equal(
+    /new\.user_id|old\.user_id/i.test(reservationIdentityBody),
+    false,
+    "upload_reservations identity trigger must not reference user_id"
+  );
+  assert.equal(
+    /new\.(status|expires_at|finalized_at)/i.test(reservationIdentityBody),
+    false,
+    "upload_reservations identity trigger must not freeze status, expiry, or finalized_at"
+  );
+
+  assert.equal(
+    /create\s+trigger\s+\S+\s+before\s+update\s+on\s+analysis_jobs[\s\S]{0,120}reject_ownership_mutation/i.test(sql),
+    false,
+    "analysis_jobs must not attach generic reject_ownership_mutation"
+  );
+  assert.equal(
+    /create\s+trigger\s+\S+\s+before\s+update\s+on\s+upload_reservations[\s\S]{0,120}reject_ownership_mutation/i.test(sql),
+    false,
+    "upload_reservations must not attach generic reject_ownership_mutation"
+  );
+  assert.ok(
+    /create\s+trigger\s+trg_reject_analysis_job_identity_mutation\s+before\s+update\s+on\s+analysis_jobs/i.test(sql),
+    "analysis_jobs must attach trg_reject_analysis_job_identity_mutation"
+  );
+  assert.ok(
+    /create\s+trigger\s+trg_reject_upload_reservation_identity_mutation\s+before\s+update\s+on\s+upload_reservations/i.test(sql),
+    "upload_reservations must attach trg_reject_upload_reservation_identity_mutation"
+  );
+
+  const allSql = readAllMigrations();
+  assertTriggerColumnCompatibility(allSql);
+
+  const genericBody = extractFunctionBody(allSql, "reject_ownership_mutation");
+  assert.ok(/new\.user_id is distinct from old\.user_id/i.test(genericBody));
+  const genericTables = [
+    "uploads", "uploaded_policy_files", "extracted_text_pages", "source_mappings",
+    "policy_analyses", "policies", "horses", "clause_objects", "coverage_objects",
+    "exclusion_objects", "condition_obligation_objects", "clause_links",
+    "coverage_clause_links", "coverage_exclusion_links", "coverage_condition_links",
+    "coverage_horse_links", "missing_items", "conflict_records", "conflict_clause_links",
+    "confidence_results", "verification_results", "generated_answers", "report_sections",
+    "form_inventory_items", "audit_events", "review_queue_entries", "deletion_receipts"
+  ];
+  const allTables = parseCreateTableColumns(allSql);
+  for (const table of genericTables) {
+    const cols = allTables.get(table);
+    assert.ok(cols, `generic ownership table ${table} must exist`);
+    assert.ok(cols!.has("account_id"), `${table} must have account_id`);
+    assert.ok(cols!.has("user_id"), `${table} must have user_id for reject_ownership_mutation`);
+  }
 
   console.log("DB-AUTH REGRESSION OK");
   console.log(`  Migration: ${path.basename(JOBS_MIGRATION)}`);
