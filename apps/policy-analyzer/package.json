@@ -13,7 +13,8 @@
     "test:ingestion": "POLICY_ANALYZER_STORE=memory tsx scripts/ingestion-regression.ts",
     "test:persistence": "POLICY_ANALYZER_STORE=memory tsx scripts/persistence.ts",
     "test:security": "POLICY_ANALYZER_STORE=memory tsx scripts/security.ts",
-    "test:retention": "POLICY_ANALYZER_STORE=memory tsx scripts/retention.ts"
+    "test:retention": "POLICY_ANALYZER_STORE=memory tsx scripts/retention.ts",
+    "test:db-auth": "POLICY_ANALYZER_STORE=memory tsx scripts/db-auth-regression.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
