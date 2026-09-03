@@ -17,6 +17,8 @@
     "test:db-auth": "POLICY_ANALYZER_STORE=memory tsx scripts/db-auth-regression.ts",
     "test:jobs": "POLICY_ANALYZER_STORE=memory tsx scripts/jobs.ts",
     "test:worker": "POLICY_ANALYZER_STORE=memory tsx scripts/worker.ts",
+    "test:malformed-claim": "POLICY_ANALYZER_STORE=memory tsx scripts/malformed-claim-regression.ts",
+    "test:service-boundary": "tsx scripts/service-boundary-regression.ts",
     "test:live-safety": "tsx scripts/live-safety-regression.ts",
     "test:db-live": "tsx scripts/live-db-regression.ts",
     "worker": "tsx worker/main.ts",

@@ -21,7 +21,7 @@ import { buildCompletePolicyPages, buildCompletePolicyPdf, buildPartialPolicyPdf
 import { buildFixturePdf } from "../lib/build-fixture";
 import { buildScannedPdf, SCANNED_PDF_PHRASE } from "../lib/build-scanned-fixture";
 import { SupabasePolicyStore } from "../lib/persistence/supabase-store";
-import { createWorkerPersistence } from "../lib/persistence/factory";
+import { createWorkerPersistence } from "../lib/persistence/worker-factory";
 import { AnalysisWorker } from "../lib/worker/runtime";
 import type { WorkerConfig } from "../lib/worker/config";
 import { extractPdfInvocations, resetExtractPdfInvocations } from "../lib/extract-pdf";

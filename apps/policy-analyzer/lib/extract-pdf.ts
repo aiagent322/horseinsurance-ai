@@ -6,12 +6,13 @@ import {
   selectBetterExtraction,
   type TextQuality
 } from "./extraction-quality";
-import { OcrTimeoutError, recognizePageImageWithTimeout, remainingOcrBudget } from "./ocr";
+import { OcrCancelledError, OcrTimeoutError, recognizePageImageWithTimeout, remainingOcrBudget } from "./ocr";
 import type { PageText } from "./types";
 
 export type ExtractPdfOptions = {
   enableOcr?: boolean;
   ocrTimeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 export type ExtractedPdf = {
@@ -81,10 +82,12 @@ export async function extractPdfPages(
   extractPdfInvocations += 1;
   const enableOcr = options.enableOcr !== false;
   const ocrTimeoutMs = options.ocrTimeoutMs ?? EXTRACTION_QUALITY.OCR_DOCUMENT_TIMEOUT_MS;
+  const signal = options.signal;
   const parser = new PDFParse({ data: new Uint8Array(buf) });
   const started = Date.now();
   let ocrTimedOut = false;
   try {
+    if (signal?.aborted) throw new OcrCancelledError();
     const result = await parser.getText({ cellSeparator: "\t" });
     const pages: PageText[] = result.pages.map((p) => nativePage(p.num, p.text || ""));
 
@@ -92,6 +95,7 @@ export async function extractPdfPages(
       const page = pages[i];
       if (page.quality_status === "GOOD") continue;
       if (!enableOcr) continue;
+      if (signal?.aborted) throw new OcrCancelledError();
       if (ocrTimedOut) {
         pages[i] = {
           ...page,
@@ -120,7 +124,7 @@ export async function extractPdfPages(
           };
           continue;
         }
-        const ocrText = await recognizePageImageWithTimeout(image, budget);
+        const ocrText = await recognizePageImageWithTimeout(image, budget, signal);
         const chosen = selectBetterExtraction(page.text, ocrText);
         const q = chosen.method === "OCR" ? chosen.ocr : chosen.native;
         pages[i] = diagnostics(page.page, chosen.text, chosen.method, q, {
@@ -132,6 +136,9 @@ export async function extractPdfPages(
               : ["OCR ran but native text was retained."]
         });
       } catch (err) {
+        if (err instanceof OcrCancelledError || (err instanceof Error && err.name === "OcrCancelledError")) {
+          throw err;
+        }
         const timedOut = err instanceof OcrTimeoutError || (err instanceof Error && err.name === "OcrTimeoutError");
         if (timedOut) ocrTimedOut = true;
         pages[i] = {

@@ -1,7 +1,8 @@
 import type { PolicyRecord } from "@/lib/types";
 import { POLICY_FILES_BUCKET } from "./object-paths";
-import { MalformedClaimError, parseClaimedJobs } from "./claim";
+import { inspectClaimBatch } from "./claim";
 import { createServiceRoleClient } from "./service-client";
+import { terminalizeRecoverableMalformedClaims } from "../worker/malformed-claim";
 import type {
   ClaimedJob,
   JobCompletionOutcome,
@@ -43,12 +44,9 @@ export class SupabaseWorkerStore implements WorkerPersistence {
       p_limit: limit
     });
     if (rpcFailed(error)) throw new WorkerRpcError();
-    try {
-      return parseClaimedJobs(data);
-    } catch (err) {
-      if (err instanceof MalformedClaimError) throw err;
-      throw new MalformedClaimError();
-    }
+    const inspected = inspectClaimBatch(data, workerId);
+    await terminalizeRecoverableMalformedClaims(this, inspected.recoverable);
+    return inspected.jobs;
   }
 
   async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {

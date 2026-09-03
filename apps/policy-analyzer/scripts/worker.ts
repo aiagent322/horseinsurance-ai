@@ -7,10 +7,21 @@ import { extractPdfInvocations, resetExtractPdfInvocations, type ExtractedPdf } 
 import { TEST_ACTOR_A, TEST_ACTOR_B, runWithActor } from "../lib/persistence/actor-context";
 import { loadWorkerConfig, type WorkerConfig } from "../lib/worker/config";
 import { ConfigurationError } from "../lib/persistence/config";
-import { createWorkerPersistence, resetMemoryStoreForTests } from "../lib/persistence/factory";
+import { resetMemoryStoreForTests } from "../lib/persistence/factory";
+import { createWorkerPersistence } from "../lib/persistence/worker-factory";
+import {
+  decideMalformedClaimAction,
+  inspectClaimBatch,
+  parseClaimedJob
+} from "../lib/persistence/claim";
+import { terminalizeRecoverableMalformedClaims } from "../lib/worker/malformed-claim";
+import {
+  ocrRecognizeCalls,
+  resetOcrTestHooks,
+  setOcrRecognizeForTests,
+  shutdownOcr
+} from "../lib/ocr";
 import { MemoryPolicyStore } from "../lib/persistence/memory-store";
-import { parseClaimedJob } from "../lib/persistence/claim";
-import { ocrRecognizeCalls, resetOcrTestHooks, shutdownOcr } from "../lib/ocr";
 import { AnalysisWorker, runWorkerOnce } from "../lib/worker/runtime";
 import { processClaimedJob } from "../lib/worker/process-job";
 import { decideTerminalState } from "../lib/worker/outcome";
@@ -494,6 +505,218 @@ async function main() {
       config: cfg({ workerId: "w-empty" })
     });
     assert.equal(result.claimed, 0);
+  });
+
+  await test("classification and analysis cannot start until every document is extracted", async () => {
+    const store = resetMemoryStoreForTests();
+    const pages = await buildCompletePolicyPages();
+    const files = pages.slice(0, 2).map((bytes, i) => ({ filename: `part-${i}.pdf`, bytes }));
+    const queued = await enqueue(store, files);
+    const order: string[] = [];
+    let extractsFinished = 0;
+    const extracted: ExtractedPdf = {
+      page_count: 1,
+      pages: [
+        {
+          page: 1,
+          text: "Declarations Policy Number: EQ-ORDER-1 Named Insured: Ada Cole",
+          quality_status: "GOOD",
+          extraction_method: "NATIVE_TEXT"
+        }
+      ],
+      full_text: "Declarations Policy Number: EQ-ORDER-1 Named Insured: Ada Cole",
+      extraction_status: "extracted",
+      ocr_timed_out: false
+    };
+    const worker = new AnalysisWorker({
+      store,
+      config: cfg({ workerId: "w-order" }),
+      deps: {
+        extract: async () => {
+          order.push("extract-start");
+          await new Promise((r) => setTimeout(r, 25));
+          extractsFinished += 1;
+          order.push("extract-done");
+          return extracted;
+        },
+        classify: (docPages) => {
+          order.push("classify");
+          assert.equal(extractsFinished, files.length, "classify ran before all extracts finished");
+          assert.equal(order.includes("analyze"), false, "analyze ran before classify");
+          return docPages[0]?.text.toLowerCase().includes("declarations") ? "Declarations" : "Unknown Document";
+        },
+        analyze: (policyId, sessionId, documents) => {
+          order.push("analyze");
+          assert.equal(extractsFinished, files.length);
+          assert.ok(order.filter((step) => step === "classify").length >= files.length);
+          return {
+            ...sampleReport({
+              policy_id: policyId,
+              session_id: sessionId,
+              documents
+            })
+          };
+        }
+      }
+    });
+    await worker.runOnce();
+    assert.ok(order.indexOf("extract-done") < order.indexOf("classify"));
+    assert.ok(order.lastIndexOf("extract-done") < order.indexOf("classify"));
+    assert.ok(order.indexOf("classify") < order.indexOf("analyze"));
+    assert.ok(await store.getReport(TEST_ACTOR_A, queued.policy_id));
+  });
+
+  await test("trusted malformed claim is terminalized without publishing a report", async () => {
+    const store = resetMemoryStoreForTests();
+    const pdf = await buildCompletePolicyPdf();
+    const queued = await enqueue(store, [{ filename: "one.pdf", bytes: pdf }]);
+    const originalClaim = store.claimJobs.bind(store);
+    store.claimJobs = async (workerId, limit) => {
+      const claimed = await originalClaim(workerId, limit);
+      const raw = claimed.map((job) => ({
+        job_id: job.jobId,
+        worker_id: workerId,
+        files: "not-an-array"
+      }));
+      const inspected = inspectClaimBatch(raw, workerId);
+      await terminalizeRecoverableMalformedClaims(store, inspected.recoverable);
+      return inspected.jobs;
+    };
+    const lines = await capturedLogs(async () => {
+      const worker = new AnalysisWorker({ store, config: cfg({ workerId: "w-malformed" }) });
+      const once = await worker.runOnce();
+      assert.equal(once.claimed, 0);
+    });
+    const job = store.jobs.get(queued.job_id)!;
+    assert.equal(job.status, "failed");
+    assert.equal(job.errorCode, "malformed_claim");
+    assert.equal(job.retryable, false);
+    assert.equal(await store.getReport(TEST_ACTOR_A, queued.policy_id), null);
+    const blob = lines.join("\n");
+    assert.match(blob, /malformed_claim/);
+    assert.equal(/not-an-array|one\.pdf|EQUINE MEDICAL/i.test(blob), false);
+    store.jobs.get(queued.job_id)!.availableAt = new Date(0);
+    const again = await new AnalysisWorker({ store, config: cfg({ workerId: "w-malformed-2" }) }).runOnce();
+    assert.equal(again.claimed, 0);
+    assert.equal(store.jobs.get(queued.job_id)?.status, "failed");
+  });
+
+  await test("missing or invalid job identity is not mutated", async () => {
+    const store = resetMemoryStoreForTests();
+    const pdf = await buildCompletePolicyPdf();
+    const queued = await enqueue(store, [{ filename: "one.pdf", bytes: pdf }]);
+    const claimed = await store.claimJobs("w-id", 1);
+    const missing = decideMalformedClaimAction({ raw: { worker_id: "w-id", files: [] }, claimingWorkerId: "w-id" });
+    const invalid = decideMalformedClaimAction({
+      raw: { job_id: "not-a-uuid", worker_id: "w-id" },
+      claimingWorkerId: "w-id"
+    });
+    assert.equal(missing.action, "leave");
+    assert.equal(invalid.action, "leave");
+    const inspected = inspectClaimBatch([{ files: "bad" }, { job_id: "nope", worker_id: "w-id" }], "w-id");
+    await terminalizeRecoverableMalformedClaims(store, inspected.recoverable);
+    assert.equal(inspected.recoverable.length, 0);
+    assert.equal(store.jobs.get(claimed[0].jobId)?.status, "processing");
+    assert.equal(await store.getReport(TEST_ACTOR_A, queued.policy_id), null);
+  });
+
+  await test("invalid lease identity is not mutated", async () => {
+    const store = resetMemoryStoreForTests();
+    const pdf = await buildCompletePolicyPdf();
+    const queued = await enqueue(store, [{ filename: "one.pdf", bytes: pdf }]);
+    const claimed = await store.claimJobs("w-owner", 1);
+    const decision = decideMalformedClaimAction({
+      raw: { job_id: claimed[0].jobId, worker_id: "w-other", files: "bad" },
+      claimingWorkerId: "w-owner"
+    });
+    assert.equal(decision.action, "leave");
+    if (decision.action === "leave") assert.equal(decision.reason, "invalid_lease_identity");
+    const inspected = inspectClaimBatch(
+      [{ job_id: claimed[0].jobId, worker_id: "w-other", files: "bad" }],
+      "w-owner"
+    );
+    await terminalizeRecoverableMalformedClaims(store, inspected.recoverable);
+    assert.equal(store.jobs.get(claimed[0].jobId)?.status, "processing");
+    assert.equal(store.jobs.get(claimed[0].jobId)?.leaseOwner, "w-owner");
+    assert.equal(await store.getReport(TEST_ACTOR_A, queued.policy_id), null);
+  });
+
+  await test("cancellation before OCR prevents OCR start", async () => {
+    resetOcrTestHooks();
+    const store = resetMemoryStoreForTests();
+    const pdf = await buildScannedPdf();
+    const queued = await enqueue(store, [{ filename: "scan.pdf", bytes: pdf }]);
+    const claimed = await store.claimJobs("w-pre-ocr", 1);
+    const abort = new AbortController();
+    abort.abort();
+    const before = ocrRecognizeCalls;
+    const result = await processClaimedJob(store, claimed[0], "w-pre-ocr", {
+      heartbeatMs: 40,
+      signal: abort.signal
+    });
+    assert.ok(result.outcome === "lease_lost" || result.outcome === "cancelled");
+    assert.equal(ocrRecognizeCalls, before);
+    assert.equal(await store.getReport(TEST_ACTOR_A, queued.policy_id), null);
+  });
+
+  await test("interruptible OCR stops within a bounded time after cancel", async () => {
+    resetOcrTestHooks();
+    setOcrRecognizeForTests(async () => {
+      await new Promise(() => undefined);
+      return "";
+    });
+    const { recognizePageImageWithTimeout, OcrCancelledError } = await import("../lib/ocr");
+    const abort = new AbortController();
+    const pending = recognizePageImageWithTimeout(Buffer.from("img"), 30_000, abort.signal);
+    await new Promise((r) => setTimeout(r, 15));
+    const t0 = Date.now();
+    abort.abort();
+    await assert.rejects(pending, (err: unknown) => err instanceof OcrCancelledError);
+    assert.ok(Date.now() - t0 < 400, "OCR cancel exceeded bound");
+    resetOcrTestHooks();
+  });
+
+  await test("lease loss after extraction blocks classification, analysis, and completion", async () => {
+    const store = resetMemoryStoreForTests();
+    const pdf = await buildCompletePolicyPdf();
+    const queued = await enqueue(store, [{ filename: "one.pdf", bytes: pdf }]);
+    const claimed = await store.claimJobs("w-lease-loss", 1);
+    let classified = 0;
+    let analyzed = 0;
+    const result = await processClaimedJob(store, claimed[0], "w-lease-loss", {
+      heartbeatMs: 40,
+      deps: {
+        extract: async () => {
+          store.jobs.get(claimed[0].jobId)!.leaseOwner = "w-other";
+          return {
+            page_count: 1,
+            pages: [
+              {
+                page: 1,
+                text: "Declarations Policy Number: EQ-LEASE-1 Named Insured: Ada Cole",
+                quality_status: "GOOD",
+                extraction_method: "NATIVE_TEXT"
+              }
+            ],
+            full_text: "Declarations",
+            extraction_status: "extracted",
+            ocr_timed_out: false
+          };
+        },
+        classify: () => {
+          classified += 1;
+          return "Declarations";
+        },
+        analyze: () => {
+          analyzed += 1;
+          return sampleReport({ policy_id: queued.policy_id, session_id: queued.session_id });
+        }
+      }
+    });
+    assert.equal(result.outcome, "lease_lost");
+    assert.equal(classified, 0);
+    assert.equal(analyzed, 0);
+    assert.equal(await store.getReport(TEST_ACTOR_A, queued.policy_id), null);
   });
 
   await test("decideTerminalState never promotes total failure to needs_review", async () => {

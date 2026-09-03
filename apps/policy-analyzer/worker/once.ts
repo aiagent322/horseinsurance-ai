@@ -1,5 +1,5 @@
 import { ConfigurationError } from "../lib/persistence/config";
-import { createWorkerPersistence } from "../lib/persistence/factory";
+import { createWorkerPersistence } from "../lib/persistence/worker-factory";
 import { WorkerRpcError } from "../lib/persistence/worker-store";
 import { loadWorkerConfig } from "../lib/worker/config";
 import { operationalLog } from "../lib/worker/log";

@@ -1,4 +1,4 @@
-import { OcrTimeoutError } from "@/lib/ocr";
+import { OcrCancelledError, OcrTimeoutError } from "@/lib/ocr";
 import { MalformedClaimError } from "@/lib/persistence/claim";
 import { StorageObjectError, WorkerRpcError } from "@/lib/persistence/worker-store";
 import type { WorkerErrorCode, WorkerProgressStage } from "@/lib/persistence/types";
@@ -36,6 +36,9 @@ export function classifyWorkerFailure(
   if (err instanceof MalformedClaimError) return new WorkerJobError("malformed_claim", false, stage);
   if (err instanceof WorkerRpcError) return new WorkerJobError("infrastructure_failure", true, stage);
   if (err instanceof StorageObjectError) return new WorkerJobError(err.code, err.retryable, stage);
+  if (err instanceof OcrCancelledError || (err instanceof Error && err.name === "OcrCancelledError")) {
+    return new LeaseLostError(stage);
+  }
   if (err instanceof OcrTimeoutError || (err instanceof Error && err.name === "OcrTimeoutError")) {
     return new WorkerJobError("ocr_timeout", true, "extracting");
   }

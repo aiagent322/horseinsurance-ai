@@ -69,7 +69,27 @@ async function tesseractRecognize(image: Buffer): Promise<string> {
   });
 }
 
-export async function recognizePageImage(image: Buffer): Promise<string> {
+export class OcrCancelledError extends Error {
+  constructor() {
+    super("OCR cancelled");
+    this.name = "OcrCancelledError";
+  }
+}
+
+/**
+ * tesseract.js Worker.recognize() does not accept AbortSignal and cannot
+ * cooperatively yield mid-recognize. On abort we reject immediately and
+ * terminate the shared worker so an in-flight recognize cannot keep the
+ * process busy. The next OCR call recreates the worker. Publication stays
+ * fail-closed at lease and completion checkpoints even if a late recognize
+ * result arrives after abort.
+ */
+export async function interruptActiveOcr(): Promise<void> {
+  await shutdownOcr();
+}
+
+export async function recognizePageImage(image: Buffer, signal?: AbortSignal): Promise<string> {
+  if (signal?.aborted) throw new OcrCancelledError();
   ocrRecognizeCalls += 1;
   if (testRecognize) return testRecognize(image);
   return tesseractRecognize(image);
@@ -86,19 +106,39 @@ export class OcrTimeoutError extends Error {
   }
 }
 
-export async function recognizePageImageWithTimeout(image: Buffer, timeoutMs: number): Promise<string> {
+export async function recognizePageImageWithTimeout(
+  image: Buffer,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<string> {
+  if (signal?.aborted) throw new OcrCancelledError();
   if (timeoutMs <= 0) throw new OcrTimeoutError();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      recognizePageImage(image),
-      new Promise<string>((_, reject) => {
-        timer = setTimeout(() => reject(new OcrTimeoutError()), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  let settled = false;
+  return new Promise<string>((resolve, reject) => {
+    const finish = (err?: unknown, value?: string) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      if (err) reject(err);
+      else resolve(value ?? "");
+    };
+    const onAbort = () => {
+      void interruptActiveOcr();
+      finish(new OcrCancelledError());
+    };
+    timer = setTimeout(() => finish(new OcrTimeoutError()), timeoutMs);
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    recognizePageImage(image, signal).then(
+      (text) => finish(undefined, text),
+      (err) => finish(err)
+    );
+  });
 }
 
 export async function shutdownOcr(): Promise<void> {

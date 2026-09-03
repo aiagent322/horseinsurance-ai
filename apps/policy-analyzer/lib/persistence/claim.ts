@@ -78,3 +78,86 @@ export function parseClaimedJobs(raw: unknown): ClaimedJob[] {
   if (!Array.isArray(raw)) throw new MalformedClaimError();
   return raw.map(parseClaimedJob);
 }
+
+export type RecoverableClaimIdentity = {
+  jobId: string;
+  workerId: string;
+};
+
+export type MalformedClaimDecision =
+  | { action: "terminalize"; jobId: string; workerId: string }
+  | {
+      action: "leave";
+      reason:
+        | "missing_job_identity"
+        | "invalid_job_identity"
+        | "invalid_lease_identity"
+        | "missing_worker"
+        | "unreadable_row";
+    };
+
+function readLeaseWorkerId(row: Record<string, unknown>): string | undefined {
+  const raw = row.claimed_by ?? row.lease_owner ?? row.leaseOwner ?? row.worker_id ?? row.workerId;
+  if (raw == null) return undefined;
+  if (typeof raw !== "string" || !raw.trim()) return undefined;
+  return raw;
+}
+
+export function decideMalformedClaimAction(input: {
+  raw: unknown;
+  claimingWorkerId: string;
+}): MalformedClaimDecision {
+  if (typeof input.claimingWorkerId !== "string" || !input.claimingWorkerId.trim()) {
+    return { action: "leave", reason: "missing_worker" };
+  }
+  const row = asRecord(input.raw);
+  if (!row) return { action: "leave", reason: "unreadable_row" };
+  const jobIdRaw = row.job_id ?? row.jobId;
+  if (jobIdRaw == null || jobIdRaw === "") {
+    return { action: "leave", reason: "missing_job_identity" };
+  }
+  if (typeof jobIdRaw !== "string" || !UUID_RE.test(jobIdRaw)) {
+    return { action: "leave", reason: "invalid_job_identity" };
+  }
+  const lease = readLeaseWorkerId(row);
+  if (lease !== undefined && lease !== input.claimingWorkerId) {
+    return { action: "leave", reason: "invalid_lease_identity" };
+  }
+  return { action: "terminalize", jobId: jobIdRaw, workerId: input.claimingWorkerId };
+}
+
+export function recoverTrustedClaimIdentity(
+  raw: unknown,
+  claimingWorkerId: string
+): RecoverableClaimIdentity | null {
+  const decision = decideMalformedClaimAction({ raw, claimingWorkerId });
+  if (decision.action !== "terminalize") return null;
+  return { jobId: decision.jobId, workerId: decision.workerId };
+}
+
+export function inspectClaimBatch(
+  raw: unknown,
+  claimingWorkerId: string
+): {
+  jobs: ClaimedJob[];
+  recoverable: RecoverableClaimIdentity[];
+  untrustedCount: number;
+} {
+  if (raw == null) return { jobs: [], recoverable: [], untrustedCount: 0 };
+  if (!Array.isArray(raw)) {
+    return { jobs: [], recoverable: [], untrustedCount: 1 };
+  }
+  const jobs: ClaimedJob[] = [];
+  const recoverable: RecoverableClaimIdentity[] = [];
+  let untrustedCount = 0;
+  for (const entry of raw) {
+    try {
+      jobs.push(parseClaimedJob(entry));
+    } catch {
+      const identity = recoverTrustedClaimIdentity(entry, claimingWorkerId);
+      if (identity) recoverable.push(identity);
+      else untrustedCount += 1;
+    }
+  }
+  return { jobs, recoverable, untrustedCount };
+}

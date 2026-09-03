@@ -1,9 +1,7 @@
 import { ConfigurationError, isProduction, requireSupabaseConfig } from "./config";
 import { MemoryPolicyStore } from "./memory-store";
-import { requireWorkerSupabaseConfig } from "./service-client";
 import { SupabasePolicyStore } from "./supabase-store";
-import { SupabaseWorkerStore } from "./worker-store";
-import type { PolicyStore, WorkerPersistence } from "./types";
+import type { PolicyStore } from "./types";
 
 let memoryStore: MemoryPolicyStore | undefined;
 
@@ -40,18 +38,4 @@ export function createPolicyStore(userClient?: import("@supabase/supabase-js").S
 
 export function getPolicyStore(userClient?: import("@supabase/supabase-js").SupabaseClient): PolicyStore {
   return createPolicyStore(userClient);
-}
-
-export function createWorkerPersistence(): WorkerPersistence {
-  if (isProduction() && usesMemoryStore()) {
-    throw new ConfigurationError("Memory store is not allowed in production.");
-  }
-  if (usesMemoryStore()) {
-    if (isProduction()) {
-      throw new ConfigurationError("Memory store is not allowed in production.");
-    }
-    return getMemoryStore();
-  }
-  requireWorkerSupabaseConfig();
-  return new SupabaseWorkerStore();
 }
