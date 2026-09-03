@@ -285,8 +285,21 @@ function main() {
   assert.ok(/job_cancelled/i.test(completeBody), "complete_analysis_job rejects cancelled jobs");
   assert.ok(/v_job\.status\s*=\s*'completed'/i.test(completeBody), "complete_analysis_job is idempotent for already-completed jobs");
   assert.ok(
+    /analyzer_report_binding_error\(v_job\.job_id, v_stored\)/i.test(completeBody),
+    "idempotent completion requires the stored report to be bound to the job"
+  );
+  assert.ok(
     /on conflict \(policy_analysis_id, section_key\)/i.test(completeBody),
     "complete_analysis_job cannot create duplicate analyzer_report_v1 sections"
+  );
+  assert.ok(
+    /v_bind := analyzer_report_binding_error\(p_job_id, p_report\)/i.test(completeBody),
+    "complete_analysis_job validates the incoming report inside the locked transaction"
+  );
+  assert.ok(
+    completeBody.toLowerCase().indexOf("v_bind := analyzer_report_binding_error")
+      < completeBody.toLowerCase().indexOf("insert into report_sections"),
+    "complete rejects mismatched reports before inserting"
   );
   assert.ok(
     /insert into report_sections/i.test(completeBody)
@@ -294,6 +307,18 @@ function main() {
     && completeBody.toLowerCase().indexOf("insert into report_sections")
       < completeBody.toLowerCase().indexOf("set status = 'completed'"),
     "complete marks the job complete only after the report write in the same function"
+  );
+
+  const bindBody = extractFunctionBody(sql, "analyzer_report_binding_error");
+  assert.ok(/report_policy_mismatch/i.test(bindBody), "binding rejects the wrong policy ID");
+  assert.ok(/report_session_mismatch/i.test(bindBody), "binding rejects the wrong session ID");
+  assert.ok(/report_foreign_document/i.test(bindBody), "binding rejects foreign document IDs");
+  assert.ok(/report_missing_document/i.test(bindBody), "binding rejects missing documents");
+  assert.ok(/report_duplicate_document_ids/i.test(bindBody), "binding rejects duplicate document IDs");
+  assert.ok(/uploaded_policy_files/i.test(bindBody), "binding compares against uploaded files for the analysis");
+  assert.ok(
+    /revoke\s+all\s+on\s+function\s+analyzer_report_binding_error[^;]*from\s+authenticated/i.test(sql),
+    "report binding helper is not executable by authenticated"
   );
 
   for (const fn of ["heartbeat_analysis_job", "update_job_progress", "fail_analysis_job", "complete_analysis_job"]) {
@@ -348,9 +373,37 @@ function main() {
   assert.ok(/error_code',\s*'report_unavailable'/i.test(statusBody), "missing job returns report_unavailable");
   assert.ok(/status',\s*'failed'/i.test(statusBody), "missing job returns failed status");
   assert.ok(
+    /v_job\.status in \('completed',\s*'needs_review'\)/i.test(statusBody),
+    "get_own_job_status gates completed and needs_review on a bound report"
+  );
+  assert.ok(
+    /analyzer_report_binding_error\(v_job\.job_id, v_payload\)/i.test(statusBody),
+    "get_own_job_status validates analyzer_report_v1 before returning completed"
+  );
+  assert.ok(
+    /section_key = 'analyzer_report_v1'/i.test(statusBody),
+    "get_own_job_status loads the analyzer_report_v1 payload"
+  );
+  assert.ok(
     !/row\.record|legacy|infer.*completed/i.test(statusBody),
     "status RPC does not infer completion from a report row"
   );
+
+  const storeSource = readFileSync(
+    path.resolve(process.cwd(), "lib/persistence/supabase-store.ts"),
+    "utf8"
+  );
+  assert.equal(
+    /persist_analyzer_package/.test(storeSource),
+    false,
+    "SupabasePolicyStore no longer calls persist_analyzer_package"
+  );
+  const fixtureSource = readFileSync(
+    path.resolve(process.cwd(), "app/api/fixture/run/route.ts"),
+    "utf8"
+  );
+  assert.equal(/ingestPdfBuffer|ingestPolicyPackage/.test(fixtureSource), false);
+  assert.ok(/enqueuePolicyPackage/.test(fixtureSource));
 
   console.log("DB-AUTH REGRESSION OK");
   console.log(`  Migration: ${path.basename(JOBS_MIGRATION)}`);

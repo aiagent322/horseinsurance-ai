@@ -1,10 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PolicyRecord } from "@/lib/types";
 import { AUDIT_ALLOWLIST, sanitizeAuditEvent, type AuditEvent } from "./audit";
-import { ConfigurationError, isFixtureAnalysisEnabled, retentionExpiresAt } from "./config";
+import { ConfigurationError, isFixtureAnalysisEnabled } from "./config";
 import { newId } from "@/lib/ids";
 import { POLICY_FILES_BUCKET, objectStoragePath } from "./object-paths";
-import { toPersistPayload } from "./schema-map";
 import { MAX_PURGE_BATCH } from "./constants";
 import type {
   Actor,
@@ -65,88 +64,11 @@ export class SupabasePolicyStore implements PolicyStore {
   }
 
   async savePackage(actor: Actor, input: SavePackageInput): Promise<SavePackageResult> {
-    void input.submittedUserId;
-    void input.submittedAccountId;
-    void input.submittedPolicyId;
-    void input.submittedStoragePath;
-    if (input.source === "fixture" && !isFixtureAnalysisEnabled()) {
-      throw new ConfigurationError("Fixture analysis is disabled.");
-    }
-    await this.recordAudit(actor, {
-      eventName: "upload_initiated",
-      actorRole: actor.role,
-      outcome: "ok"
-    });
-
-    const uploadId = newId();
-    const uploaded: Array<{ documentId: string; fileId: string; path: string; sha256: string }> = [];
-
-    try {
-      for (const [index, document] of input.report.documents.entries()) {
-        const fileId = newId();
-        const path = objectStoragePath(actor.accountId, uploadId, fileId);
-        const bytes = input.files[index]?.bytes;
-        if (!bytes) throw new Error("missing_bytes");
-        const { error } = await this.client.storage.from(POLICY_FILES_BUCKET).upload(path, bytes, {
-          contentType: "application/pdf",
-          upsert: false
-        });
-        if (error) throw new Error("storage_upload_failed");
-        document.storage_location = path;
-        uploaded.push({ documentId: document.document_id, fileId, path, sha256: document.file_hash });
-        await this.recordAudit(actor, {
-          eventName: "document_stored",
-          actorRole: actor.role,
-          documentId: document.document_id,
-          outcome: "ok"
-        });
-      }
-
-      const payload = toPersistPayload({
-        uploadId,
-        retentionExpiresAt: retentionExpiresAt(),
-        report: input.report,
-        files: uploaded.map((file, index) => ({
-          fileId: file.fileId,
-          documentId: file.documentId,
-          sha256: file.sha256,
-          objectStorageKey: file.path,
-          pageCount: input.report.documents[index].page_count,
-          extractionStatus: input.report.documents[index].extraction_status
-        }))
-      });
-
-      const { data, error } = await this.client.rpc("persist_analyzer_package", { payload });
-      if (error || !data) throw new Error("database_persist_failed");
-      const persisted = data as {
-        policy_analysis_id: string;
-        upload_id: string;
-        analyzer_policy_id: string;
-        session_id: string;
-      };
-      await this.recordAudit(actor, {
-        eventName: "analysis_persisted",
-        actorRole: actor.role,
-        objectId: input.report.policy_id,
-        analysisId: persisted.policy_analysis_id,
-        outcome: "ok"
-      });
-      return {
-        policy_id: persisted.analyzer_policy_id || input.report.policy_id,
-        session_id: persisted.session_id || input.report.session_id,
-        upload_id: persisted.upload_id || uploadId,
-        analysis_id: persisted.policy_analysis_id,
-        document_count: input.report.documents.length,
-        page_count: input.report.documents.reduce((n, d) => n + d.page_count, 0)
-      };
-    } catch (error) {
-      await Promise.all(
-        uploaded.map((item) =>
-          this.client.storage.from(POLICY_FILES_BUCKET).remove([item.path]).catch(() => undefined)
-        )
-      );
-      throw error;
-    }
+    void actor;
+    void input;
+    throw new ConfigurationError(
+      "Synchronous package persistence is not supported. Enqueue a durable analysis job."
+    );
   }
 
   private async lookupVisible(actor: Actor | null, policyId: string): Promise<AnalysisRow | null> {

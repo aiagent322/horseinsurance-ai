@@ -18,6 +18,7 @@ import type {
   SavePackageResult
 } from "./types";
 import { RateLimitError, BacklogLimitError } from "./types";
+import { assertAnalyzerReportBound, reportIsBoundToJob } from "./report-binding";
 import type { PolicyRecord } from "@/lib/types";
 
 export class MemoryObjectBackend implements ObjectBackend {
@@ -54,6 +55,7 @@ type Row = {
   ownerUserId: string;
   uploadId: string;
   analysisId: string;
+  sessionId: string;
   retentionExpiresAt: Date;
   deletedAt: string | null;
   files: Array<{
@@ -217,6 +219,7 @@ export class MemoryPolicyStore implements PolicyStore {
         ownerUserId: actor.userId,
         uploadId,
         analysisId,
+        sessionId: input.report.session_id,
         retentionExpiresAt: expires,
         deletedAt: null,
         files: uploaded.map((u) => ({ ...u, sha256: "" }))
@@ -289,6 +292,9 @@ export class MemoryPolicyStore implements PolicyStore {
 
     const job = this.jobForRow(policyId, row);
     if (!job || (job.status !== "completed" && job.status !== "needs_review")) {
+      return null;
+    }
+    if (!reportIsBoundToJob(row.record, this.bindingContext(job, row))) {
       return null;
     }
 
@@ -424,6 +430,30 @@ export class MemoryPolicyStore implements PolicyStore {
       return undefined;
     }
     return job;
+  }
+
+  private bindingContext(job: JobRow, row: Row) {
+    return {
+      policyId: job.policyId,
+      sessionId: row.sessionId,
+      documentCount: job.documentCount,
+      documentIds: row.files.map((file) => file.documentId)
+    };
+  }
+
+  private reportUnavailableStatus(row: Row, job?: JobRow): SafeStatusPayload {
+    return {
+      analysis_id: job?.analysisId ?? row.analysisId,
+      status: "failed",
+      stage: "failed",
+      document_count: job?.documentCount ?? row.stubDocuments.length,
+      documents_processed: 0,
+      page_count: null,
+      pages_processed: 0,
+      error_code: "report_unavailable",
+      retryable: false,
+      updated_at: this.now().toISOString()
+    };
   }
 
   private async withQuotaLock<T>(fn: () => Promise<T> | T): Promise<T> {
@@ -624,6 +654,7 @@ export class MemoryPolicyStore implements PolicyStore {
       ownerUserId: reservation.ownerUserId,
       uploadId: reservation.uploadId,
       analysisId: reservation.analysisId,
+      sessionId: reservation.sessionId,
       retentionExpiresAt: expires,
       deletedAt: null,
       files: uploaded
@@ -720,18 +751,13 @@ export class MemoryPolicyStore implements PolicyStore {
     }
     const job = this.jobForRow(policyId, row);
     if (!job) {
-      return {
-        analysis_id: row.analysisId,
-        status: "failed",
-        stage: "failed",
-        document_count: row.stubDocuments.length,
-        documents_processed: 0,
-        page_count: null,
-        pages_processed: 0,
-        error_code: "report_unavailable",
-        retryable: false,
-        updated_at: this.now().toISOString()
-      };
+      return this.reportUnavailableStatus(row);
+    }
+    if (
+      (job.status === "completed" || job.status === "needs_review") &&
+      !reportIsBoundToJob(row.record, this.bindingContext(job, row))
+    ) {
+      return this.reportUnavailableStatus(row, job);
     }
     return {
       analysis_id: job.analysisId,
@@ -853,7 +879,7 @@ export class MemoryPolicyStore implements PolicyStore {
           sha256: f.sha256,
           filename: row.stubDocuments[i]?.original_filename || `${f.fileId}.pdf`
         })),
-        sessionId: row.record?.session_id || newId()
+        sessionId: row.sessionId
       });
     }
     return claimed;
@@ -910,11 +936,17 @@ export class MemoryPolicyStore implements PolicyStore {
   async completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error("lease_mismatch");
-    if (job.status === "completed" && this.rows.get(job.policyId)?.record) return;
-    if (job.cancelledAt) throw Object.assign(new Error("cancelled"), { code: "cancelled" });
-    if (!this.leaseIsActive(job, workerId)) throw new Error("lease_mismatch");
     const row = this.rows.get(job.policyId);
     if (!row) throw new Error("missing_row");
+    if (job.status === "completed") {
+      if (!reportIsBoundToJob(row.record, this.bindingContext(job, row))) {
+        throw new Error("report_unavailable");
+      }
+      return;
+    }
+    if (job.cancelledAt) throw Object.assign(new Error("cancelled"), { code: "cancelled" });
+    if (!this.leaseIsActive(job, workerId)) throw new Error("lease_mismatch");
+    assertAnalyzerReportBound(report, this.bindingContext(job, row));
     row.record = report;
     job.status = "completed";
     job.stage = "completed";

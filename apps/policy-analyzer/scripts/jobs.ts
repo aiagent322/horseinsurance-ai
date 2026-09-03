@@ -6,8 +6,39 @@ import { parseReservationResult } from "../lib/persistence/reservation";
 import { safeDownloadFilename } from "../lib/original-document";
 import { newId } from "../lib/ids";
 import { sampleFiles, sampleReport, tinyPdf } from "./test-fixtures";
-import { BacklogLimitError } from "../lib/persistence/types";
+import { BacklogLimitError, type ClaimedJob } from "../lib/persistence/types";
 import type { IncomingPdf } from "../lib/validate-upload";
+import type { PolicyRecord } from "../lib/types";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+function boundReport(claimed: ClaimedJob): PolicyRecord {
+  return sampleReport({
+    policy_id: claimed.policyId,
+    session_id: claimed.sessionId,
+    documents: claimed.files.map((file) => ({
+      document_id: file.documentId,
+      session_id: claimed.sessionId,
+      original_filename: file.filename,
+      file_type: "application/pdf",
+      upload_timestamp: new Date().toISOString(),
+      file_hash: file.sha256 || "abc",
+      page_count: 1,
+      storage_location: file.path,
+      extraction_status: "extracted",
+      analysis_status: "complete",
+      classification: "Declarations",
+      pages: [
+        {
+          page: 1,
+          text: "Declarations page",
+          extraction_method: "NATIVE_TEXT",
+          quality_status: "GOOD"
+        }
+      ]
+    }))
+  });
+}
 
 const VALID_SHA = "ab".repeat(32);
 
@@ -126,7 +157,7 @@ async function main() {
       const claimed = await store.claimJobs("w-rate", 1);
       const job = claimed.find((c) => c.policyId === r.policy_id);
       if (job) {
-        await store.completeJob(job.jobId, "w-rate", sampleReport({ policy_id: r.policy_id }));
+        await store.completeJob(job.jobId, "w-rate", boundReport(job));
       }
     }
     await assert.rejects(
@@ -240,7 +271,7 @@ async function main() {
     assert.ok(claimed.length > 0);
     const job = claimed.find((c) => c.policyId === result.policy_id);
     assert.ok(job);
-    const report = sampleReport({ policy_id: result.policy_id });
+    const report = boundReport(job!);
     await store.completeJob(job!.jobId, "w1", report);
     const status = await store.getStatus(TEST_ACTOR_A, result.policy_id);
     assert.equal(status!.status, "completed");
@@ -307,7 +338,7 @@ async function main() {
     const claimed = await store.claimJobs("w1", 1);
     const job = claimed.find((c) => c.policyId === result.policy_id);
     if (job) {
-      await store.completeJob(job.jobId, "w1", sampleReport({ policy_id: result.policy_id }));
+      await store.completeJob(job.jobId, "w1", boundReport(job));
     }
     assert.equal(await store.deletePackage(TEST_ACTOR_B, result.policy_id), "not_found");
     assert.equal(await store.deletePackage(TEST_ACTOR_A, result.policy_id), "deleted");
@@ -519,7 +550,7 @@ async function main() {
     assert.equal(second.length, 1);
     assert.equal(second[0].jobId, first[0].jobId);
     assert.equal(store.jobs.get(first[0].jobId)?.leaseOwner, "w-new");
-    await store.completeJob(second[0].jobId, "w-new", sampleReport({ policy_id: result.policy_id }));
+    await store.completeJob(second[0].jobId, "w-new", boundReport(second[0]));
     assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
   });
 
@@ -606,6 +637,95 @@ async function main() {
       () => parseReservationResult({ ...valid, files: [{ ...valid.files[0], file_id: "not-a-uuid" }] }, 1),
       /reservation_malformed/
     );
+  });
+
+  await test("completed status requires a valid stored report", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    await store.ensureAccount(TEST_ACTOR_B.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(1) });
+    const claimed = await store.claimJobs("w1", 1);
+    const job = claimed.find((item) => item.policyId === result.policy_id);
+    assert.ok(job);
+    await store.completeJob(job!.jobId, "w1", boundReport(job!));
+    assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
+    const row = store.rows.get(result.policy_id);
+    assert.ok(row?.record);
+    row!.record = null;
+    const status = await store.getStatus(TEST_ACTOR_A, result.policy_id);
+    assert.ok(status);
+    assert.notEqual(status!.status, "completed");
+    assert.notEqual(status!.status, "needs_review");
+    assert.equal(status!.status, "failed");
+    assert.equal(status!.error_code, "report_unavailable");
+    assert.equal(await store.getReport(TEST_ACTOR_A, result.policy_id), null);
+    assert.equal(await store.getStatus(TEST_ACTOR_B, result.policy_id), null);
+    assert.equal(await store.getReport(TEST_ACTOR_B, result.policy_id), null);
+    await assert.rejects(() => store.completeJob(job!.jobId, "w1", boundReport(job!)), /report_unavailable/);
+  });
+
+  await test("completion binds the report to the claimed job", async () => {
+    const store = new MemoryPolicyStore();
+    await store.ensureAccount(TEST_ACTOR_A.userId);
+    const result = await store.enqueuePackage(TEST_ACTOR_A, { files: makeFiles(2) });
+    const claimed = await store.claimJobs("w-bind", 1);
+    const job = claimed.find((item) => item.policyId === result.policy_id);
+    assert.ok(job);
+    const valid = boundReport(job!);
+
+    const wrongPolicy = { ...valid, policy_id: newId() };
+    await assert.rejects(() => store.completeJob(job!.jobId, "w-bind", wrongPolicy), /report_policy_mismatch/);
+
+    const wrongSession = { ...valid, session_id: newId() };
+    await assert.rejects(() => store.completeJob(job!.jobId, "w-bind", wrongSession), /report_session_mismatch/);
+
+    const foreign = {
+      ...valid,
+      documents: valid.documents.map((document, index) =>
+        index === 0 ? { ...document, document_id: newId() } : document
+      )
+    };
+    await assert.rejects(() => store.completeJob(job!.jobId, "w-bind", foreign), /report_foreign_document/);
+
+    const missing = { ...valid, documents: valid.documents.slice(0, 1) };
+    await assert.rejects(() => store.completeJob(job!.jobId, "w-bind", missing), /report_missing_document/);
+
+    const duplicate = {
+      ...valid,
+      documents: [valid.documents[0], { ...valid.documents[1], document_id: valid.documents[0].document_id }]
+    };
+    await assert.rejects(() => store.completeJob(job!.jobId, "w-bind", duplicate), /report_duplicate_document_ids/);
+
+    const status = await store.getStatus(TEST_ACTOR_A, result.policy_id);
+    assert.equal(status!.status, "processing");
+    assert.equal(await store.getReport(TEST_ACTOR_A, result.policy_id), null);
+    assert.equal(store.jobs.get(job!.jobId)?.status, "processing");
+    assert.equal(store.rows.get(result.policy_id)?.record, null);
+
+    await store.completeJob(job!.jobId, "w-bind", valid);
+    assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
+    assert.ok(await store.getReport(TEST_ACTOR_A, result.policy_id));
+    await store.completeJob(job!.jobId, "w-bind", valid);
+    assert.equal((await store.getStatus(TEST_ACTOR_A, result.policy_id))!.status, "completed");
+  });
+
+  await test("supabase store and fixture route use the durable enqueue path", async () => {
+    const storeSource = readFileSync(
+      path.resolve(process.cwd(), "lib/persistence/supabase-store.ts"),
+      "utf8"
+    );
+    assert.equal(storeSource.includes("persist_analyzer_package"), false);
+    assert.ok(/Synchronous package persistence is not supported/.test(storeSource));
+    assert.ok(/enqueuePackage/.test(storeSource));
+
+    const fixtureSource = readFileSync(
+      path.resolve(process.cwd(), "app/api/fixture/run/route.ts"),
+      "utf8"
+    );
+    assert.equal(fixtureSource.includes("ingestPdfBuffer"), false);
+    assert.equal(fixtureSource.includes("ingestPolicyPackage"), false);
+    assert.ok(fixtureSource.includes("enqueuePolicyPackage"));
+    assert.equal(/extractPdfPages|analyzeDocuments|tesseract/i.test(fixtureSource), false);
   });
 
   console.log();

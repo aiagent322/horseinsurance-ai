@@ -587,8 +587,94 @@ revoke all on function abandon_analyzer_reservation(uuid) from anon;
 grant execute on function abandon_analyzer_reservation(uuid) to authenticated;
 
 -- =============================================================================
--- 8. SAFE JOB STATUS
+-- 8. REPORT BINDING + SAFE JOB STATUS
 -- =============================================================================
+
+create or replace function analyzer_report_binding_error(p_job_id uuid, p_report jsonb)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_job record;
+  v_analysis record;
+  v_report_ids uuid[];
+  v_file_ids uuid[];
+  v_dup integer;
+begin
+  if p_report is null or jsonb_typeof(p_report) <> 'object' then
+    return 'report_unavailable';
+  end if;
+
+  select * into v_job from analysis_jobs where job_id = p_job_id;
+  if v_job is null then
+    return 'report_unavailable';
+  end if;
+
+  select * into v_analysis
+  from policy_analyses
+  where policy_analysis_id = v_job.analysis_id;
+  if v_analysis is null then
+    return 'report_unavailable';
+  end if;
+
+  if coalesce(p_report->>'policy_id', '') is distinct from v_job.policy_id::text then
+    return 'report_policy_mismatch';
+  end if;
+
+  if coalesce(p_report->>'session_id', '') is distinct from v_analysis.session_id::text then
+    return 'report_session_mismatch';
+  end if;
+
+  if jsonb_typeof(p_report->'documents') is distinct from 'array' then
+    return 'report_documents_invalid';
+  end if;
+
+  select count(*) - count(distinct d->>'document_id') into v_dup
+  from jsonb_array_elements(p_report->'documents') d;
+  if v_dup > 0 then
+    return 'report_duplicate_document_ids';
+  end if;
+
+  begin
+    select coalesce(array_agg((d->>'document_id')::uuid order by 1), '{}')
+      into v_report_ids
+    from jsonb_array_elements(p_report->'documents') d;
+  exception when invalid_text_representation then
+    return 'report_foreign_document';
+  end;
+
+  select coalesce(array_agg(document_id order by document_id), '{}')
+    into v_file_ids
+  from uploaded_policy_files
+  where upload_id = v_analysis.upload_id;
+
+  if exists (
+    select 1 from unnest(v_report_ids) except select unnest(v_file_ids)
+  ) then
+    return 'report_foreign_document';
+  end if;
+
+  if exists (
+    select 1 from unnest(v_file_ids) except select unnest(v_report_ids)
+  ) then
+    return 'report_missing_document';
+  end if;
+
+  if coalesce(jsonb_array_length(p_report->'documents'), -1) is distinct from v_job.document_count
+     or coalesce(array_length(v_file_ids, 1), 0) is distinct from v_job.document_count then
+    return 'report_document_count_mismatch';
+  end if;
+
+  return null;
+end;
+$$;
+
+revoke all on function analyzer_report_binding_error(uuid, jsonb) from public;
+revoke all on function analyzer_report_binding_error(uuid, jsonb) from anon;
+revoke all on function analyzer_report_binding_error(uuid, jsonb) from authenticated;
 
 create or replace function get_own_job_status(p_policy_id uuid)
 returns jsonb
@@ -601,6 +687,8 @@ declare
   v_uid uuid := auth.uid();
   v_job record;
   v_analysis record;
+  v_payload jsonb;
+  v_bind text;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
@@ -639,6 +727,28 @@ begin
       'retryable', false,
       'updated_at', now()
     );
+  end if;
+
+  if v_job.status in ('completed', 'needs_review') then
+    select section_payload into v_payload
+    from report_sections
+    where policy_analysis_id = v_job.analysis_id
+      and section_key = 'analyzer_report_v1';
+    v_bind := analyzer_report_binding_error(v_job.job_id, v_payload);
+    if v_bind is not null then
+      return jsonb_build_object(
+        'analysis_id', v_job.analysis_id,
+        'status', 'failed',
+        'stage', 'failed',
+        'document_count', v_job.document_count,
+        'documents_processed', 0,
+        'page_count', null,
+        'pages_processed', 0,
+        'error_code', 'report_unavailable',
+        'retryable', false,
+        'updated_at', now()
+      );
+    end if;
   end if;
 
   return jsonb_build_object(
@@ -970,6 +1080,8 @@ set search_path = public
 as $$
 declare
   v_job record;
+  v_stored jsonb;
+  v_bind text;
 begin
   if auth.uid() is not null then
     raise exception 'service_role_required';
@@ -985,6 +1097,13 @@ begin
   end if;
 
   if v_job.status = 'completed' then
+    select section_payload into v_stored
+    from report_sections
+    where policy_analysis_id = v_job.analysis_id
+      and section_key = 'analyzer_report_v1';
+    if analyzer_report_binding_error(v_job.job_id, v_stored) is not null then
+      raise exception 'report_unavailable';
+    end if;
     return true;
   end if;
 
@@ -999,8 +1118,9 @@ begin
     raise exception 'lease_mismatch';
   end if;
 
-  if p_report is null or jsonb_typeof(p_report) <> 'object' then
-    raise exception 'report_unavailable';
+  v_bind := analyzer_report_binding_error(p_job_id, p_report);
+  if v_bind is not null then
+    raise exception '%', v_bind;
   end if;
 
   insert into report_sections (
