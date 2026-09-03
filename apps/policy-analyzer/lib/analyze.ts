@@ -9,6 +9,7 @@ import type {
   ExclusionRecord,
   FinancialLimit,
   PageText,
+  PolicyFormRecord,
   PolicyIdentification,
   PolicyRecord,
   RequirementRecord,
@@ -637,23 +638,40 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     }
   }
 
-  const referenced = new Set<string>();
-  for (const m of allText.matchAll(/\b(EQ-[A-Z0-9-]+)\b/g)) referenced.add(m[1]);
-  const present = new Set<string>();
-  for (const m of allText.matchAll(/\b((?:EQ-BASE|EQ-MED|EQ-EXCL|EQ-END)[A-Z0-9-]*)\b/g)) {
-    present.add(m[1]);
-  }
+  const declarationPages = pageHits.filter((h) => isDeclarationsPage(h.text));
+  const formInventory = buildFormInventory(pageHits, declarationPages);
   const warnings: string[] = [];
-  if (!hasPhrase(allText, ["declarations"])) {
+  if (!declarationPages.length) {
     warnings.push("No page was classified as Declarations.");
+  }
+  const scheduleFound = declarationPages.some((h) => findFormsSchedule(h.text));
+  if (declarationPages.length && !scheduleFound) {
+    warnings.push("No forms or endorsements schedule was identified on the declarations.");
+  }
+  for (const form of formInventory) {
+    if (form.status === "MISSING") {
+      warnings.push(`Listed form ${form.printed_identifier} is missing from the uploaded package.`);
+    }
+    if (form.status === "EDITION MISMATCH") {
+      warnings.push(
+        `Listed form ${form.printed_identifier} edition ${form.edition || "unknown"} does not match uploaded edition ${form.match_edition || "unknown"}.`
+      );
+    }
   }
   const unread = documents.flatMap((d) => d.pages).filter((p) => p.text.length < 20);
   if (unread.length) warnings.push(`${unread.length} page(s) have little or no readable text.`);
   if (!identification.policy_number) warnings.push("Policy number was not found.");
   if (!identification.named_insured) warnings.push("Named insured was not found.");
 
+  const allListedPresent =
+    scheduleFound &&
+    formInventory.length > 0 &&
+    formInventory.every((f) => f.status === "PRESENT");
   const completeness: CompletenessResult = {
-    status: warnings.length ? "DOCUMENT PACKAGE MAY BE INCOMPLETE" : "APPEARS COMPLETE",
+    status:
+      warnings.length === 0 && declarationPages.length > 0 && scheduleFound && allListedPresent
+        ? "APPEARS COMPLETE"
+        : "DOCUMENT PACKAGE MAY BE INCOMPLETE",
     warnings
   };
 
@@ -694,7 +712,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   if (requirements.length) {
     agent_questions.push("Please confirm the notice window and euthanasia/remains instructions that apply in an emergency.");
   }
-  agent_questions.push("Are any forms listed on the declarations missing from this upload?");
+  const missingForms = formInventory.filter((f) => f.status !== "PRESENT");
+  if (missingForms.length) {
+    agent_questions.push(
+      `The declarations list ${missingForms.map((f) => f.printed_identifier).join(", ")} without separately sourced matching form text. Are those forms in force and missing from this upload?`
+    );
+  } else {
+    agent_questions.push("Are any forms listed on the declarations missing from this upload?");
+  }
 
   const educational_notes = [
     "The uploaded policy is the authority. Educational notes below do not add coverage.",
@@ -717,11 +742,144 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     requirements,
     endorsements,
     conflicts,
+    form_inventory: formInventory,
     completeness,
     agent_questions,
     coverage_gaps,
     educational_notes
   };
+}
+
+const FORM_ID_CORE = "[A-Z]{2,}[A-Z0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*";
+const EDITION_CORE = "[A-Za-z]{3,9}\\s+\\d{4}|\\d{1,2}/\\d{1,2}/\\d{2,4}|\\d{1,2}/\\d{4}|\\d{4}";
+const EDITION_RE = new RegExp(
+  `(?:ed(?:ition)?\\.?|rev(?:ision)?\\.?)\\s*[:.]?\\s*(${EDITION_CORE})`,
+  "i"
+);
+
+function normalizeFormId(id: string): string {
+  return id.toUpperCase().replace(/\s+/g, "");
+}
+
+function normalizeEdition(ed: string): string {
+  return ed.toUpperCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function isDeclarationsPage(text: string): boolean {
+  return /\bdeclarations\b/i.test(text);
+}
+
+function findFormsSchedule(text: string): string | undefined {
+  for (const raw of text.split(/\n+/)) {
+    const line = raw.replace(/\s+/g, " ").trim();
+    if (
+      /^(forms|forms attached|forms and endorsements|schedule of forms|endorsements attached)\b/i.test(line) ||
+      /\bforms\s*:/i.test(line) ||
+      /\bschedule of forms\b/i.test(line)
+    ) {
+      return line;
+    }
+  }
+  return undefined;
+}
+
+function extractEdition(text: string): string | undefined {
+  const m = text.match(EDITION_RE);
+  return m?.[1] ? normalizeEdition(m[1]) : undefined;
+}
+
+function parseListedForms(schedule: string): Array<{ printed: string; edition?: string }> {
+  const out: Array<{ printed: string; edition?: string }> = [];
+  const re = new RegExp(
+    `\\b(${FORM_ID_CORE})\\b(?:\\s*[\\(]?\\s*(?:Ed(?:ition)?\\.?|Rev(?:ision)?\\.?)\\s*[:.]?\\s*(${EDITION_CORE})[\\)]?)?`,
+    "gi"
+  );
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(schedule))) {
+    out.push({ printed: m[1], edition: m[2] ? normalizeEdition(m[2]) : undefined });
+  }
+  return out;
+}
+
+function isScheduleLine(line: string): boolean {
+  return Boolean(findFormsSchedule(line));
+}
+
+function isIndependentFormEvidence(line: string, printedId: string): boolean {
+  if (isScheduleLine(line)) return false;
+  const n = escapeRe(printedId);
+  return new RegExp(
+    `(?:base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\\s+${n}\\b|^${n}\\b`,
+    "i"
+  ).test(line);
+}
+
+function buildFormInventory(
+  hits: Array<Hit & { document_id: string }>,
+  declarationPages: Array<Hit & { document_id: string }>
+): PolicyFormRecord[] {
+  const listed: PolicyFormRecord[] = [];
+  const seen = new Set<string>();
+  for (const h of declarationPages) {
+    const schedule = findFormsSchedule(h.text);
+    if (!schedule) continue;
+    for (const item of parseListedForms(schedule)) {
+      const normalized = normalizeFormId(item.printed);
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      listed.push({
+        id: newId(),
+        printed_identifier: item.printed,
+        normalized_identifier: normalized,
+        form_title: undefined,
+        edition: item.edition,
+        listing_document_id: h.document_id,
+        listing_page: h.page,
+        listing_source_text: excerpt(h.text, item.printed),
+        status: "MISSING"
+      });
+    }
+  }
+
+  const pages = uniquePages(hits);
+  for (const form of listed) {
+    let match:
+      | { document_id: string; page: number; line: string; text: string; edition?: string }
+      | undefined;
+    for (const p of pages) {
+      for (const line of splitClauses(p.text).concat(p.text.split(/\n+/).map((s) => s.trim()))) {
+        const t = line.replace(/\s+/g, " ").trim();
+        if (!t) continue;
+        if (!t.toUpperCase().includes(form.normalized_identifier)) continue;
+        if (isScheduleLine(t)) continue;
+        if (!isIndependentFormEvidence(t, form.printed_identifier)) continue;
+        match = {
+          document_id: p.document_id,
+          page: p.page,
+          line: t,
+          text: p.text,
+          edition: extractEdition(t) || extractEdition(p.text)
+        };
+        break;
+      }
+      if (match) break;
+    }
+    if (!match) {
+      form.status = "MISSING";
+      continue;
+    }
+    form.match_document_id = match.document_id;
+    form.match_page = match.page;
+    form.match_source_text = excerpt(match.text, form.printed_identifier);
+    form.match_edition = match.edition;
+    form.form_title = match.line.replace(/\s+/g, " ").trim();
+    if (form.edition && match.edition && normalizeEdition(form.edition) !== normalizeEdition(match.edition)) {
+      form.status = "EDITION MISMATCH";
+    } else {
+      form.status = "PRESENT";
+    }
+  }
+  return listed;
 }
 
 function dedupeLimits(items: FinancialLimit[]): FinancialLimit[] {

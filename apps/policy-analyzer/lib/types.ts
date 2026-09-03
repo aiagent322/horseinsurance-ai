@@ -132,6 +132,24 @@ export type CompletenessResult = {
   warnings: string[];
 };
 
+export type FormInventoryStatus = "PRESENT" | "MISSING" | "EDITION MISMATCH";
+
+export type PolicyFormRecord = {
+  id: string;
+  printed_identifier: string;
+  normalized_identifier: string;
+  form_title?: string;
+  edition?: string;
+  listing_document_id: string;
+  listing_page: number;
+  listing_source_text: string;
+  status: FormInventoryStatus;
+  match_document_id?: string;
+  match_page?: number;
+  match_source_text?: string;
+  match_edition?: string;
+};
+
 export type PolicyIdentification = {
   carrier_name?: Sourced<string>;
   agency_name?: Sourced<string>;
@@ -167,6 +185,7 @@ export type PolicyRecord = {
   requirements: RequirementRecord[];
   endorsements: EndorsementEffect[];
   conflicts: ConflictRecord[];
+  form_inventory: PolicyFormRecord[];
   completeness: CompletenessResult;
   agent_questions: string[];
   coverage_gaps: string[];

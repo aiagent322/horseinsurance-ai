@@ -17,8 +17,12 @@ function Status({ value }: { value: AnalysisStatus | string }) {
           ? "bg-[#b91c1c] text-white"
           : v === "POSSIBLE CONFLICT"
             ? "bg-[#b45309] text-white"
-            : v === "NOT FOUND"
+            : v === "NOT FOUND" || v === "MISSING"
               ? "bg-[#4a5568] text-white"
+              : v === "PRESENT"
+                ? "bg-[#047857] text-white"
+                : v === "EDITION MISMATCH"
+                  ? "bg-[#b45309] text-white"
               : "bg-[#1d6fa5] text-white";
   return <Badge className={`${tone} rounded-sm font-semibold tracking-wide`}>{v}</Badge>;
 }
@@ -119,6 +123,43 @@ export function ReportView({ record }: { record: PolicyRecord }) {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Forms listed on the declarations">
+        {record.form_inventory.length === 0 ? (
+          <p className="text-sm text-[#6b7280]">
+            No forms or endorsements schedule was identified. A listed form is not treated as uploaded just because its
+            number appears on the declarations.
+          </p>
+        ) : (
+          <ul className="space-y-3 text-sm">
+            {record.form_inventory.map((f) => (
+              <li key={f.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-[#f0f1f3] pb-3 last:border-0">
+                <div>
+                  <p className="font-medium">
+                    {f.printed_identifier}
+                    {f.edition ? <span className="font-normal text-[#6b7280]"> · listed edition {f.edition}</span> : null}
+                  </p>
+                  <p className="text-xs text-[#1d6fa5]">
+                    Listed p. {f.listing_page} — “{f.listing_source_text}”
+                  </p>
+                  {f.status === "PRESENT" || f.status === "EDITION MISMATCH" ? (
+                    <p className="text-xs text-[#4a5568]">
+                      Matching form p. {f.match_page}
+                      {f.match_edition ? ` · uploaded edition ${f.match_edition}` : ""} — “{f.match_source_text}”
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#6b7280]">
+                      No separately sourced form text was found. The declarations list alone is not proof the form was
+                      uploaded.
+                    </p>
+                  )}
+                </div>
+                <Status value={f.status} />
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section title="Coverage Snapshot">

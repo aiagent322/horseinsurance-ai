@@ -76,6 +76,20 @@ function main() {
     assert.ok(status !== "COVERED" && status !== "COVERED WITH LIMITATIONS", `case 10: ${type}`);
   }
 
+  const conflictDoc = docFromPages([
+    {
+      page: 1,
+      text: "This policy provides Full Mortality coverage for the insured horse. Insured Value / Full Mortality: $45,000"
+    },
+    {
+      page: 2,
+      text: "Full Mortality coverage is not provided."
+    }
+  ]);
+  const conflict = analyzeDocuments(newId(), conflictDoc.session_id, [conflictDoc]);
+  const conflictStatus = coverage(conflict, "Full Mortality").coverage_status;
+  assert.equal(conflictStatus, "POSSIBLE CONFLICT", "affirmative plus denial must conflict, never COVERED");
+
   console.log("SEMANTIC REGRESSION OK", {
     denials: denials.map(([type]) => type + ":EXCLUDED"),
     mortality: mortRec.coverage_status,
