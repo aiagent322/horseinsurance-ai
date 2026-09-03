@@ -56,6 +56,10 @@ env.write_text(
             f"LIVE_SUPABASE_ANON_KEY={anon}",
             f"LIVE_SUPABASE_SERVICE_ROLE_KEY={service}",
             f"POLICY_ANALYZER_LIVE_SKIP_RESET=YES",
+            f"POLICY_ANALYZER_LIVE_STACK_MARKER=horseinsurance-fix5-live-stack",
+            f"LIVE_POSTGREST_URL=http://127.0.0.1:3000",
+            f"LIVE_AUTH_URL=http://127.0.0.1:9999",
+            f"LIVE_STORAGE_URL=http://127.0.0.1:54321/storage/v1",
             f"GOTRUE_JWT_SECRET={secret}",
         ]
     )
@@ -214,6 +218,11 @@ create policy policy_files_delete_own on storage.objects
     bucket_id = 'policy-files'
     and public.app_is_account_member((split_part(name, '/', 1))::uuid)
   );
+insert into analyzer_runtime_config (config_key, config_value)
+values ('disposable_test_stack', 'horseinsurance-fix5-live-stack')
+on conflict (config_key) do update set config_value = excluded.config_value, updated_at = now();
 notify pgrst, 'reload schema';
 SQL
+printf '%s\n' 'horseinsurance-fix5-live-stack' >"$STACK_DIR/DISPOSABLE_MARKER"
+chmod 600 "$STACK_DIR/DISPOSABLE_MARKER"
 echo "LIVE_STACK_READY"

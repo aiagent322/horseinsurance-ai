@@ -4,8 +4,7 @@
  * Exercises real PostgreSQL, PostgREST/Auth, and Supabase Storage.
  * Credentials stay in memory and are never printed.
  *
- * Target: local loopback Supabase, or a disposable remote project that
- * matches POLICY_ANALYZER_TEST_PROJECT_REF with ALLOW_DESTRUCTIVE_SUPABASE_TESTS=YES.
+ * Target: the disposable local loopback stack only. Remote Supabase is rejected.
  */
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -27,9 +26,14 @@ import { AnalysisWorker } from "../lib/worker/runtime";
 import type { WorkerConfig } from "../lib/worker/config";
 import { extractPdfInvocations, resetExtractPdfInvocations } from "../lib/extract-pdf";
 import { shutdownOcr } from "../lib/ocr";
+import {
+  ACCEPTED_FIX6_SHA,
+  REQUIRED_STACK_CONTAINERS,
+  evaluateCleanupScope,
+  evaluateLiveSafety,
+  type LiveSafetyInput
+} from "./live-safety";
 
-const REQUIRED_HEAD = "126feccc9973b69fbb85f4d79e16cbbb600fc15d";
-const REQUIRED_BRANCH = "cursor/policy-analyzer-fix6-worker";
 const WORKTREE = path.resolve(process.cwd(), "../..");
 const MIGRATION_DIR = path.resolve(WORKTREE, "supabase/migrations");
 const EXPECTED_MIGRATIONS = [
@@ -152,16 +156,6 @@ function isLoopback(url: string): boolean {
   }
 }
 
-function projectRefFromUrl(url: string): string | null {
-  try {
-    const host = new URL(url).hostname;
-    if (host.endsWith(".supabase.co")) return host.split(".")[0] ?? null;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function parseStatusEnv(text: string): Partial<Record<string, string>> {
   const out: Partial<Record<string, string>> = {};
   for (const line of text.split("\n")) {
@@ -213,55 +207,81 @@ function loadTarget(): Target {
   );
 }
 
-function assertSafety(target: Target) {
-  const root = git("git rev-parse --show-toplevel");
+function collectLiveSafetyInput(target: Target): LiveSafetyInput {
+  const remotes = git("git remote -v")
+    .split("\n")
+    .map((line) => line.split(/\s+/)[1])
+    .filter(Boolean);
   const branch = git("git branch --show-current");
   const head = git("git rev-parse HEAD");
+  let descendsFromFix6 = false;
+  try {
+    execSync(`git merge-base --is-ancestor ${ACCEPTED_FIX6_SHA} HEAD`, { cwd: WORKTREE, stdio: "ignore" });
+    descendsFromFix6 = true;
+  } catch {
+    descendsFromFix6 = false;
+  }
+
+  let databaseName: string | null = null;
+  let disposableMarker: string | null = process.env.POLICY_ANALYZER_LIVE_STACK_MARKER || null;
+  try {
+    databaseName = execSync(
+      "docker exec fix5-pg psql -U postgres -d postgres -tAc 'select current_database()'",
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+    ).trim();
+  } catch {
+    databaseName = null;
+  }
+  try {
+    const marker = execSync(
+      "docker exec fix5-pg psql -U postgres -d postgres -tAc \"select config_value from analyzer_runtime_config where config_key = 'disposable_test_stack'\"",
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+    ).trim();
+    if (marker) disposableMarker = marker;
+  } catch {
+    // Keep env marker if the catalog query is unavailable.
+  }
+
+  let containerNames: string[] | null = null;
+  try {
+    const listed = execSync(
+      `docker ps --format '{{.Names}}'`,
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+    )
+      .split("\n")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    containerNames = REQUIRED_STACK_CONTAINERS.filter((name) => listed.includes(name));
+  } catch {
+    containerNames = null;
+  }
+
+  return {
+    remotes,
+    branch,
+    head,
+    descendsFromFix6,
+    supabaseUrl: target.url,
+    restUrl: process.env.LIVE_POSTGREST_URL || "http://127.0.0.1:3000",
+    authUrl: process.env.LIVE_AUTH_URL || "http://127.0.0.1:9999",
+    storageUrl: process.env.LIVE_STORAGE_URL || `${target.url}/storage/v1`,
+    databaseName,
+    disposableMarker,
+    containerNames
+  };
+}
+
+function assertSafety(target: Target) {
+  const root = git("git rev-parse --show-toplevel");
   if (path.resolve(root) !== WORKTREE) {
     throw new LiveFailure("safety.git", { root }, "Worktree path mismatch.");
   }
-  if (branch !== REQUIRED_BRANCH) {
-    throw new LiveFailure("safety.git", { branch }, `Required branch is ${REQUIRED_BRANCH}.`);
+  if (target.kind !== "local") {
+    throw new LiveFailure("safety.target", { kind: target.kind }, "Remote Supabase URLs are rejected.");
   }
-  try {
-    execSync(`git merge-base --is-ancestor ${REQUIRED_HEAD} HEAD`, { cwd: WORKTREE, stdio: "ignore" });
-  } catch {
-    throw new LiveFailure(
-      "safety.git",
-      { head: head.slice(0, 8) },
-      `HEAD must descend from ${REQUIRED_HEAD.slice(0, 8)}.`
-    );
-  }
-
-  if (target.kind === "local") {
-    if (!isLoopback(target.url)) {
-      throw new LiveFailure("safety.target", { code: null, message: "non_loopback" }, "Local target must be loopback.");
-    }
-    return;
-  }
-
-  const expectedRef = process.env.POLICY_ANALYZER_TEST_PROJECT_REF;
-  const actualRef = projectRefFromUrl(target.url);
-  if (!expectedRef || !actualRef || actualRef !== expectedRef) {
-    throw new LiveFailure(
-      "safety.target",
-      { code: null, message: "project_ref_mismatch" },
-      "Remote target must match POLICY_ANALYZER_TEST_PROJECT_REF exactly."
-    );
-  }
-  if (process.env.ALLOW_DESTRUCTIVE_SUPABASE_TESTS !== "YES") {
-    throw new LiveFailure(
-      "safety.target",
-      { code: null, message: "destructive_flag_missing" },
-      "Remote destructive tests require ALLOW_DESTRUCTIVE_SUPABASE_TESTS=YES."
-    );
-  }
-  if (process.env.POLICY_ANALYZER_TEST_DISPOSABLE !== "YES") {
-    throw new LiveFailure(
-      "safety.target",
-      { code: null, message: "disposable_unconfirmed" },
-      "Remote target must be confirmed disposable with no non-test application data."
-    );
+  const decision = evaluateLiveSafety(collectLiveSafetyInput(target));
+  if (!decision.ok) {
+    throw new LiveFailure("safety.gate", { code: decision.code }, decision.reason);
   }
 }
 
@@ -612,6 +632,10 @@ class LiveHarness {
       // Continue other cleanup.
     }
     const accountIds = [...this.createdAccountIds];
+    const scope = evaluateCleanupScope(accountIds);
+    if (!scope.ok && accountIds.length) {
+      fail("cleanup.scope", { code: scope.code }, scope.reason);
+    }
     if (accountIds.length) {
       const { data: objects } = await this.admin.storage.from("policy-files").list();
       void objects;
@@ -659,20 +683,7 @@ async function main() {
 
   const target = loadTarget();
   assertSafety(target);
-  if (target.kind === "local") {
-    applyLocalMigrations();
-  } else {
-    const { count } = await client(target.url, target.serviceRoleKey)
-      .from("accounts")
-      .select("account_id", { count: "exact", head: true });
-    if ((count ?? 0) > 0) {
-      fail(
-        "safety.target",
-        { count: count ?? 0 },
-        "Remote disposable target already contains accounts; refusing to write."
-      );
-    }
-  }
+  applyLocalMigrations();
 
   const harness = new LiveHarness(target);
   let failed: LiveFailure | null = null;
