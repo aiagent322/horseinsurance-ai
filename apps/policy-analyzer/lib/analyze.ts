@@ -140,6 +140,113 @@ function hasPhrase(text: string, phrases: string[]): boolean {
   return phrases.some((p) => t.includes(p.toLowerCase()));
 }
 
+function splitClauses(text: string): string[] {
+  return text
+    .split(/(?<=[.!?;])\s+|\n+/)
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s.length > 0);
+}
+
+function coverageMentioned(clause: string, names: string[]): boolean {
+  const lower = clause.toLowerCase();
+  return names.some((n) => lower.includes(n.toLowerCase()));
+}
+
+function clauseIsDenial(clause: string, names: string[]): boolean {
+  const sorted = [...names].sort((a, b) => b.length - a.length);
+  for (const name of sorted) {
+    const n = escapeRe(name);
+    const patterns = [
+      new RegExp(`\\bno\\s+${n}\\b`, "i"),
+      new RegExp(`${n}\\s+is not provided`, "i"),
+      new RegExp(`does not provide\\s+${n}`, "i"),
+      new RegExp(`${n}\\s+is excluded`, "i"),
+      new RegExp(`excludes\\s+${n}`, "i"),
+      new RegExp(`${n}\\s+does not apply`, "i"),
+      new RegExp(`not insured for\\s+${n}`, "i"),
+      new RegExp(`no\\s+${n}\\s+(?:coverage\\s+)?applies`, "i")
+    ];
+    if (patterns.some((re) => re.test(clause))) return true;
+  }
+  if (
+    coverageMentioned(clause, names) &&
+    /excludes coverage/i.test(clause) &&
+    !/excludes coverage for the /i.test(clause)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function clauseIsAffirmative(clause: string, names: string[]): boolean {
+  if (!coverageMentioned(clause, names)) return false;
+  if (clauseIsDenial(clause, names)) return false;
+  return (
+    /\bprovides\b/i.test(clause) ||
+    /\bis provided\b/i.test(clause) ||
+    /\bis added\b/i.test(clause) ||
+    /\bis covered\b/i.test(clause) ||
+    /coverage with a limit/i.test(clause) ||
+    /insured value/i.test(clause) ||
+    /limit\s*[:]\s*\$/i.test(clause) ||
+    /limit of\s*\$/i.test(clause) ||
+    /amended to\s*\$/i.test(clause)
+  );
+}
+
+type CoverageEvidence = {
+  status: AnalysisStatus;
+  document_id: string;
+  page: number;
+  clause: string;
+  pageText: string;
+};
+
+function classifyCoverageEvidence(
+  hits: Array<Hit & { document_id: string }>,
+  names: string[]
+): CoverageEvidence | null {
+  const seen = new Set<string>();
+  const units: CoverageEvidence[] = [];
+  for (const h of uniquePages(hits)) {
+    for (const clause of splitClauses(h.text)) {
+      if (!coverageMentioned(clause, names)) continue;
+      const key = `${h.document_id}:${h.page}:${clause.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      units.push({
+        status: "NEEDS CLARIFICATION",
+        document_id: h.document_id,
+        page: h.page,
+        clause,
+        pageText: h.text
+      });
+    }
+  }
+
+  let denial: CoverageEvidence | undefined;
+  let affirmation: CoverageEvidence | undefined;
+  let mention: CoverageEvidence | undefined;
+  for (const u of units) {
+    mention = mention || u;
+    if (clauseIsDenial(u.clause, names)) {
+      denial = denial || { ...u, status: "EXCLUDED" };
+      continue;
+    }
+    if (clauseIsAffirmative(u.clause, names)) {
+      affirmation = affirmation || { ...u, status: "COVERED" };
+    }
+  }
+
+  if (denial && affirmation) {
+    return { ...denial, status: "POSSIBLE CONFLICT" };
+  }
+  if (denial) return denial;
+  if (affirmation) return affirmation;
+  if (mention) return mention;
+  return null;
+}
+
 export function analyzeDocuments(policyId: string, sessionId: string, documents: DocumentRecord[]): PolicyRecord {
   const now = new Date().toISOString();
   const hits = pagesOf(documents);
@@ -230,13 +337,33 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const mortalityLimit =
     labeled(hits, ["Insured Value / Full Mortality", "Insured Value", "mortality insured value"]) ||
     identification.insured_value;
-  const hasMortality = hasPhrase(allText, ["full mortality", "mortality coverage", "mortality insured value"]);
-  addCoverage("Full Mortality", hasMortality, hasMortality ? "COVERED" : "NOT FOUND", {
-    coverage_limit: mortalityLimit,
-    description: hasMortality
-      ? "Full Mortality is stated in the uploaded documents."
-      : "NOT FOUND IN DOCUMENTS PROVIDED"
-  });
+  const mortalityEv = classifyCoverageEvidence(hits, [
+    "full mortality coverage",
+    "full mortality",
+    "mortality coverage",
+    "mortality insured value"
+  ]);
+  const mortalityStatus =
+    mortalityEv?.status === "COVERED" && mortalityLimit
+      ? "COVERED"
+      : mortalityEv?.status || (mortalityLimit ? "COVERED" : "NOT FOUND");
+  addCoverage(
+    "Full Mortality",
+    mortalityStatus !== "NOT FOUND",
+    mortalityStatus,
+    {
+      coverage_limit: mortalityLimit,
+      description:
+        mortalityStatus === "EXCLUDED"
+          ? "The uploaded documents state that Full Mortality is not provided."
+          : mortalityStatus === "NOT FOUND"
+            ? "NOT FOUND IN DOCUMENTS PROVIDED"
+            : "Full Mortality is stated in the uploaded documents.",
+      source_document_id: mortalityEv?.document_id,
+      source_page: mortalityEv?.page,
+      source_text: mortalityEv ? excerpt(mortalityEv.pageText, mortalityEv.clause) : ""
+    }
+  );
   if (mortalityLimit) {
     financial_limits.push({
       id: newId(),
@@ -255,9 +382,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const medicalDeductible = labeled(hits, ["Major Medical Deductible", "deductible of"]);
   const reimbursement = firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i);
   const diagnostic = firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i);
-  const hasMedical = hasPhrase(allText, ["major medical"]);
+  const medicalEv = classifyCoverageEvidence(hits, ["major medical coverage", "major medical"]);
   const medicalAmended = hasPhrase(allText, ["medical limit is amended", "supersedes the medical limit"]);
-  addCoverage("Major Medical", hasMedical, medicalAmended ? "COVERED WITH LIMITATIONS" : hasMedical ? "COVERED" : "NOT FOUND", {
+  let medicalStatus: AnalysisStatus =
+    medicalEv?.status || (medicalLimits[0] ? "COVERED" : "NOT FOUND");
+  if (medicalStatus === "COVERED" && (medicalAmended || medicalLimits.length > 0 || reimbursement || diagnostic)) {
+    medicalStatus = medicalAmended ? "COVERED WITH LIMITATIONS" : medicalStatus;
+  }
+  addCoverage("Major Medical", medicalStatus !== "NOT FOUND", medicalStatus, {
     coverage_limit: medicalLimits[0]
       ? {
           value: medicalLimits[0].amount,
@@ -272,7 +404,16 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     sublimit: diagnostic,
     conditions: medicalAmended
       ? "An endorsement modifies the medical limit. See Potential Conflicts."
-      : undefined
+      : undefined,
+    description:
+      medicalStatus === "EXCLUDED"
+        ? "The uploaded documents state that Major Medical is not provided."
+        : medicalStatus === "NOT FOUND"
+          ? "NOT FOUND IN DOCUMENTS PROVIDED"
+          : undefined,
+    source_document_id: medicalEv?.document_id,
+    source_page: medicalEv?.page,
+    source_text: medicalEv ? excerpt(medicalEv.pageText, medicalEv.clause) : undefined
   });
   financial_limits.push(...medicalLimits);
   if (medicalDeductible) {
@@ -308,10 +449,19 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const surgical = firstMatch(hits, /surgical coverage is added with a\s+(\$[\d,]+)/i) ||
     labeled(hits, ["Surgical coverage"]);
-  const hasSurgical = hasPhrase(allText, ["surgical coverage", "surgical is added", "colic surgery"]);
-  addCoverage("Surgical", hasSurgical, hasSurgical ? "COVERED" : "NOT FOUND", {
+  const surgicalEv = classifyCoverageEvidence(hits, ["surgical coverage", "surgical"]);
+  const surgicalStatus: AnalysisStatus =
+    surgicalEv?.status || (surgical ? "COVERED" : "NOT FOUND");
+  addCoverage("Surgical", surgicalStatus !== "NOT FOUND", surgicalStatus, {
     occurrence_limit: surgical,
-    coverage_limit: surgical
+    coverage_limit: surgical,
+    description:
+      surgicalStatus === "EXCLUDED"
+        ? "The uploaded documents state that Surgical coverage is not provided."
+        : undefined,
+    source_document_id: surgicalEv?.document_id,
+    source_page: surgicalEv?.page,
+    source_text: surgicalEv ? excerpt(surgicalEv.pageText, surgicalEv.clause) : undefined
   });
   if (surgical) {
     financial_limits.push({
@@ -324,33 +474,57 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     });
   }
 
-  const hasColic = hasPhrase(allText, ["colic surgery"]);
-  addCoverage("Colic Surgery", hasColic, hasColic ? "COVERED WITH LIMITATIONS" : "NOT FOUND", {
-    conditions: hasColic ? "Stated as subject to the surgical limit." : undefined
+  const colicEv = classifyCoverageEvidence(hits, ["colic surgery"]);
+  let colicStatus: AnalysisStatus = colicEv?.status || "NOT FOUND";
+  if (colicStatus === "COVERED" && hasPhrase(allText, ["subject to the surgical"])) {
+    colicStatus = "COVERED WITH LIMITATIONS";
+  }
+  addCoverage("Colic Surgery", colicStatus !== "NOT FOUND", colicStatus, {
+    conditions: colicStatus === "COVERED WITH LIMITATIONS" ? "Stated as subject to the surgical limit." : undefined,
+    source_document_id: colicEv?.document_id,
+    source_page: colicEv?.page,
+    source_text: colicEv ? excerpt(colicEv.pageText, colicEv.clause) : undefined
   });
 
-  const louDenied = hasPhrase(allText, ["does not provide loss of use"]);
-  addCoverage("Loss of Use", hasPhrase(allText, ["loss of use"]), louDenied ? "NOT FOUND" : "NEEDS CLARIFICATION", {
-    description: louDenied
-      ? "The uploaded base form states it does not provide Loss of Use coverage."
-      : hasPhrase(allText, ["loss of use"])
-        ? "Loss of Use is mentioned. Effect needs clarification."
-        : "NOT FOUND IN DOCUMENTS PROVIDED"
+  const louEv = classifyCoverageEvidence(hits, ["loss of use coverage", "loss of use"]);
+  const louStatus: AnalysisStatus = louEv?.status || "NOT FOUND";
+  addCoverage("Loss of Use", louStatus !== "NOT FOUND", louStatus, {
+    description:
+      louStatus === "EXCLUDED"
+        ? "The uploaded documents state that Loss of Use coverage is not provided."
+        : louStatus === "NEEDS CLARIFICATION"
+          ? "Loss of Use is mentioned. Effect needs clarification."
+          : "NOT FOUND IN DOCUMENTS PROVIDED",
+    source_document_id: louEv?.document_id,
+    source_page: louEv?.page,
+    source_text: louEv ? excerpt(louEv.pageText, louEv.clause) : undefined
   });
 
-  addCoverage(
-    "Stallion Infertility",
-    hasPhrase(allText, ["stallion infertility"]),
-    hasPhrase(allText, ["does not provide stallion infertility"]) ? "NOT FOUND" : "NEEDS CLARIFICATION",
-    {
-      description: hasPhrase(allText, ["does not provide stallion infertility"])
-        ? "The uploaded form states it does not provide Stallion Infertility coverage."
-        : "NOT FOUND IN DOCUMENTS PROVIDED"
-    }
-  );
+  const stallionEv = classifyCoverageEvidence(hits, ["stallion infertility coverage", "stallion infertility"]);
+  const stallionStatus: AnalysisStatus = stallionEv?.status || "NOT FOUND";
+  addCoverage("Stallion Infertility", stallionStatus !== "NOT FOUND", stallionStatus, {
+    description:
+      stallionStatus === "EXCLUDED"
+        ? "The uploaded documents state that Stallion Infertility coverage is not provided."
+        : stallionStatus === "NEEDS CLARIFICATION"
+          ? "Stallion Infertility is mentioned. Effect needs clarification."
+          : "NOT FOUND IN DOCUMENTS PROVIDED",
+    source_document_id: stallionEv?.document_id,
+    source_page: stallionEv?.page,
+    source_text: stallionEv ? excerpt(stallionEv.pageText, stallionEv.clause) : undefined
+  });
 
-  const hasTheft = hasPhrase(allText, ["theft coverage", "coverage for theft"]);
-  addCoverage("Theft", hasTheft, hasTheft ? "COVERED" : "NOT FOUND");
+  const theftEv = classifyCoverageEvidence(hits, ["theft coverage", "coverage for theft"]);
+  const theftStatus: AnalysisStatus = theftEv?.status || "NOT FOUND";
+  addCoverage("Theft", theftStatus !== "NOT FOUND", theftStatus, {
+    description:
+      theftStatus === "EXCLUDED"
+        ? "The uploaded documents state that Theft coverage is not provided."
+        : undefined,
+    source_document_id: theftEv?.document_id,
+    source_page: theftEv?.page,
+    source_text: theftEv ? excerpt(theftEv.pageText, theftEv.clause) : undefined
+  });
 
   const pageHits = uniquePages(hits);
   const exclusions: ExclusionRecord[] = [];
@@ -484,8 +658,15 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   };
 
   const coverage_gaps: string[] = [];
-  if (coverages.find((c) => c.coverage_type === "Loss of Use" && c.coverage_status === "NOT FOUND")) {
-    coverage_gaps.push("Loss of Use is not provided in the uploaded base form. Ask the agent whether a separate endorsement is available or intended.");
+  const louRec = coverages.find((c) => c.coverage_type === "Loss of Use");
+  if (louRec?.coverage_status === "EXCLUDED") {
+    coverage_gaps.push(
+      "Loss of Use is excluded in the uploaded documents. Ask the agent whether a separate endorsement is available or intended."
+    );
+  } else if (louRec?.coverage_status === "NOT FOUND") {
+    coverage_gaps.push(
+      "Loss of Use is not found in the uploaded documents. Ask the agent whether a separate endorsement is available or intended."
+    );
   }
   if (exclusions.length) {
     coverage_gaps.push("Named exclusions appear in the package. Confirm with the agent that they match the horse you believe is insured.");

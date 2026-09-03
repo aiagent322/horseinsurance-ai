@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start -p 43147",
     "lint": "eslint",
-    "test": "tsx scripts/acceptance.ts"
+    "test": "tsx scripts/acceptance.ts",
+    "test:semantic": "tsx scripts/semantic-regression.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

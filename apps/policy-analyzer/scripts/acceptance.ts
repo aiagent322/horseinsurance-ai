@@ -71,7 +71,7 @@ async function main() {
 
   const lou = report.coverages.find((c) => c.coverage_type === "Loss of Use");
   assert.ok(lou);
-  assert.equal(lou.coverage_status, "NOT FOUND");
+  assert.equal(lou.coverage_status, "EXCLUDED");
 
   assert.ok(report.requirements.length >= 1);
   assert.ok(report.agent_questions.length >= 1);
