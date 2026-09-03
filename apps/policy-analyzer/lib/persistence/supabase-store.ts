@@ -6,7 +6,17 @@ import { newId } from "@/lib/ids";
 import { POLICY_FILES_BUCKET, objectStoragePath } from "./object-paths";
 import { toPersistPayload } from "./schema-map";
 import { MAX_PURGE_BATCH } from "./constants";
-import type { Actor, PolicyStore, SavePackageInput, SavePackageResult } from "./types";
+import type {
+  Actor,
+  ClaimedJob,
+  EnqueuePackageInput,
+  EnqueuePackageResult,
+  PolicyStore,
+  SafeStatusPayload,
+  SavePackageInput,
+  SavePackageResult
+} from "./types";
+import { RateLimitError, BacklogLimitError } from "./types";
 
 type AnalysisRow = {
   policy_analysis_id: string;
@@ -164,6 +174,12 @@ export class SupabasePolicyStore implements PolicyStore {
       });
       return null;
     }
+
+    const status = await this.getStatus(actor, policyId);
+    if (status && status.status !== "completed" && status.status !== "needs_review") {
+      return null;
+    }
+
     const { data } = await this.client
       .from("report_sections")
       .select("section_payload")
@@ -366,6 +382,189 @@ export class SupabasePolicyStore implements PolicyStore {
 
   listAuditForTests(): AuditEvent[] {
     return [];
+  }
+
+  async enqueuePackage(actor: Actor, input: EnqueuePackageInput): Promise<EnqueuePackageResult> {
+    void input.submittedUserId;
+    void input.submittedAccountId;
+    void input.submittedPolicyId;
+    void input.submittedStoragePath;
+
+    if (input.source === "fixture" && !isFixtureAnalysisEnabled()) {
+      throw new ConfigurationError("Fixture analysis is disabled.");
+    }
+
+    const { data: reservation, error: resError } = await this.client.rpc(
+      "reserve_analyzer_package",
+      { p_file_count: input.files.length }
+    );
+    if (resError) {
+      const msg = resError.message || "";
+      if (msg.includes("rate_limited")) throw new RateLimitError();
+      if (msg.includes("backlog_limited")) throw new BacklogLimitError();
+      throw new Error("reservation_failed");
+    }
+
+    const res = reservation as {
+      reservation_id: string;
+      upload_id: string;
+      analysis_id: string;
+      policy_id: string;
+      session_id: string;
+      job_id: string;
+      file_ids: string[];
+      document_ids: string[];
+      storage_paths: string[];
+      expires_at: string;
+    };
+
+    const uploaded: Array<{ path: string }> = [];
+    try {
+      for (let i = 0; i < input.files.length; i++) {
+        const path = res.storage_paths[i];
+        const { error } = await this.client.storage
+          .from(POLICY_FILES_BUCKET)
+          .upload(path, input.files[i].bytes, { contentType: "application/pdf", upsert: false });
+        if (error) throw new Error("storage_upload_failed");
+        uploaded.push({ path });
+      }
+
+      const { createHash } = await import("node:crypto");
+      const filesMeta = input.files.map((file, i) => ({
+        file_id: res.file_ids[i],
+        document_id: res.document_ids[i],
+        sha256: createHash("sha256").update(file.bytes).digest("hex"),
+        storage_path: res.storage_paths[i],
+        page_count: null,
+        original_filename: file.filename
+      }));
+
+      const { error: finError } = await this.client.rpc("finalize_analyzer_package", {
+        p_reservation_id: res.reservation_id,
+        p_files: filesMeta
+      });
+      if (finError) throw new Error("finalize_failed");
+
+      return {
+        policy_id: res.policy_id,
+        session_id: res.session_id,
+        upload_id: res.upload_id,
+        analysis_id: res.analysis_id,
+        job_id: res.job_id,
+        document_count: input.files.length,
+        page_count: null
+      };
+    } catch (error) {
+      await Promise.all(
+        uploaded.map((item) =>
+          this.client.storage.from(POLICY_FILES_BUCKET).remove([item.path]).catch(() => undefined)
+        )
+      );
+      try {
+        await this.client.rpc("abandon_analyzer_reservation", { p_reservation_id: res.reservation_id });
+      } catch {
+        // best-effort abandon
+      }
+      throw error;
+    }
+  }
+
+  async getStatus(actor: Actor | null, policyId: string): Promise<SafeStatusPayload | null> {
+    if (!actor) return null;
+    const { data, error } = await this.client.rpc("get_own_job_status", { p_policy_id: policyId });
+    if (error || !data) return null;
+    return data as SafeStatusPayload;
+  }
+
+  async cancelJob(actor: Actor | null, policyId: string): Promise<boolean> {
+    if (!actor) return false;
+    const { data, error } = await this.client.rpc("cancel_own_analysis_job", { p_policy_id: policyId });
+    if (error) return false;
+    return data === true;
+  }
+
+  async claimJobs(workerId: string, limit: number): Promise<ClaimedJob[]> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("claim_analysis_jobs", { p_worker_id: workerId, p_limit: limit });
+    if (error || !data) return [];
+    return (data as Array<Record<string, unknown>>).map((row) => ({
+      jobId: String(row.job_id),
+      policyId: String(row.policy_id),
+      analysisId: String(row.analysis_id),
+      accountId: String(row.account_id),
+      ownerUserId: String(row.owner_user_id),
+      attemptCount: Number(row.attempt_count),
+      files: ((row.files || []) as Array<Record<string, string>>).map((f) => ({
+        documentId: f.document_id,
+        fileId: f.file_id,
+        path: f.storage_path,
+        sha256: f.sha256 || "",
+        filename: f.original_filename || `${f.file_id}.pdf`
+      })),
+      sessionId: String(row.session_id)
+    }));
+  }
+
+  async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const { data } = await admin.rpc("heartbeat_analysis_job", { p_job_id: jobId, p_worker_id: workerId });
+    return data === true;
+  }
+
+  async updateJobProgress(jobId: string, workerId: string, stage: string, progress?: { documentsProcessed?: number; pageCount?: number; pagesProcessed?: number }): Promise<boolean> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const { data } = await admin.rpc("update_job_progress", {
+      p_job_id: jobId,
+      p_worker_id: workerId,
+      p_stage: stage,
+      p_documents_processed: progress?.documentsProcessed ?? null,
+      p_page_count: progress?.pageCount ?? null,
+      p_pages_processed: progress?.pagesProcessed ?? null
+    });
+    return data === true;
+  }
+
+  async failJob(jobId: string, workerId: string, errorCode: string, stage: string, retryable: boolean): Promise<boolean> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const { data } = await admin.rpc("fail_analysis_job", {
+      p_job_id: jobId,
+      p_worker_id: workerId,
+      p_error_code: errorCode,
+      p_stage: stage,
+      p_retryable: retryable
+    });
+    return data === true;
+  }
+
+  async completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const { error } = await admin.rpc("complete_analysis_job", {
+      p_job_id: jobId,
+      p_worker_id: workerId,
+      p_report: report
+    });
+    if (error) throw new Error(error.message || "complete_failed");
+  }
+
+  async loadJobOriginals(claimed: ClaimedJob): Promise<Array<{ documentId: string; filename: string; bytes: Buffer }>> {
+    const { createAdminClient } = await import("./admin-client");
+    const admin = createAdminClient();
+    const results: Array<{ documentId: string; filename: string; bytes: Buffer }> = [];
+    for (const file of claimed.files) {
+      const { data, error } = await admin.storage.from(POLICY_FILES_BUCKET).download(file.path);
+      if (error || !data) throw new Error("missing_original");
+      results.push({
+        documentId: file.documentId,
+        filename: file.filename,
+        bytes: Buffer.from(await data.arrayBuffer())
+      });
+    }
+    return results;
   }
 
   async purgeExpired(limit: number): Promise<{ purged: number }> {

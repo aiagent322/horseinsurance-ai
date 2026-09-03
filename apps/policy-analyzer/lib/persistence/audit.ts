@@ -19,7 +19,10 @@ export type AuditEventName =
   | "deletion_completed"
   | "deletion_failed"
   | "retention_purge_completed"
-  | "retention_purge_failed";
+  | "retention_purge_failed"
+  | "job_queued"
+  | "job_cancelled"
+  | "job_completed";
 
 export type AuditEvent = {
   eventName: AuditEventName;

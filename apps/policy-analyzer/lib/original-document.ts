@@ -1,6 +1,7 @@
 import path from "node:path";
 import { getUserStore } from "@/lib/auth/session";
 import type { DocumentRecord, PolicyRecord } from "./types";
+import type { SafeStatusPayload } from "@/lib/persistence/types";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,6 +49,12 @@ export async function resolveOriginalPdf(
   if (!isUuid(policyId) || !isUuid(documentId)) return null;
   const { actor, store } = await getUserStore();
   return store.getOriginal(actor, policyId, documentId);
+}
+
+export async function loadPolicyStatus(policyId: string): Promise<SafeStatusPayload | null> {
+  if (!isUuid(policyId)) return null;
+  const { actor, store } = await getUserStore();
+  return store.getStatus(actor, policyId);
 }
 
 export async function loadPolicyRecord(policyId: string): Promise<PolicyRecord | null> {

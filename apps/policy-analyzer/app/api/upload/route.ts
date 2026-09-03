@@ -1,26 +1,12 @@
 import { NextResponse } from "next/server";
-import { ingestPolicyPackage, UploadRejectedError } from "@/lib/ingest";
+import { enqueuePolicyPackage } from "@/lib/enqueue";
 import { AuthRequiredError, ConfigurationError } from "@/lib/persistence/config";
 import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
+import { RateLimitError, BacklogLimitError } from "@/lib/persistence/types";
 import { assertSameOrigin } from "@/lib/persistence/same-origin";
-import { collectUploadFiles } from "@/lib/validate-upload";
+import { collectUploadFiles, UploadRejectedError } from "@/lib/validate-upload";
 
 export const runtime = "nodejs";
-
-function wantsRedirect(req: Request, form: FormData): boolean {
-  if (form.get("redirect") === "1") return true;
-  const accept = req.headers.get("accept") || "";
-  return accept.includes("text/html") && !accept.includes("application/json");
-}
-
-function fail(req: Request, form: FormData, error: string, status: number, code: string) {
-  if (wantsRedirect(req, form)) {
-    const url = new URL("/", req.url);
-    url.searchParams.set("error", code);
-    return NextResponse.redirect(url, 303);
-  }
-  return NextResponse.json({ error }, { status, headers: PRIVATE_HEADERS });
-}
 
 function userError(code: string): { message: string; status: number; code: string } {
   switch (code) {
@@ -57,42 +43,55 @@ export async function POST(req: Request) {
 
   const files = await collectUploadFiles(form);
   if (!files.length) {
-    return fail(req, form, "Upload at least one PDF.", 400, "choose");
+    return NextResponse.json({ error: "Upload at least one PDF." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
   try {
-    const result = await ingestPolicyPackage(files, {
+    const result = await enqueuePolicyPackage(files, {
       submittedUserId: String(form.get("user_id") || form.get("userId") || ""),
       submittedAccountId: String(form.get("account_id") || form.get("accountId") || ""),
       submittedPolicyId: String(form.get("policy_id") || form.get("policyId") || ""),
       submittedStoragePath: String(form.get("storage_path") || "")
     });
-    if (wantsRedirect(req, form)) {
-      return NextResponse.redirect(new URL(`/analysis/${result.policy_id}`, req.url), 303);
-    }
     return NextResponse.json(
       {
         policy_id: result.policy_id,
         session_id: result.session_id,
+        job_id: result.job_id,
         document_count: result.document_count,
-        page_count: result.page_count
+        status: "queued"
       },
-      { headers: PRIVATE_HEADERS }
+      { status: 202, headers: PRIVATE_HEADERS }
     );
   } catch (err) {
     if (err instanceof AuthRequiredError) {
-      if (wantsRedirect(req, form)) {
-        return NextResponse.redirect(new URL("/sign-in", req.url), 303);
-      }
       return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
     }
     if (err instanceof ConfigurationError) {
-      return fail(req, form, "Analyzer persistence is not configured.", 503, "config");
+      return NextResponse.json(
+        { error: "Analyzer persistence is not configured." },
+        { status: 503, headers: PRIVATE_HEADERS }
+      );
+    }
+    if (err instanceof RateLimitError) {
+      return NextResponse.json(
+        { error: "Too many analysis requests. Try again shortly." },
+        { status: 429, headers: { ...PRIVATE_HEADERS, "Retry-After": String(err.retryAfterSeconds) } }
+      );
+    }
+    if (err instanceof BacklogLimitError) {
+      return NextResponse.json(
+        { error: "Analysis backlog is full. Try again shortly." },
+        { status: 429, headers: { ...PRIVATE_HEADERS, "Retry-After": String(err.retryAfterSeconds) } }
+      );
     }
     if (err instanceof UploadRejectedError) {
       const mapped = userError(err.code);
-      return fail(req, form, mapped.message, mapped.status, mapped.code);
+      return NextResponse.json({ error: mapped.message }, { status: mapped.status, headers: PRIVATE_HEADERS });
     }
-    return fail(req, form, "Could not read one or more PDFs.", 422, "read");
+    return NextResponse.json(
+      { error: "Could not read one or more PDFs." },
+      { status: 422, headers: PRIVATE_HEADERS }
+    );
   }
 }
