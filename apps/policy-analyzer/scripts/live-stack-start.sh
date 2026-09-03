@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start a disposable loopback Supabase-compatible stack for live Fix #5 tests.
+# Start a disposable loopback Supabase-compatible stack for live Fix #5/#6 tests.
 # Uses host networking because container-to-container bridging is blocked here.
 # Secrets stay in /tmp/fix5-live-stack and are never echoed.
 set -euo pipefail
@@ -19,7 +19,7 @@ PG_IMAGE=public.ecr.aws/supabase/postgres:17.6.1.165
 REST_IMAGE=public.ecr.aws/supabase/postgrest:v16.1
 AUTH_IMAGE=public.ecr.aws/supabase/gotrue:v2.196.0
 STORAGE_IMAGE=public.ecr.aws/supabase/storage-api:v1.70.3
-ROOT=/workspace/horseinsurance-ai-fix5-clean
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 
 docker rm -f "$PG_NAME" "$REST_NAME" "$AUTH_NAME" "$STORAGE_NAME" >/dev/null 2>&1 || true
 if [[ -f "$STACK_DIR/gateway.pid" ]] && kill -0 "$(cat "$STACK_DIR/gateway.pid")" 2>/dev/null; then
@@ -102,7 +102,8 @@ for f in \
   "$ROOT/supabase/migrations/20260705022540_phase_1_persistence_schema.sql" \
   "$ROOT/supabase/migrations/20260705145522_phase_1_rls_policies.sql" \
   "$ROOT/supabase/migrations/20260903024500_analyzer_auth_persistence.sql" \
-  "$ROOT/supabase/migrations/20260903150000_durable_analysis_jobs.sql"
+  "$ROOT/supabase/migrations/20260903150000_durable_analysis_jobs.sql" \
+  "$ROOT/supabase/migrations/20260903200000_worker_completion_outcomes.sql"
 do
   docker exec -i "$PG_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <"$f" >/dev/null
 done

@@ -14,24 +14,35 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseReservationResult } from "../lib/persistence/reservation";
+import type { IncomingPdf } from "../lib/validate-upload";
 import type { ReservationResult } from "../lib/persistence/types";
 import { sampleReport } from "./test-fixtures";
 import type { PolicyRecord } from "../lib/types";
+import { buildCompletePolicyPages, buildCompletePolicyPdf, buildPartialPolicyPdf } from "../lib/build-complete-pdf";
+import { buildFixturePdf } from "../lib/build-fixture";
+import { buildScannedPdf, SCANNED_PDF_PHRASE } from "../lib/build-scanned-fixture";
+import { SupabasePolicyStore } from "../lib/persistence/supabase-store";
+import { createWorkerPersistence } from "../lib/persistence/factory";
+import { AnalysisWorker } from "../lib/worker/runtime";
+import type { WorkerConfig } from "../lib/worker/config";
+import { extractPdfInvocations, resetExtractPdfInvocations } from "../lib/extract-pdf";
+import { shutdownOcr } from "../lib/ocr";
 
-const REQUIRED_HEAD = "6cbe4b816b8cfd4f987f8391e67aa2a4460c13e5";
-const REQUIRED_BRANCH = "cursor/policy-analyzer-fix5-clean";
+const REQUIRED_HEAD = "126feccc9973b69fbb85f4d79e16cbbb600fc15d";
+const REQUIRED_BRANCH = "cursor/policy-analyzer-fix6-worker";
 const WORKTREE = path.resolve(process.cwd(), "../..");
 const MIGRATION_DIR = path.resolve(WORKTREE, "supabase/migrations");
 const EXPECTED_MIGRATIONS = [
   "20260705022540_phase_1_persistence_schema.sql",
   "20260705145522_phase_1_rls_policies.sql",
   "20260903024500_analyzer_auth_persistence.sql",
-  "20260903150000_durable_analysis_jobs.sql"
+  "20260903150000_durable_analysis_jobs.sql",
+  "20260903200000_worker_completion_outcomes.sql"
 ];
 const WORKER_RPCS = [
   { name: "claim_analysis_jobs", args: { p_worker_id: "probe-worker", p_limit: 1 } },
   { name: "heartbeat_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker" } },
-  { name: "update_job_progress", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_stage: "ocr" } },
+  { name: "update_job_progress", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_stage: "extracting" } },
   { name: "fail_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_error_code: "probe", p_stage: "ocr", p_retryable: false } },
   { name: "complete_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_report: { policy_id: "00000000-0000-0000-0000-000000000001" } } }
 ] as const;
@@ -644,7 +655,7 @@ class LiveHarness {
 
 async function main() {
   const names = readdirSync(MIGRATION_DIR).filter((name) => name.endsWith(".sql")).sort();
-  assert.deepEqual(names, EXPECTED_MIGRATIONS, "migration chain must be the four reviewed files");
+  assert.deepEqual(names, EXPECTED_MIGRATIONS, "migration chain must be the reviewed files including Fix #6");
 
   const target = loadTarget();
   assertSafety(target);
@@ -696,12 +707,13 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await harness.cleanup();
+    await shutdownOcr();
   }
   if (!failed) {
     try {
       await assertCleanupComplete(harness, accountIdsForCleanup);
       originalLog("  ✓ cleanup removed isolated test accounts, jobs, and objects");
-      originalLog("LIVE FIX #5 VERIFICATION PASSED");
+      originalLog("LIVE FIX #5 + #6 VERIFICATION PASSED");
     } catch (error) {
       const raw =
         error instanceof LiveFailure
@@ -771,6 +783,7 @@ async function runMatrix(h: LiveHarness, target: Target) {
   await invariant29SafeStatus(h, pkg);
   await invariant30Audit(h);
   await invariant31RetryFailNoMissingColumn(h, target);
+  await runWorkerLive(h, target);
 }
 
 async function invariant1Migrations() {
@@ -1266,7 +1279,7 @@ async function invariant16bLeaseAndIdentity(
   const progress = await h.admin.rpc("update_job_progress", {
     p_job_id: claimed.jobId,
     p_worker_id: claimed.owner,
-    p_stage: "extract",
+    p_stage: "extracting",
     p_documents_processed: 1,
     p_page_count: 1,
     p_pages_processed: 1
@@ -1580,6 +1593,249 @@ async function invariant31RetryFailNoMissingColumn(h: LiveHarness, target: Targe
     fail("31", terminal.error ?? { json: terminal.json }, "Terminal fail did not succeed.");
   }
   originalLog("  ✓ 31 retryable and terminal fail execute without SQLSTATE 42703");
+}
+
+function workerCfg(workerId: string, overrides: Partial<WorkerConfig> = {}): WorkerConfig {
+  return {
+    workerId,
+    concurrency: 1,
+    claimLimit: 1,
+    pollMs: 50,
+    backoffMaxMs: 200,
+    shutdownMs: 2_000,
+    heartbeatMs: 1_000,
+    leaseMs: 120_000,
+    ...overrides
+  };
+}
+
+function configureWorkerEnv(target: Target) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = target.url;
+  process.env.SUPABASE_URL = target.url;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = target.anonKey;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = target.serviceRoleKey;
+  delete process.env.POLICY_ANALYZER_STORE;
+}
+
+async function enqueueLive(h: LiveHarness, files: IncomingPdf[]) {
+  const store = new SupabasePolicyStore(h.userA.db);
+  return store.enqueuePackage(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    { files }
+  );
+}
+
+async function runWorkerLive(h: LiveHarness, target: Target) {
+  configureWorkerEnv(target);
+  await h.setConfig("uploads_per_account_per_hour", "100");
+  await h.setConfig("active_jobs_per_account", "40");
+  const persistence = createWorkerPersistence();
+
+  resetExtractPdfInvocations();
+  const complete = await buildCompletePolicyPdf();
+  const queued = await enqueueLive(h, [{ filename: "live-complete.pdf", bytes: complete }]);
+  if (extractPdfInvocations !== 0) {
+    fail("32", { extractPdfInvocations }, "Enqueue extracted documents inside the HTTP/user path.");
+  }
+  const pending = await h.userA.db.rpc("get_own_job_status", { p_policy_id: queued.policy_id });
+  if (pending.error || pending.data?.status !== "queued") {
+    fail("32", pending.error ?? pending.data, "Queued upload did not remain queued before the worker ran.");
+  }
+  originalLog("  ✓ 32 upload/enqueue returns a queued job without extraction");
+
+  const nativeWorker = new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-native-${h.runId.slice(0, 8)}`)
+  });
+  const nativeOnce = await nativeWorker.runOnce();
+  if (nativeOnce.claimed < 1) fail("33", { claimed: nativeOnce.claimed }, "Worker did not claim the queued native-text job.");
+  const nativeStatus = await h.userA.db.rpc("get_own_job_status", { p_policy_id: queued.policy_id });
+  if (nativeStatus.data?.status !== "completed" && nativeStatus.data?.status !== "needs_review") {
+    fail("33", nativeStatus.data ?? {}, "Worker did not publish a bound terminal report.");
+  }
+  const nativeReport = await new SupabasePolicyStore(h.userA.db).getReport(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    queued.policy_id
+  );
+  if (!nativeReport || nativeReport.policy_id !== queued.policy_id) {
+    fail("33", { policy_id: queued.policy_id }, "Bound report missing after worker:once.");
+  }
+  originalLog("  ✓ 33 worker:once converted a queued native-text package into a bound report");
+
+  const scanned = await buildScannedPdf();
+  const scanQueued = await enqueueLive(h, [{ filename: "live-scan.pdf", bytes: scanned }]);
+  const ocrWorker = new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-ocr-${h.runId.slice(0, 8)}`)
+  });
+  await ocrWorker.runOnce();
+  const scanReport = await new SupabasePolicyStore(h.userA.db).getReport(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    scanQueued.policy_id
+  );
+  const scanHay = (scanReport?.documents || []).flatMap((d) => d.pages.map((p) => p.text)).join(" ");
+  if (!scanReport || !new RegExp(SCANNED_PDF_PHRASE, "i").test(scanHay)) {
+    fail("34", { status: "missing_ocr_text" }, "Scanned fixture did not produce a sourced OCR report.");
+  }
+  originalLog("  ✓ 34 scanned fixture used real OCR and produced a bound sourced report");
+
+  const pages = await buildCompletePolicyPages();
+  const multiQueued = await enqueueLive(
+    h,
+    pages.map((bytes, index) => ({ filename: `live-part-${index}.pdf`, bytes }))
+  );
+  await new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-multi-${h.runId.slice(0, 8)}`)
+  }).runOnce();
+  const multiReport = await new SupabasePolicyStore(h.userA.db).getReport(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    multiQueued.policy_id
+  );
+  if (!multiReport || multiReport.documents.length !== pages.length || multiReport.session_id !== multiQueued.session_id) {
+    fail("35", { count: multiReport?.documents.length }, "Multi-document worker run lost claimed IDs or ordering.");
+  }
+  originalLog("  ✓ 35 multiple uploaded documents preserved claimed IDs and ordering");
+
+  const duelQueued = await enqueueLive(h, [{ filename: "live-duel.pdf", bytes: complete }]);
+  const [left, right] = await Promise.all([
+    new AnalysisWorker({ store: persistence, config: workerCfg(`w-live-duel-a-${h.runId.slice(0, 8)}`) }).runOnce(),
+    new AnalysisWorker({ store: persistence, config: workerCfg(`w-live-duel-b-${h.runId.slice(0, 8)}`) }).runOnce()
+  ]);
+  if (left.claimed + right.claimed !== 1) {
+    fail("36", { left: left.claimed, right: right.claimed, policy_id: duelQueued.policy_id }, "Two live workers processed the same job or lost it.");
+  }
+  originalLog("  ✓ 36 two workers never processed or published the same live job");
+
+  const hbQueued = await enqueueLive(h, [{ filename: "live-hb.pdf", bytes: complete }]);
+  const hbClaim = await h.admin.rpc("claim_analysis_jobs", {
+    p_worker_id: `w-live-hb-${h.runId.slice(0, 8)}`,
+    p_limit: 1
+  });
+  const hbJob = (Array.isArray(hbClaim.data) ? hbClaim.data : []).find((row: { policy_id: string }) => row.policy_id === hbQueued.policy_id) as { job_id: string } | undefined;
+  if (!hbJob) fail("37", hbClaim.error ?? {}, "Could not claim heartbeat job.");
+  const hb = await h.admin.rpc("heartbeat_analysis_job", {
+    p_job_id: hbJob.job_id,
+    p_worker_id: `w-live-hb-${h.runId.slice(0, 8)}`
+  });
+  if (hb.data !== true) fail("37", hb.error ?? { data: hb.data }, "Heartbeat did not preserve the live lease.");
+  await h.admin.rpc("fail_analysis_job", {
+    p_job_id: hbJob.job_id,
+    p_worker_id: `w-live-hb-${h.runId.slice(0, 8)}`,
+    p_error_code: "probe_complete",
+    p_stage: "extracting",
+    p_retryable: false
+  });
+  originalLog("  ✓ 37 heartbeats preserve an active live lease");
+
+  const shaQueued = await enqueueLive(h, [{ filename: "live-sha.pdf", bytes: complete }]);
+  const shaClaim = await h.admin.rpc("claim_analysis_jobs", {
+    p_worker_id: `w-live-sha-claim-${h.runId.slice(0, 8)}`,
+    p_limit: 1
+  });
+  const shaJob = (Array.isArray(shaClaim.data) ? shaClaim.data : []).find((row: { policy_id: string; files?: Array<{ storage_path: string }> }) => row.policy_id === shaQueued.policy_id) as { job_id: string; files: Array<{ storage_path: string }> } | undefined;
+  if (!shaJob) fail("38", shaClaim.error ?? {}, "Could not claim checksum job.");
+  await h.expireLease(shaJob.job_id);
+  const path = shaJob.files[0].storage_path;
+  await h.admin.storage.from("policy-files").remove([path]);
+  const other = await buildFixturePdf();
+  const up = await h.admin.storage.from("policy-files").upload(path, other, { contentType: "application/pdf", upsert: true });
+  if (up.error) fail("38", rpcErrorFrom(up.error as { message?: string }), "Could not replace object for checksum test.");
+  await h.admin.from("analysis_jobs").update({ available_at: new Date(Date.now() - 1000).toISOString() }).eq("job_id", shaJob.job_id);
+  const shaOnce = await new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-sha-${h.runId.slice(0, 8)}`)
+  }).runOnce();
+  const shaStatus = await h.userA.db.rpc("get_own_job_status", { p_policy_id: shaQueued.policy_id });
+  if (shaOnce.results.some((r) => r.errorCode === "checksum_mismatch") === false && shaStatus.data?.status !== "failed") {
+    fail("38", shaStatus.data ?? shaOnce, "Checksum mismatch did not fail closed.");
+  }
+  const shaReport = await new SupabasePolicyStore(h.userA.db).getReport(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    shaQueued.policy_id
+  );
+  if (shaReport) fail("38", { report: true }, "Checksum mismatch published a report.");
+  originalLog("  ✓ 38 SHA-256 mismatch failed permanently with no report");
+
+  const missQueued = await enqueueLive(h, [{ filename: "live-miss.pdf", bytes: complete }]);
+  const missClaim = await h.admin.rpc("claim_analysis_jobs", {
+    p_worker_id: `w-live-miss-seed-${h.runId.slice(0, 8)}`,
+    p_limit: 1
+  });
+  const missJob = (Array.isArray(missClaim.data) ? missClaim.data : []).find((row: { policy_id: string; files?: Array<{ storage_path: string }> }) => row.policy_id === missQueued.policy_id) as { job_id: string; files: Array<{ storage_path: string }> } | undefined;
+  if (!missJob) fail("39", missClaim.error ?? {}, "Could not claim missing-object job.");
+  await h.admin.storage.from("policy-files").remove([missJob.files[0].storage_path]);
+  await h.expireLease(missJob.job_id);
+  await h.admin.from("analysis_jobs").update({ available_at: new Date(Date.now() - 1000).toISOString() }).eq("job_id", missJob.job_id);
+  const missOnce = await new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-miss-${h.runId.slice(0, 8)}`)
+  }).runOnce();
+  if (missOnce.results[0]?.errorCode !== "storage_missing" && missOnce.results[0]?.outcome !== "retried" && missOnce.results[0]?.outcome !== "failed") {
+    fail("39", missOnce, "Missing storage object did not follow retry/failure policy.");
+  }
+  originalLog("  ✓ 39 missing storage object followed the retry/failure policy");
+
+  const cancelQueued = await enqueueLive(h, [{ filename: "live-cancel.pdf", bytes: complete }]);
+  const cancelClaim = await h.admin.rpc("claim_analysis_jobs", {
+    p_worker_id: `w-live-cancel-${h.runId.slice(0, 8)}`,
+    p_limit: 1
+  });
+  const cancelJob = (Array.isArray(cancelClaim.data) ? cancelClaim.data : []).find((row: { policy_id: string }) => row.policy_id === cancelQueued.policy_id) as { job_id: string } | undefined;
+  if (!cancelJob) fail("41", cancelClaim.error ?? {}, "Could not claim cancellation job.");
+  const cancelled = await h.userA.db.rpc("cancel_own_analysis_job", { p_policy_id: cancelQueued.policy_id });
+  if (cancelled.data !== true) fail("41", cancelled.error ?? {}, "Could not cancel the in-flight job.");
+  const staleComplete = await h.admin.rpc("complete_analysis_job", {
+    p_job_id: cancelJob.job_id,
+    p_worker_id: `w-live-cancel-${h.runId.slice(0, 8)}`,
+    p_report: { policy_id: cancelQueued.policy_id }
+  });
+  if (!staleComplete.error) fail("41", { complete: true }, "Cancelled job accepted a completion.");
+  const cancelReport = await new SupabasePolicyStore(h.userA.db).getReport(
+    { userId: h.userA.userId, accountId: h.userA.accountId, role: "owner" },
+    cancelQueued.policy_id
+  );
+  if (cancelReport) fail("41", { report: true }, "Cancellation published a report.");
+  originalLog("  ✓ 41 cancellation during processing prevented publication");
+
+  const partial = await buildPartialPolicyPdf();
+  const partQueued = await enqueueLive(h, [{ filename: "live-partial.pdf", bytes: partial }]);
+  await new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-partial-${h.runId.slice(0, 8)}`)
+  }).runOnce();
+  const partStatus = await h.userA.db.rpc("get_own_job_status", { p_policy_id: partQueued.policy_id });
+  if (partStatus.data?.status !== "needs_review") {
+    fail("42", partStatus.data ?? {}, "Partial usable extraction did not become needs_review.");
+  }
+  originalLog("  ✓ 42 partial usable extraction became needs_review, not completed");
+
+  const cross = await new SupabasePolicyStore(h.userB.db).getReport(
+    { userId: h.userB.userId, accountId: h.userB.accountId, role: "owner" },
+    queued.policy_id
+  );
+  if (cross) fail("44", { report: true }, "User B enumerated User A's worker report.");
+  const crossStatus = await h.userB.db.rpc("get_own_job_status", { p_policy_id: queued.policy_id });
+  if (crossStatus.data) fail("44", crossStatus.data, "User B enumerated User A's worker status.");
+  originalLog("  ✓ 44 cross-account status and report remain non-enumerating after worker publish");
+
+  const empty = await new AnalysisWorker({
+    store: persistence,
+    config: workerCfg(`w-live-empty-${h.runId.slice(0, 8)}`)
+  }).runOnce();
+  if (empty.claimed !== 0) fail("45", { claimed: empty.claimed }, "Empty-queue worker:once claimed unexpected work.");
+  originalLog("  ✓ 45 worker:once exits with no claim when the queue is empty");
+
+  const retryComplete = await h.admin.rpc("complete_analysis_job", {
+    p_job_id: (await h.admin.from("analysis_jobs").select("job_id").eq("policy_id", queued.policy_id).maybeSingle()).data?.job_id,
+    p_worker_id: `w-live-native-${h.runId.slice(0, 8)}`,
+    p_report: nativeReport,
+    p_outcome: nativeStatus.data?.status === "needs_review" ? "needs_review" : "completed"
+  });
+  if (retryComplete.error) {
+    fail("46", rpcErrorFrom(retryComplete.error), "Idempotent completion retry failed.");
+  }
+  originalLog("  ✓ 46 completion retry remained idempotent");
 }
 
 void sha256;

@@ -3,6 +3,7 @@ import { classifyPackage } from "@/lib/classify";
 import { extractPdfPages, type ExtractedPdf } from "@/lib/extract-pdf";
 import { sha256 } from "@/lib/ids";
 import { hydratePageDiagnostics } from "@/lib/extraction-quality";
+import type { DocumentRecord } from "@/lib/types";
 import type { ClaimedJob, WorkerPersistence, WorkerProgressStage } from "@/lib/persistence/types";
 import { JobCancelledError, LeaseLostError, WorkerJobError, classifyWorkerFailure } from "./errors";
 import { operationalLog } from "./log";

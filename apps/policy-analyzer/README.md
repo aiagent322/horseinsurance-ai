@@ -22,7 +22,10 @@ npm run test:security
 npm run test:retention
 npm run test:db-auth
 npm run test:jobs
+npm run test:worker
 npm run test:db-live
+npm run worker:once
+npm run worker
 npm run dev
 ```
 
@@ -40,7 +43,14 @@ Remote destructive runs additionally require an exact `POLICY_ANALYZER_TEST_PROJ
 
 Sign in with a passwordless email link or one-time code. Then upload a policy package of up to 10 PDFs, or run the educational fixture as a stored analysis.
 
-The educational fixture PDF at `/api/fixture` is public sample content with no customer data. Saving it as an analysis requires authentication and is disabled in production unless `ENABLE_FIXTURE_ANALYSIS=true`.
+The HTTP upload path only reserves files and enqueues a durable job. It returns `202` and never runs OCR or analysis. A dedicated worker consumes that queue:
+
+```bash
+npm run worker:once   # claim and process one bounded batch, then exit
+npm run worker        # poll continuously with bounded concurrency
+```
+
+The worker uses the Supabase service role only. It will not start in production with the memory store, and it fails closed if the Supabase URL or service-role key is missing. Do not point `worker` or `worker:once` at a shared project.
 
 ## Package limits
 
