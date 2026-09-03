@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
 import { cn } from "@/lib/utils";
 import type { AnalysisStatus, PolicyRecord, Sourced } from "@/lib/types";
 
@@ -49,9 +50,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function ReportView({ record }: { record: PolicyRecord }) {
   const router = useRouter();
   const id = record.identification;
+  const extractionIncomplete = record.documents.some(
+    (d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending"
+  );
 
   async function onDelete() {
-    if (!confirm("Delete this analysis and the uploaded PDF?")) return;
+    if (!confirm("Delete this analysis and the uploaded PDF(s)?")) return;
     await fetch(`/api/policies/${record.policy_id}`, { method: "DELETE" });
     router.push("/");
   }
@@ -65,8 +69,9 @@ export function ReportView({ record }: { record: PolicyRecord }) {
             {id.insured_horse_name?.value || "Uploaded policy"}
           </h1>
           <p className="text-sm text-[#4a5568]">
-            {record.documents[0]?.original_filename} · {record.documents[0]?.page_count} page
-            {record.documents[0]?.page_count === 1 ? "" : "s"}
+            {record.documents.length} document{record.documents.length === 1 ? "" : "s"} ·{" "}
+            {record.documents.reduce((n, d) => n + d.page_count, 0)} page
+            {record.documents.reduce((n, d) => n + d.page_count, 0) === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -76,13 +81,20 @@ export function ReportView({ record }: { record: PolicyRecord }) {
             target="_blank"
             rel="noreferrer"
           >
-            Original PDF
+            First original PDF
           </a>
           <Button variant="outline" onClick={onDelete}>
             Delete analysis
           </Button>
         </div>
       </div>
+
+      {extractionIncomplete ? (
+        <div className="rounded-lg border border-[#b91c1c]/30 bg-[#fef2f2] p-4 text-sm text-[#991b1b]">
+          <strong>Extraction is incomplete.</strong> One or more pages needed OCR or could not be read. Coverage
+          conclusions use only pages with reliable text. Unreadable pages are not treated as policy language.
+        </div>
+      ) : null}
 
       {record.completeness.status === "DOCUMENT PACKAGE MAY BE INCOMPLETE" ? (
         <div className="rounded-lg border border-[#f59e0b] bg-[#fffbeb] p-4 text-sm text-[#92400e]">
@@ -116,12 +128,36 @@ export function ReportView({ record }: { record: PolicyRecord }) {
       </Section>
 
       <Section title="Policy Document Inventory">
-        <ul className="space-y-2 text-sm">
-          {record.documents.map((d) => (
-            <li key={d.document_id}>
-              <span className="font-medium">{d.original_filename}</span> — classified as {d.classification}; {d.page_count} pages; SHA-256 {d.file_hash.slice(0, 12)}…
-            </li>
-          ))}
+        <ul className="space-y-3 text-sm">
+          {record.documents.map((d) => {
+            const counts = pageMethodCounts(d.pages);
+            const weakPages = d.pages
+              .map(hydratePageDiagnostics)
+              .filter((p) => p.quality_status !== "GOOD")
+              .map((p) => p.page);
+            return (
+              <li key={d.document_id} className="rounded-md border border-[#f0f1f3] p-3">
+                <p className="font-medium">{d.original_filename}</p>
+                <p className="text-[#4a5568]">
+                  Classified as {d.classification}; {d.page_count} page{d.page_count === 1 ? "" : "s"}; extraction{" "}
+                  {d.extraction_status}; native text on {counts.native} page{counts.native === 1 ? "" : "s"}; OCR selected
+                  on {counts.ocr} page{counts.ocr === 1 ? "" : "s"}
+                  {weakPages.length
+                    ? `; low-quality or unreadable pages: ${weakPages.join(", ")}`
+                    : "; no low-quality pages"}
+                  ; SHA-256 {d.file_hash.slice(0, 12)}…
+                </p>
+                <a
+                  className="mt-1 inline-block text-xs font-medium text-[#1d6fa5] underline"
+                  href={`/api/policies/${record.policy_id}/documents/${d.document_id}/original`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Original file
+                </a>
+              </li>
+            );
+          })}
         </ul>
       </Section>
 

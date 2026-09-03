@@ -54,12 +54,15 @@ export async function loadPolicy(policyId: string): Promise<PolicyRecord | null>
   }
 }
 
-export async function deletePolicy(policyId: string): Promise<boolean> {
-  const rec = await loadPolicy(policyId);
-  if (!rec) return false;
+export async function deletePolicyStorage(policyId: string): Promise<void> {
   await rm(path.join(POLICIES, `${policyId}.json`), { force: true });
   await rm(path.join(UPLOADS, policyId), { recursive: true, force: true });
-  return true;
+}
+
+export async function deletePolicy(policyId: string): Promise<boolean> {
+  const rec = await loadPolicy(policyId);
+  await deletePolicyStorage(policyId);
+  return Boolean(rec);
 }
 
 export async function readOriginal(policyId: string, documentId: string): Promise<Buffer | null> {

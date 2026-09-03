@@ -1,4 +1,15 @@
 import { classifyPage } from "./classify";
+import {
+  collectFormsScheduleText,
+  extractEdition,
+  isFormsScheduleHeading,
+  isIndependentFormEvidence,
+  lineHasFormId,
+  normalizeEdition,
+  normalizeFormId,
+  parseListedForms
+} from "./form-schedule";
+import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import type {
   AnalysisStatus,
   CompletenessResult,
@@ -24,16 +35,18 @@ type Hit = {
 };
 
 function pagesOf(docs: DocumentRecord[]): Array<Hit & { document_id: string }> {
-  const out: Array<Hit & { document_id: string }> = [];
+  const collected: Array<Hit & { document_id: string }> = [];
   for (const doc of docs) {
-    for (const p of doc.pages) {
+    for (const raw of doc.pages) {
+      const p: PageText = hydratePageDiagnostics(raw);
+      if (!isReliablePolicyPage(p)) continue;
       for (const line of p.text.split(/\n+/)) {
         const t = line.replace(/\s+/g, " ").trim();
-        if (t) out.push({ page: p.page, text: p.text, line: t, document_id: doc.document_id });
+        if (t) collected.push({ page: p.page, text: p.text, line: t, document_id: doc.document_id });
       }
     }
   }
-  return out;
+  return collected;
 }
 
 function firstMatch(
@@ -251,7 +264,9 @@ function classifyCoverageEvidence(
 export function analyzeDocuments(policyId: string, sessionId: string, documents: DocumentRecord[]): PolicyRecord {
   const now = new Date().toISOString();
   const hits = pagesOf(documents);
-  const allText = documents.map((d) => d.pages.map((p) => p.text).join("\n")).join("\n\n");
+  const allText = uniquePages(hits)
+    .map((h) => h.text)
+    .join("\n\n");
 
   const identification: PolicyIdentification = {
     carrier_name:
@@ -641,12 +656,24 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const declarationPages = pageHits.filter((h) => isDeclarationsPage(h.text));
   const formInventory = buildFormInventory(pageHits, declarationPages);
   const warnings: string[] = [];
+  if (documents.some((d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending")) {
+    warnings.push(
+      "Text extraction is incomplete. OCR or native extraction did not recover every page. Coverage conclusions use only pages with reliable text."
+    );
+  }
   if (!declarationPages.length) {
     warnings.push("No page was classified as Declarations.");
   }
-  const scheduleFound = declarationPages.some((h) => findFormsSchedule(h.text));
+  const scheduleFound = declarationPages.some((h) => Boolean(collectFormsScheduleText(h.text)));
+  const uncertainSchedule = declarationPages.some((h) => {
+    const block = collectFormsScheduleText(h.text);
+    return Boolean(block) && parseListedForms(block || "").length === 0;
+  });
   if (declarationPages.length && !scheduleFound) {
     warnings.push("No forms or endorsements schedule was identified on the declarations.");
+  }
+  if (uncertainSchedule) {
+    warnings.push("A forms schedule was found but could not be parsed with certainty.");
   }
   for (const form of formInventory) {
     if (form.status === "MISSING") {
@@ -658,13 +685,26 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       );
     }
   }
-  const unread = documents.flatMap((d) => d.pages).filter((p) => p.text.length < 20);
+  const unread = documents
+    .flatMap((d) => d.pages)
+    .map(hydratePageDiagnostics)
+    .filter((p) => p.quality_status === "UNREADABLE");
   if (unread.length) warnings.push(`${unread.length} page(s) have little or no readable text.`);
+  const low = documents
+    .flatMap((d) => d.pages)
+    .map(hydratePageDiagnostics)
+    .filter((p) => p.quality_status === "LOW");
+  if (low.length) {
+    warnings.push(
+      `${low.length} page(s) have low-quality extracted text and were not used as reliable policy language.`
+    );
+  }
   if (!identification.policy_number) warnings.push("Policy number was not found.");
   if (!identification.named_insured) warnings.push("Named insured was not found.");
 
   const allListedPresent =
     scheduleFound &&
+    !uncertainSchedule &&
     formInventory.length > 0 &&
     formInventory.every((f) => f.status === "PRESENT");
   const completeness: CompletenessResult = {
@@ -750,68 +790,8 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   };
 }
 
-const FORM_ID_CORE = "[A-Z]{2,}[A-Z0-9]*-[A-Z0-9]+(?:-[A-Z0-9]+)*";
-const EDITION_CORE = "[A-Za-z]{3,9}\\s+\\d{4}|\\d{1,2}/\\d{1,2}/\\d{2,4}|\\d{1,2}/\\d{4}|\\d{4}";
-const EDITION_RE = new RegExp(
-  `(?:ed(?:ition)?\\.?|rev(?:ision)?\\.?)\\s*[:.]?\\s*(${EDITION_CORE})`,
-  "i"
-);
-
-function normalizeFormId(id: string): string {
-  return id.toUpperCase().replace(/\s+/g, "");
-}
-
-function normalizeEdition(ed: string): string {
-  return ed.toUpperCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
-}
-
 function isDeclarationsPage(text: string): boolean {
   return /\bdeclarations\b/i.test(text);
-}
-
-function findFormsSchedule(text: string): string | undefined {
-  for (const raw of text.split(/\n+/)) {
-    const line = raw.replace(/\s+/g, " ").trim();
-    if (
-      /^(forms|forms attached|forms and endorsements|schedule of forms|endorsements attached)\b/i.test(line) ||
-      /\bforms\s*:/i.test(line) ||
-      /\bschedule of forms\b/i.test(line)
-    ) {
-      return line;
-    }
-  }
-  return undefined;
-}
-
-function extractEdition(text: string): string | undefined {
-  const m = text.match(EDITION_RE);
-  return m?.[1] ? normalizeEdition(m[1]) : undefined;
-}
-
-function parseListedForms(schedule: string): Array<{ printed: string; edition?: string }> {
-  const out: Array<{ printed: string; edition?: string }> = [];
-  const re = new RegExp(
-    `\\b(${FORM_ID_CORE})\\b(?:\\s*[\\(]?\\s*(?:Ed(?:ition)?\\.?|Rev(?:ision)?\\.?)\\s*[:.]?\\s*(${EDITION_CORE})[\\)]?)?`,
-    "gi"
-  );
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(schedule))) {
-    out.push({ printed: m[1], edition: m[2] ? normalizeEdition(m[2]) : undefined });
-  }
-  return out;
-}
-
-function isScheduleLine(line: string): boolean {
-  return Boolean(findFormsSchedule(line));
-}
-
-function isIndependentFormEvidence(line: string, printedId: string): boolean {
-  if (isScheduleLine(line)) return false;
-  const n = escapeRe(printedId);
-  return new RegExp(
-    `(?:base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\\s+${n}\\b|^${n}\\b`,
-    "i"
-  ).test(line);
 }
 
 function buildFormInventory(
@@ -821,7 +801,7 @@ function buildFormInventory(
   const listed: PolicyFormRecord[] = [];
   const seen = new Set<string>();
   for (const h of declarationPages) {
-    const schedule = findFormsSchedule(h.text);
+    const schedule = collectFormsScheduleText(h.text);
     if (!schedule) continue;
     for (const item of parseListedForms(schedule)) {
       const normalized = normalizeFormId(item.printed);
@@ -850,9 +830,11 @@ function buildFormInventory(
       for (const line of splitClauses(p.text).concat(p.text.split(/\n+/).map((s) => s.trim()))) {
         const t = line.replace(/\s+/g, " ").trim();
         if (!t) continue;
-        if (!t.toUpperCase().includes(form.normalized_identifier)) continue;
-        if (isScheduleLine(t)) continue;
-        if (!isIndependentFormEvidence(t, form.printed_identifier)) continue;
+        if (!lineHasFormId(t, form.printed_identifier) && !lineHasFormId(p.text, form.printed_identifier)) {
+          continue;
+        }
+        if (isFormsScheduleHeading(t)) continue;
+        if (!isIndependentFormEvidence(t, form.printed_identifier, p.text)) continue;
         match = {
           document_id: p.document_id,
           page: p.page,

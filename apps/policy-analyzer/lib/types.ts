@@ -37,9 +37,24 @@ export type Sourced<T> = {
   confidence_status: Confidence;
 };
 
+export type ExtractionMethod = "NATIVE_TEXT" | "OCR";
+
+export type PageQualityStatus = "GOOD" | "LOW" | "UNREADABLE";
+
+export type DocumentExtractionStatus = "pending" | "extracted" | "partial" | "ocr_required" | "failed";
+
 export type PageText = {
   page: number;
   text: string;
+  extraction_method?: ExtractionMethod;
+  character_count?: number;
+  word_count?: number;
+  alphanumeric_ratio?: number;
+  quality_status?: PageQualityStatus;
+  ocr_attempted?: boolean;
+  ocr_succeeded?: boolean;
+  diagnostic_warnings?: string[];
+  confidence?: Confidence;
 };
 
 export type DocumentRecord = {
@@ -51,7 +66,7 @@ export type DocumentRecord = {
   file_hash: string;
   page_count: number;
   storage_location: string;
-  extraction_status: "pending" | "extracted" | "failed";
+  extraction_status: DocumentExtractionStatus;
   analysis_status: "pending" | "complete" | "failed";
   classification: DocumentClass;
   pages: PageText[];

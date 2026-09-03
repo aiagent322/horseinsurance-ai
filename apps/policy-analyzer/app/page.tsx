@@ -16,9 +16,9 @@ export default async function HomePage({
           What does this policy actually say?
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-[#4a5568]">
-          Upload an equine insurance PDF. The analyzer inventories the pages, extracts facts that appear in the
-          documents, and writes a plain-English report with page citations. It will not invent customary coverage
-          that is not in the file.
+          Upload one or more equine insurance PDFs. The analyzer inventories every document, extracts facts that appear
+          in readable pages, and writes a plain-English report with page citations. It will not invent customary
+          coverage that is not in the file.
         </p>
       </section>
       <UploadForm errorCode={error} />

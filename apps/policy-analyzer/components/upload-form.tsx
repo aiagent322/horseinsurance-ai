@@ -2,10 +2,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const ERRORS: Record<string, string> = {
-  choose: "Choose a PDF first.",
+  choose: "Choose at least one PDF first.",
   type: "Only PDF uploads are accepted in this version.",
-  size: "File is larger than 20 MB.",
-  read: "Could not read text from that PDF."
+  size: "Each PDF must be 20 MB or smaller.",
+  package: "The complete package must be 75 MB or smaller.",
+  count: "Upload at most 10 PDFs in one package.",
+  empty: "One of the files is empty.",
+  duplicate: "The package contains duplicate PDFs.",
+  read: "Could not read one or more PDFs."
 };
 
 export function UploadForm({ errorCode }: { errorCode?: string }) {
@@ -16,24 +20,25 @@ export function UploadForm({ errorCode }: { errorCode?: string }) {
       <form action="/api/upload" method="post" encType="multipart/form-data" className="space-y-4">
         <input type="hidden" name="redirect" value="1" />
         <label className="block text-sm font-medium text-[#0b3c5d]" htmlFor="policy-pdf">
-          Policy PDF
+          Policy PDFs
         </label>
         <input
           id="policy-pdf"
           type="file"
-          name="file"
+          name="files"
           accept="application/pdf,.pdf"
+          multiple
           required
           className="block w-full text-sm text-[#1f2933] file:mr-3 file:rounded-md file:border-0 file:bg-[#0b3c5d] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
         />
         <p className="text-xs text-[#6b7280]">
-          One PDF, up to 20 MB. The original file is stored privately on this server and is not indexed. You can delete
-          the analysis from the report page.
+          Up to 10 PDFs, 20 MB each, 75 MB for the complete package. Original files are stored privately by generated
+          IDs and are not indexed. You can delete the analysis from the report page.
         </p>
         {error ? <p className="text-sm text-[#b91c1c]">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <button type="submit" className={cn(buttonVariants(), "bg-[#0b3c5d] hover:bg-[#144e78]")}>
-            Analyze policy
+            Analyze policy package
           </button>
           <button
             type="submit"
