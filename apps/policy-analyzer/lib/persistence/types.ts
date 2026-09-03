@@ -139,11 +139,60 @@ export interface PolicyStore {
   recordAudit(actor: Actor | null, event: AuditEvent): Promise<void>;
   listAuditForTests(): AuditEvent[];
   purgeExpired(limit: number): Promise<{ purged: number }>;
+}
 
+export const WORKER_PROGRESS_STAGES = ["downloading", "extracting", "analyzing", "finalizing"] as const;
+export type WorkerProgressStage = (typeof WORKER_PROGRESS_STAGES)[number];
+
+export type JobCompletionOutcome = "completed" | "needs_review";
+
+export type JobProgressUpdate = {
+  documentsProcessed?: number;
+  pageCount?: number;
+  pagesProcessed?: number;
+};
+
+export const WORKER_ERROR_CODES = [
+  "infrastructure_failure",
+  "storage_unavailable",
+  "storage_missing",
+  "ocr_timeout",
+  "checksum_mismatch",
+  "corrupt_pdf",
+  "unsupported_pdf",
+  "malformed_claim",
+  "lease_lost",
+  "cancelled",
+  "completion_binding_rejected",
+  "extraction_failed",
+  "attempts_exhausted"
+] as const;
+export type WorkerErrorCode = (typeof WORKER_ERROR_CODES)[number];
+
+export function isWorkerProgressStage(value: string): value is WorkerProgressStage {
+  return (WORKER_PROGRESS_STAGES as readonly string[]).includes(value);
+}
+
+/**
+ * Service-role worker persistence. Never constructed with a user JWT.
+ * Consumer-facing PolicyStore must not implement this with service-role credentials.
+ */
+export interface WorkerPersistence {
+  readonly kind: "memory" | "supabase";
   claimJobs(workerId: string, limit: number): Promise<ClaimedJob[]>;
   heartbeatJob(jobId: string, workerId: string): Promise<boolean>;
-  updateJobProgress(jobId: string, workerId: string, stage: string, progress?: { documentsProcessed?: number; pageCount?: number; pagesProcessed?: number }): Promise<boolean>;
+  updateJobProgress(
+    jobId: string,
+    workerId: string,
+    stage: WorkerProgressStage | string,
+    progress?: JobProgressUpdate
+  ): Promise<boolean>;
   failJob(jobId: string, workerId: string, errorCode: string, stage: string, retryable: boolean): Promise<boolean>;
-  completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void>;
+  completeJob(
+    jobId: string,
+    workerId: string,
+    report: PolicyRecord,
+    outcome?: JobCompletionOutcome
+  ): Promise<void>;
   loadJobOriginals(claimed: ClaimedJob): Promise<Array<{ documentId: string; filename: string; bytes: Buffer }>>;
 }

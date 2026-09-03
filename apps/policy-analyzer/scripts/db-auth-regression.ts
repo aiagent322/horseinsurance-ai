@@ -12,10 +12,6 @@ import path from "node:path";
 const MIGRATION_DIR = path.resolve(process.cwd(), "../../supabase/migrations");
 const JOBS_MIGRATION = path.join(MIGRATION_DIR, "20260903150000_durable_analysis_jobs.sql");
 
-function readMigration(): string {
-  return readFileSync(JOBS_MIGRATION, "utf8");
-}
-
 function normalizeWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -213,7 +209,7 @@ function assertTriggerColumnCompatibility(allSql: string) {
 }
 
 function main() {
-  const sql = readMigration();
+  const sql = readAllMigrations();
   const normalized = normalizeWhitespace(sql);
 
   const protectedTables = [
@@ -464,7 +460,7 @@ function main() {
   const completeBody = extractFunctionBody(sql, "complete_analysis_job");
   assert.ok(/lease_mismatch/i.test(completeBody), "complete_analysis_job verifies active lease");
   assert.ok(/job_cancelled/i.test(completeBody), "complete_analysis_job rejects cancelled jobs");
-  assert.ok(/v_job\.status\s*=\s*'completed'/i.test(completeBody), "complete_analysis_job is idempotent for already-completed jobs");
+  assert.ok(/v_job\.status in \('completed',\s*'needs_review'\)/i.test(completeBody), "complete_analysis_job is idempotent for already-completed jobs");
   assert.ok(
     /analyzer_report_binding_error\(v_job\.job_id, v_stored\)/i.test(completeBody),
     "idempotent completion requires the stored report to be bound to the job"
@@ -484,11 +480,16 @@ function main() {
   );
   assert.ok(
     /insert into report_sections/i.test(completeBody)
-    && /set status = 'completed'/i.test(completeBody)
+    && /set status = v_outcome/i.test(completeBody)
     && completeBody.toLowerCase().indexOf("insert into report_sections")
-      < completeBody.toLowerCase().indexOf("set status = 'completed'"),
+      < completeBody.toLowerCase().indexOf("set status = v_outcome"),
     "complete marks the job complete only after the report write in the same function"
   );
+
+  const progressBody = extractFunctionBody(sql, "update_job_progress");
+  assert.ok(/downloading/.test(progressBody) && /extracting/.test(progressBody), "progress stages include downloading and extracting");
+  assert.ok(/analyzing/.test(progressBody) && /finalizing/.test(progressBody), "progress stages include analyzing and finalizing");
+  assert.ok(/least\(document_count/.test(progressBody), "progress cannot exceed document_count");
 
   const bindBody = extractFunctionBody(sql, "analyzer_report_binding_error");
   assert.ok(/report_policy_mismatch/i.test(bindBody), "binding rejects the wrong policy ID");

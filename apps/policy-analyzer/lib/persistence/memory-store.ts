@@ -9,15 +9,18 @@ import type {
   ClaimedJob,
   EnqueuePackageInput,
   EnqueuePackageResult,
+  JobCompletionOutcome,
+  JobProgressUpdate,
   ObjectBackend,
   PolicyStore,
   ReservationResult,
   ReservedFileTuple,
   SafeStatusPayload,
   SavePackageInput,
-  SavePackageResult
+  SavePackageResult,
+  WorkerPersistence
 } from "./types";
-import { RateLimitError, BacklogLimitError } from "./types";
+import { RateLimitError, BacklogLimitError, isWorkerProgressStage } from "./types";
 import { assertAnalyzerReportBound, reportIsBoundToJob } from "./report-binding";
 import type { PolicyRecord } from "@/lib/types";
 
@@ -129,7 +132,7 @@ function audit(eventName: AuditEvent["eventName"], extra: Partial<AuditEvent> = 
   return sanitizeAuditEvent({ eventName, timestamp: new Date().toISOString(), ...extra });
 }
 
-export class MemoryPolicyStore implements PolicyStore {
+export class MemoryPolicyStore implements PolicyStore, WorkerPersistence {
   readonly kind = "memory" as const;
   readonly backend: MemoryObjectBackend;
   readonly accounts = new Map<string, string>();
@@ -894,13 +897,29 @@ export class MemoryPolicyStore implements PolicyStore {
     return true;
   }
 
-  async updateJobProgress(jobId: string, workerId: string, stage: string, progress?: { documentsProcessed?: number; pageCount?: number; pagesProcessed?: number }): Promise<boolean> {
+  async updateJobProgress(
+    jobId: string,
+    workerId: string,
+    stage: string,
+    progress?: JobProgressUpdate
+  ): Promise<boolean> {
     const job = this.jobs.get(jobId);
     if (!job || !this.leaseIsActive(job, workerId)) return false;
-    job.stage = stage;
-    if (progress?.documentsProcessed !== undefined) job.documentsProcessed = progress.documentsProcessed;
-    if (progress?.pageCount !== undefined) job.pageCount = progress.pageCount;
-    if (progress?.pagesProcessed !== undefined) job.pagesProcessed = progress.pagesProcessed;
+    if (stage && !isWorkerProgressStage(stage)) return false;
+    if (progress?.documentsProcessed !== undefined && progress.documentsProcessed < 0) return false;
+    if (progress?.pageCount !== undefined && progress.pageCount < 0) return false;
+    if (progress?.pagesProcessed !== undefined && progress.pagesProcessed < 0) return false;
+    if (stage) job.stage = stage;
+    if (progress?.documentsProcessed !== undefined) {
+      job.documentsProcessed = Math.min(job.documentCount, Math.max(job.documentsProcessed, progress.documentsProcessed));
+    }
+    if (progress?.pageCount !== undefined) {
+      job.pageCount = job.pageCount == null ? progress.pageCount : Math.max(job.pageCount, progress.pageCount);
+    }
+    if (progress?.pagesProcessed !== undefined) {
+      const next = Math.max(job.pagesProcessed, progress.pagesProcessed);
+      job.pagesProcessed = job.pageCount == null ? next : Math.min(job.pageCount, next);
+    }
     job.lastHeartbeat = this.now();
     job.leaseExpiresAt = new Date(this.now().getTime() + jobLimits().leaseMs);
     job.updatedAt = this.now();
@@ -933,12 +952,20 @@ export class MemoryPolicyStore implements PolicyStore {
     return true;
   }
 
-  async completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void> {
+  async completeJob(
+    jobId: string,
+    workerId: string,
+    report: PolicyRecord,
+    outcome: JobCompletionOutcome = "completed"
+  ): Promise<void> {
+    if (outcome !== "completed" && outcome !== "needs_review") {
+      throw new Error("completion_binding_rejected");
+    }
     const job = this.jobs.get(jobId);
     if (!job) throw new Error("lease_mismatch");
     const row = this.rows.get(job.policyId);
     if (!row) throw new Error("missing_row");
-    if (job.status === "completed") {
+    if (job.status === "completed" || job.status === "needs_review") {
       if (!reportIsBoundToJob(row.record, this.bindingContext(job, row))) {
         throw new Error("report_unavailable");
       }
@@ -948,8 +975,8 @@ export class MemoryPolicyStore implements PolicyStore {
     if (!this.leaseIsActive(job, workerId)) throw new Error("lease_mismatch");
     assertAnalyzerReportBound(report, this.bindingContext(job, row));
     row.record = report;
-    job.status = "completed";
-    job.stage = "completed";
+    job.status = outcome;
+    job.stage = outcome;
     job.completedAt = this.now();
     job.leaseOwner = null;
     job.leaseExpiresAt = null;

@@ -22,6 +22,12 @@ export type ExtractedPdf = {
   ocr_timed_out: boolean;
 };
 
+export let extractPdfInvocations = 0;
+
+export function resetExtractPdfInvocations(): void {
+  extractPdfInvocations = 0;
+}
+
 function nativePage(num: number, text: string): PageText {
   const cleaned = (text || "").replace(/\u0000/g, "").trim();
   const q = assessTextQuality(cleaned);
@@ -72,6 +78,7 @@ export async function extractPdfPages(
   buf: Buffer,
   options: ExtractPdfOptions = {}
 ): Promise<ExtractedPdf> {
+  extractPdfInvocations += 1;
   const enableOcr = options.enableOcr !== false;
   const ocrTimeoutMs = options.ocrTimeoutMs ?? EXTRACTION_QUALITY.OCR_DOCUMENT_TIMEOUT_MS;
   const parser = new PDFParse({ data: new Uint8Array(buf) });

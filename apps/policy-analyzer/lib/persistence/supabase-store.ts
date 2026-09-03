@@ -7,7 +7,6 @@ import { POLICY_FILES_BUCKET, objectStoragePath } from "./object-paths";
 import { MAX_PURGE_BATCH } from "./constants";
 import type {
   Actor,
-  ClaimedJob,
   EnqueuePackageInput,
   EnqueuePackageResult,
   PolicyStore,
@@ -399,90 +398,6 @@ export class SupabasePolicyStore implements PolicyStore {
     const { data, error } = await this.client.rpc("cancel_own_analysis_job", { p_policy_id: policyId });
     if (error) return false;
     return data === true;
-  }
-
-  async claimJobs(workerId: string, limit: number): Promise<ClaimedJob[]> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const { data, error } = await admin.rpc("claim_analysis_jobs", { p_worker_id: workerId, p_limit: limit });
-    if (error || !data) return [];
-    return (data as Array<Record<string, unknown>>).map((row) => ({
-      jobId: String(row.job_id),
-      policyId: String(row.policy_id),
-      analysisId: String(row.analysis_id),
-      accountId: String(row.account_id),
-      ownerUserId: String(row.owner_user_id),
-      attemptCount: Number(row.attempt_count),
-      files: ((row.files || []) as Array<Record<string, string>>).map((f) => ({
-        documentId: f.document_id,
-        fileId: f.file_id,
-        path: f.storage_path,
-        sha256: f.sha256 || "",
-        filename: f.original_filename || `${f.file_id}.pdf`
-      })),
-      sessionId: String(row.session_id)
-    }));
-  }
-
-  async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const { data } = await admin.rpc("heartbeat_analysis_job", { p_job_id: jobId, p_worker_id: workerId });
-    return data === true;
-  }
-
-  async updateJobProgress(jobId: string, workerId: string, stage: string, progress?: { documentsProcessed?: number; pageCount?: number; pagesProcessed?: number }): Promise<boolean> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const { data } = await admin.rpc("update_job_progress", {
-      p_job_id: jobId,
-      p_worker_id: workerId,
-      p_stage: stage,
-      p_documents_processed: progress?.documentsProcessed ?? null,
-      p_page_count: progress?.pageCount ?? null,
-      p_pages_processed: progress?.pagesProcessed ?? null
-    });
-    return data === true;
-  }
-
-  async failJob(jobId: string, workerId: string, errorCode: string, stage: string, retryable: boolean): Promise<boolean> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const { data } = await admin.rpc("fail_analysis_job", {
-      p_job_id: jobId,
-      p_worker_id: workerId,
-      p_error_code: errorCode,
-      p_stage: stage,
-      p_retryable: retryable
-    });
-    return data === true;
-  }
-
-  async completeJob(jobId: string, workerId: string, report: PolicyRecord): Promise<void> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const { error } = await admin.rpc("complete_analysis_job", {
-      p_job_id: jobId,
-      p_worker_id: workerId,
-      p_report: report
-    });
-    if (error) throw new Error(error.message || "complete_failed");
-  }
-
-  async loadJobOriginals(claimed: ClaimedJob): Promise<Array<{ documentId: string; filename: string; bytes: Buffer }>> {
-    const { createAdminClient } = await import("./admin-client");
-    const admin = createAdminClient();
-    const results: Array<{ documentId: string; filename: string; bytes: Buffer }> = [];
-    for (const file of claimed.files) {
-      const { data, error } = await admin.storage.from(POLICY_FILES_BUCKET).download(file.path);
-      if (error || !data) throw new Error("missing_original");
-      results.push({
-        documentId: file.documentId,
-        filename: file.filename,
-        bytes: Buffer.from(await data.arrayBuffer())
-      });
-    }
-    return results;
   }
 
   async purgeExpired(limit: number): Promise<{ purged: number }> {

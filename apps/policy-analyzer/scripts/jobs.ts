@@ -737,6 +737,8 @@ async function main() {
     assert.equal(storeSource.includes("persist_analyzer_package"), false);
     assert.ok(/Synchronous package persistence is not supported/.test(storeSource));
     assert.ok(/enqueuePackage/.test(storeSource));
+    assert.equal(storeSource.includes("claim_analysis_jobs"), false);
+    assert.equal(storeSource.includes("createServiceRoleClient"), false);
 
     const fixtureSource = readFileSync(
       path.resolve(process.cwd(), "app/api/fixture/run/route.ts"),
