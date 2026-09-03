@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { ingestPolicyPackage, UploadRejectedError } from "@/lib/ingest";
+import { AuthRequiredError, ConfigurationError } from "@/lib/persistence/config";
+import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
+import { assertSameOrigin } from "@/lib/persistence/same-origin";
 import { collectUploadFiles } from "@/lib/validate-upload";
 
 export const runtime = "nodejs";
@@ -16,7 +19,7 @@ function fail(req: Request, form: FormData, error: string, status: number, code:
     url.searchParams.set("error", code);
     return NextResponse.redirect(url, 303);
   }
-  return NextResponse.json({ error }, { status });
+  return NextResponse.json({ error }, { status, headers: PRIVATE_HEADERS });
 }
 
 function userError(code: string): { message: string; status: number; code: string } {
@@ -41,11 +44,15 @@ function userError(code: string): { message: string; status: number; code: strin
 }
 
 export async function POST(req: Request) {
+  if (!assertSameOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: PRIVATE_HEADERS });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Upload a PDF file." }, { status: 400 });
+    return NextResponse.json({ error: "Upload a PDF file." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
   const files = await collectUploadFiles(form);
@@ -54,17 +61,34 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await ingestPolicyPackage(files);
+    const result = await ingestPolicyPackage(files, {
+      submittedUserId: String(form.get("user_id") || form.get("userId") || ""),
+      submittedAccountId: String(form.get("account_id") || form.get("accountId") || ""),
+      submittedPolicyId: String(form.get("policy_id") || form.get("policyId") || ""),
+      submittedStoragePath: String(form.get("storage_path") || "")
+    });
     if (wantsRedirect(req, form)) {
       return NextResponse.redirect(new URL(`/analysis/${result.policy_id}`, req.url), 303);
     }
-    return NextResponse.json({
-      policy_id: result.policy_id,
-      session_id: result.session_id,
-      document_count: result.document_count,
-      page_count: result.page_count
-    });
+    return NextResponse.json(
+      {
+        policy_id: result.policy_id,
+        session_id: result.session_id,
+        document_count: result.document_count,
+        page_count: result.page_count
+      },
+      { headers: PRIVATE_HEADERS }
+    );
   } catch (err) {
+    if (err instanceof AuthRequiredError) {
+      if (wantsRedirect(req, form)) {
+        return NextResponse.redirect(new URL("/sign-in", req.url), 303);
+      }
+      return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
+    }
+    if (err instanceof ConfigurationError) {
+      return fail(req, form, "Analyzer persistence is not configured.", 503, "config");
+    }
     if (err instanceof UploadRejectedError) {
       const mapped = userError(err.code);
       return fail(req, form, mapped.message, mapped.status, mapped.code);

@@ -47,7 +47,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function ReportView({ record }: { record: PolicyRecord }) {
+export function ReportView({ record, accountEmail }: { record: PolicyRecord; accountEmail?: string }) {
   const router = useRouter();
   const id = record.identification;
   const extractionIncomplete = record.documents.some(
@@ -73,6 +73,7 @@ export function ReportView({ record }: { record: PolicyRecord }) {
             {record.documents.reduce((n, d) => n + d.page_count, 0)} page
             {record.documents.reduce((n, d) => n + d.page_count, 0) === 1 ? "" : "s"}
           </p>
+          {accountEmail ? <p className="mt-1 text-xs text-[#6b7280]">Signed in as {accountEmail}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <a
@@ -86,6 +87,11 @@ export function ReportView({ record }: { record: PolicyRecord }) {
           <Button variant="outline" onClick={onDelete}>
             Delete analysis
           </Button>
+          <form action="/auth/sign-out" method="post">
+            <button type="submit" className={cn(buttonVariants({ variant: "ghost" }))}>
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
 

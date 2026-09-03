@@ -1,6 +1,6 @@
 import path from "node:path";
+import { getUserStore } from "@/lib/auth/session";
 import type { DocumentRecord, PolicyRecord } from "./types";
-import { loadPolicy, readOriginal } from "./store";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,7 +37,7 @@ export function originalFileHeaders(filename: string): Record<string, string> {
     "Content-Type": "application/pdf",
     "Content-Disposition": contentDisposition(safeDownloadFilename(filename)),
     "Cache-Control": "private, no-store",
-    "X-Robots-Tag": "noindex"
+    "X-Robots-Tag": "noindex, nofollow"
   };
 }
 
@@ -46,11 +46,18 @@ export async function resolveOriginalPdf(
   documentId: string
 ): Promise<{ bytes: Buffer; filename: string } | null> {
   if (!isUuid(policyId) || !isUuid(documentId)) return null;
-  const rec = await loadPolicy(policyId);
-  if (!rec) return null;
-  const doc = findPolicyDocument(rec, documentId);
-  if (!doc) return null;
-  const bytes = await readOriginal(policyId, documentId);
-  if (!bytes) return null;
-  return { bytes, filename: doc.original_filename };
+  const { actor, store } = await getUserStore();
+  return store.getOriginal(actor, policyId, documentId);
+}
+
+export async function loadPolicyRecord(policyId: string): Promise<PolicyRecord | null> {
+  if (!isUuid(policyId)) return null;
+  const { actor, store } = await getUserStore();
+  return store.getReport(actor, policyId);
+}
+
+export async function deletePolicyRecord(policyId: string): Promise<"deleted" | "not_found"> {
+  if (!isUuid(policyId)) return "not_found";
+  const { actor, store } = await getUserStore();
+  return store.deletePackage(actor, policyId);
 }

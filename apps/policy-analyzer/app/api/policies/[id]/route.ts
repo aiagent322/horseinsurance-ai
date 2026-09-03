@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { loadPolicy } from "@/lib/store";
+import { deletePolicyRecord, loadPolicyRecord } from "@/lib/original-document";
+import { PRIVATE_HEADERS, jsonNotFound } from "@/lib/persistence/headers";
+import { assertSameOrigin } from "@/lib/persistence/same-origin";
 
 export const runtime = "nodejs";
 
@@ -8,11 +10,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const rec = await loadPolicyRecord(id);
+  if (!rec) {
+    return NextResponse.json(jsonNotFound(), { status: 404, headers: PRIVATE_HEADERS });
   }
-  const rec = await loadPolicy(id);
-  if (!rec) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const safe = {
     ...rec,
     documents: rec.documents.map((d) => ({
@@ -33,16 +34,20 @@ export async function GET(
       }))
     }))
   };
-  return NextResponse.json(safe, { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+  return NextResponse.json(safe, { headers: PRIVATE_HEADERS });
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!assertSameOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: PRIVATE_HEADERS });
+  }
   const { id } = await params;
-  const { deletePolicy } = await import("@/lib/store");
-  const ok = await deletePolicy(id);
-  if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ deleted: true });
+  const result = await deletePolicyRecord(id);
+  if (result !== "deleted") {
+    return NextResponse.json(jsonNotFound(), { status: 404, headers: PRIVATE_HEADERS });
+  }
+  return NextResponse.json({ deleted: true }, { headers: PRIVATE_HEADERS });
 }

@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import { ReportView } from "@/components/report-view";
-import { loadPolicy } from "@/lib/store";
+import { getSessionActor } from "@/lib/auth/session";
+import { loadPolicyRecord } from "@/lib/original-document";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const rec = await loadPolicy(id);
+  const rec = await loadPolicyRecord(id);
   if (!rec) notFound();
-  return <ReportView record={rec} />;
+  const actor = await getSessionActor();
+  return <ReportView record={rec} accountEmail={actor?.email} />;
 }

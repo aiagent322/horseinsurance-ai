@@ -9,7 +9,8 @@ const ERRORS: Record<string, string> = {
   count: "Upload at most 10 PDFs in one package.",
   empty: "One of the files is empty.",
   duplicate: "The package contains duplicate PDFs.",
-  read: "Could not read one or more PDFs."
+  read: "Could not read one or more PDFs.",
+  config: "Analyzer persistence is not configured."
 };
 
 export function UploadForm({ errorCode }: { errorCode?: string }) {

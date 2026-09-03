@@ -2,25 +2,32 @@
 
 Upload one or more equine insurance PDFs and get a source-grounded, plain-English report of what the documents actually say.
 
-This is the MVP vertical slice from the Policy Analyzer architecture: upload → inventory → extract → analyze → sourced report. It does not quote, sell, score, or approve claims.
+This is the analyzer application under `apps/policy-analyzer/`. The root HorseInsurance.ai site remains the public education library. Uploaded policies are private to the signed-in account. Analysis URLs are random UUIDs and are not indexed.
 
-The live HorseInsurance.ai site is an education library. This app is the analyzer. Uploaded policies stay in local `data/` (gitignored). Analysis URLs are random UUIDs and are not indexed.
+Production persistence uses Supabase Postgres plus a private `policy-files` bucket. There is no local-filesystem fallback. Missing Supabase configuration fails closed.
 
 ## Run
 
+Copy `.env.example` to `.env.local` and set the Supabase URL and publishable/anonymous key. Set `POLICY_RETENTION_DAYS` before production use.
+
 ```bash
 cd apps/policy-analyzer
-npm install
+npm ci
 npm test
 npm run test:semantic
 npm run test:completeness
 npm run test:ingestion
+npm run test:persistence
+npm run test:security
+npm run test:retention
 npm run dev
 ```
 
 Open http://127.0.0.1:43147/
 
-Use **Run educational fixture** for the labeled 4-page sample, or upload a policy package of up to 10 PDFs.
+Sign in with a passwordless email link or one-time code. Then upload a policy package of up to 10 PDFs, or run the educational fixture as a stored analysis.
+
+The educational fixture PDF at `/api/fixture` is public sample content with no customer data. Saving it as an analysis requires authentication and is disabled in production unless `ENABLE_FIXTURE_ANALYSIS=true`.
 
 ## Package limits
 
@@ -28,9 +35,22 @@ Use **Run educational fixture** for the labeled 4-page sample, or upload a polic
 - 20 MB per file
 - 75 MB for the complete package
 - Duplicate files (same SHA-256) are rejected
-- Files are stored under generated IDs, never under the submitted filename
+- Object storage paths are generated server-side from account, upload, and file IDs. Submitted filenames never become paths.
 
 Native PDF text is used when it is good enough. Image-only or low-quality pages are sent to a local Tesseract OCR fallback (`tesseract.js` plus vendored `tessdata/eng.traineddata`). OCR does not call an external API. Unreadable pages are not treated as policy language.
+
+## Privacy and retention
+
+- Unauthenticated visitors cannot upload, read a report, download an original, or delete an analysis.
+- Authenticated users can access only their own account’s records and objects.
+- Unauthorized lookups return the same not-found response.
+- User-facing operations use a user-scoped Supabase client so RLS stays active.
+- Original PDFs are stored in a private bucket and streamed through authenticated routes.
+- Production requires `POLICY_RETENTION_DAYS`. Expired analyses are hidden before physical purge.
+- User-requested deletion is ownership-scoped and idempotent.
+- `purgeExpiredAnalyses` is a server-side maintenance function for a later authorized scheduler. There is no public purge endpoint.
+
+These controls are isolation and retention measures. They are not a claim of HIPAA, SOC 2, ISO, regulatory, or carrier compliance.
 
 ## Rules the analyzer follows
 
@@ -40,14 +60,6 @@ Native PDF text is used when it is good enough. Image-only or low-quality pages 
 - Every dollar figure, exclusion, and notice requirement cites a page.
 - A form listed on the declarations is not treated as uploaded unless matching form text is sourced separately.
 
-## Delete
-
-Each report has **Delete analysis**, which removes the JSON record and the original PDFs.
-
-## Storage
-
-Uploads live in `apps/policy-analyzer/data/` on the machine running the app. That folder is gitignored. Analysis URLs are UUIDs and send `X-Robots-Tag: noindex`. On a serverless host the disk is ephemeral — use this locally or behind a persistent volume until object storage is wired.
-
 ## What this is not
 
-No quoting, claims, CRM, payments, accounts, or Horse Genius. Status labels are not scores. Educational notes are labeled and do not add coverage.
+No quoting, claims, CRM, payments, or Horse Genius. Status labels are not scores. Educational notes are labeled and do not add coverage.

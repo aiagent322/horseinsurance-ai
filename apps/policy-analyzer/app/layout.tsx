@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { AccountBar } from "@/components/account-bar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -29,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-base font-semibold tracking-tight no-underline">
               HorseInsurance.ai <span className="font-normal text-[#d4a017]">Policy Analyzer</span>
             </Link>
-            <p className="text-xs text-white/70">A Bridle &amp; Bit Magazine property</p>
+            <AccountBar />
           </div>
         </header>
         <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>

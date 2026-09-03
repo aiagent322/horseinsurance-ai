@@ -5,9 +5,18 @@ import { buildScannedPdf, SCANNED_PDF_PHRASE } from "../lib/build-scanned-fixtur
 import { buildTextPdf } from "../lib/build-text-pdf";
 import { extractPdfPages } from "../lib/extract-pdf";
 import { ingestPolicyPackage, UploadRejectedError } from "../lib/ingest";
+import { newId } from "../lib/ids";
 import { ocrRecognizeCalls, resetOcrTestHooks, setOcrRecognizeForTests } from "../lib/ocr";
-import { findPolicyDocument, isUuid, originalFileHeaders, resolveOriginalPdf } from "../lib/original-document";
-import { deletePolicy, loadPolicy, newId } from "../lib/store";
+import {
+  deletePolicyRecord,
+  findPolicyDocument,
+  isUuid,
+  loadPolicyRecord,
+  originalFileHeaders,
+  resolveOriginalPdf
+} from "../lib/original-document";
+import { TEST_ACTOR_A, runWithActor } from "../lib/persistence/actor-context";
+import { resetMemoryStoreForTests } from "../lib/persistence/factory";
 import type { DocumentRecord, PolicyFormRecord } from "../lib/types";
 import {
   MAX_FILE_BYTES,
@@ -40,6 +49,11 @@ function docFromPages(pages: Array<{ page: number; text: string }>, extra: Parti
 
 async function main() {
   resetOcrTestHooks();
+  resetMemoryStoreForTests();
+  await runWithActor(TEST_ACTOR_A, runIngestionCases);
+}
+
+async function runIngestionCases() {
 
   const first = await buildTextPdf(["Declarations", "Policy Number: EQ-PACK-1", "Named Insured: Ada Cole"]);
   const second = await buildTextPdf(["Base Policy Form EQ-A-1", "This policy provides Full Mortality coverage."]);
@@ -47,7 +61,7 @@ async function main() {
     { filename: "declarations.pdf", bytes: first },
     { filename: "form.pdf", bytes: second }
   ]);
-  const saved = await loadPolicy(pack.policy_id);
+  const saved = await loadPolicyRecord(pack.policy_id);
   assert.ok(saved, "1: policy persisted");
   assert.equal(saved.documents.length, 2, "1: two document records");
   assert.equal(saved.documents[0].original_filename, "declarations.pdf");
@@ -59,7 +73,7 @@ async function main() {
   assert.notEqual(saved.documents[0].file_hash, saved.documents[1].file_hash, "2: distinct hashes");
   assert.ok(isUuid(saved.documents[0].document_id) && isUuid(saved.documents[1].document_id));
 
-  const beforeDup = await loadPolicy(pack.policy_id);
+  const beforeDup = await loadPolicyRecord(pack.policy_id);
   assert.throws(
     () => {
       const err = validateUploadPackage([
@@ -79,7 +93,7 @@ async function main() {
     (e: unknown) => e instanceof UploadRejectedError && e.code === "DUPLICATE_FILE",
     "3: ingest rejects duplicates before persist"
   );
-  const afterDup = await loadPolicy(pack.policy_id);
+  const afterDup = await loadPolicyRecord(pack.policy_id);
   assert.equal(afterDup?.documents.length, beforeDup?.documents.length, "3: original package untouched");
 
   const tooMany = Array.from({ length: MAX_PDF_FILES + 1 }, (_, i) => ({
@@ -167,10 +181,10 @@ async function main() {
   assert.equal(headers["Content-Type"], "application/pdf");
   assert.match(headers["Content-Disposition"], /form\.pdf/i);
   assert.equal(headers["Cache-Control"], "private, no-store");
-  assert.equal(headers["X-Robots-Tag"], "noindex");
+  assert.equal(headers["X-Robots-Tag"], "noindex, nofollow");
 
   const other = await ingestPolicyPackage([{ filename: "other.pdf", bytes: second }]);
-  const otherRec = await loadPolicy(other.policy_id);
+  const otherRec = await loadPolicyRecord(other.policy_id);
   assert.ok(otherRec);
   const wrong = await resolveOriginalPdf(pack.policy_id, otherRec.documents[0].document_id);
   assert.equal(wrong, null, "11: foreign document id is not returned");
@@ -248,8 +262,8 @@ async function main() {
   const listedOnly = fixture.form_inventory.find((f) => f.printed_identifier === "EQ-MED-200");
   assert.equal(listedOnly?.status, "MISSING", "15: list-only form is not PRESENT");
 
-  await deletePolicy(pack.policy_id);
-  await deletePolicy(other.policy_id);
+  await deletePolicyRecord(pack.policy_id);
+  await deletePolicyRecord(other.policy_id);
 
   console.log("INGESTION REGRESSION OK", {
     documents: 2,

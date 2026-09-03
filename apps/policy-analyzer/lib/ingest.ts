@@ -1,7 +1,11 @@
 import { analyzeDocuments } from "@/lib/analyze";
+import { getUserStore } from "@/lib/auth/session";
 import { classifyPackage } from "@/lib/classify";
 import { extractPdfPages } from "@/lib/extract-pdf";
-import { deletePolicyStorage, newId, saveOriginal, savePolicy, sha256 } from "@/lib/store";
+import { newId, sha256 } from "@/lib/ids";
+import { AuthRequiredError } from "@/lib/persistence/config";
+import { getPolicyStore } from "@/lib/persistence/factory";
+import type { Actor, PolicyStore } from "@/lib/persistence/types";
 import type { DocumentRecord } from "@/lib/types";
 import {
   assertUploadPackage,
@@ -13,18 +17,37 @@ export { isPdfBuffer } from "@/lib/validate-upload";
 
 export async function ingestPolicyPackage(
   files: IncomingPdf[],
-  options: { enableOcr?: boolean; ocrTimeoutMs?: number } = {}
+  options: {
+    enableOcr?: boolean;
+    ocrTimeoutMs?: number;
+    actor?: Actor;
+    store?: PolicyStore;
+    source?: "upload" | "fixture";
+    submittedUserId?: string;
+    submittedAccountId?: string;
+    submittedPolicyId?: string;
+    submittedStoragePath?: string;
+  } = {}
 ): Promise<{ policy_id: string; session_id: string; page_count: number; document_count: number }> {
   assertUploadPackage(files);
+  const resolved =
+    options.actor && options.store
+      ? { actor: options.actor, store: options.store }
+      : options.actor
+        ? { actor: options.actor, store: options.store ?? getPolicyStore() }
+        : await getUserStore();
+  if (!resolved.actor) throw new AuthRequiredError();
+  const store = resolved.store;
+  const actor = resolved.actor;
+
   const policyId = newId();
   const sessionId = newId();
+  const documents: DocumentRecord[] = [];
   try {
-    const documents: DocumentRecord[] = [];
     for (const file of files) {
       const documentId = newId();
-      const storage = await saveOriginal(policyId, documentId, file.bytes);
       const extracted = await extractPdfPages(file.bytes, options);
-      const doc: DocumentRecord = {
+      documents.push({
         document_id: documentId,
         session_id: sessionId,
         original_filename: file.filename,
@@ -32,23 +55,30 @@ export async function ingestPolicyPackage(
         upload_timestamp: new Date().toISOString(),
         file_hash: sha256(file.bytes),
         page_count: extracted.page_count,
-        storage_location: storage,
+        storage_location: "",
         extraction_status: extracted.extraction_status,
         analysis_status: "complete",
         classification: classifyPackage(extracted.pages),
         pages: extracted.pages
-      };
-      documents.push(doc);
+      });
     }
-    await savePolicy(analyzeDocuments(policyId, sessionId, documents));
+    const report = analyzeDocuments(policyId, sessionId, documents);
+    const saved = await store.savePackage(actor, {
+      files,
+      report,
+      source: options.source ?? "upload",
+      submittedUserId: options.submittedUserId,
+      submittedAccountId: options.submittedAccountId,
+      submittedPolicyId: options.submittedPolicyId,
+      submittedStoragePath: options.submittedStoragePath
+    });
     return {
-      policy_id: policyId,
-      session_id: sessionId,
-      page_count: documents.reduce((n, d) => n + d.page_count, 0),
-      document_count: documents.length
+      policy_id: saved.policy_id,
+      session_id: saved.session_id,
+      page_count: saved.page_count,
+      document_count: saved.document_count
     };
   } catch (err) {
-    await deletePolicyStorage(policyId);
     throw err;
   }
 }
@@ -56,7 +86,7 @@ export async function ingestPolicyPackage(
 export async function ingestPdfBuffer(
   buf: Buffer,
   filename: string,
-  options: { enableOcr?: boolean; ocrTimeoutMs?: number } = {}
+  options: Parameters<typeof ingestPolicyPackage>[1] = {}
 ): Promise<{ policy_id: string; session_id: string; page_count: number; document_count: number }> {
   return ingestPolicyPackage([{ filename, bytes: buf }], options);
 }
