@@ -60,11 +60,15 @@ function main() {
   assert.equal(rejectAncestry.ok, false);
   assert.equal(rejectAncestry.code, "ancestry");
 
-  const rejectUnrelated = evaluateRepositorySafety(
+  const acceptOtherSafeName = evaluateRepositorySafety(
     validTarget({ branch: "cursor/policy-analyzer-unrelated" })
   );
-  assert.equal(rejectUnrelated.ok, false);
-  assert.equal(rejectUnrelated.code, "unrelated_branch");
+  assert.equal(acceptOtherSafeName.ok, true, "Branch name is not a live-safety signal once ancestry is proven.");
+
+  const acceptFix6Name = evaluateRepositorySafety(
+    validTarget({ branch: "cursor/policy-analyzer-fix6-worker", head: ACCEPTED_FIX6_SHA })
+  );
+  assert.equal(acceptFix6Name.ok, true);
 
   const rejectHosted = evaluateTargetSafety(
     validTarget({ supabaseUrl: "https://abcdefghijklmnop.supabase.co" })

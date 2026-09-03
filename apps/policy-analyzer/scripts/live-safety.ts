@@ -11,7 +11,6 @@ export const REQUIRED_REMOTE = "aiagent322/horseinsurance-ai";
 export const DISPOSABLE_STACK_MARKER = "horseinsurance-fix5-live-stack";
 export const DISPOSABLE_DATABASE_NAME = "postgres";
 export const REQUIRED_STACK_CONTAINERS = ["fix5-pg", "fix5-rest", "fix5-auth", "fix5-storage"] as const;
-export const FIX7_FEATURE_BRANCH_RE = /^cursor\/policy-analyzer-fix7-[a-z0-9][a-z0-9-]*$/;
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BLOCKED_BRANCHES = new Set(["main", "master"]);
@@ -104,10 +103,7 @@ export function evaluateRepositorySafety(input: LiveSafetyInput): LiveSafetyDeci
   if (!branch) {
     return accept("Detached HEAD is a verified descendant of the accepted Fix #6 SHA.");
   }
-  if (FIX7_FEATURE_BRANCH_RE.test(branch)) {
-    return accept("Recognized Fix #7 feature branch descends from the accepted Fix #6 SHA.");
-  }
-  return reject("unrelated_branch", "Current branch is not a recognized Fix #7 feature branch.");
+  return accept("Named branch is a verified descendant of the accepted Fix #6 SHA.");
 }
 
 export function evaluateTargetSafety(input: LiveSafetyInput): LiveSafetyDecision {
