@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { evaluateAlertConditions, evaluateWebReadiness } from "@/lib/deploy/readiness";
+import { fetchLiveOpsSnapshot } from "@/lib/deploy/ops-probes";
+import { evaluateTrustedAlerts, evaluateWebReadiness } from "@/lib/deploy/readiness";
+import { ConfigurationError } from "@/lib/persistence/config";
 import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
 
 export const runtime = "nodejs";
@@ -16,25 +18,21 @@ export async function GET(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
   }
-  const url = new URL(req.url);
-  const readiness = evaluateWebReadiness({
-    supabaseReachable: url.searchParams.get("database") !== "down",
-    storageReachable: url.searchParams.get("storage") !== "down",
-    schemaVersion: url.searchParams.get("schema_version"),
-    bucketPrivate: url.searchParams.get("bucket") !== "public"
-  });
-  const alerts = evaluateAlertConditions({
-    ready: readiness.ready,
-    workerLastSuccessAgeMs: Number(url.searchParams.get("worker_idle_ms") || 0) || undefined,
-    oldestQueuedAgeMs: Number(url.searchParams.get("queue_age_ms") || 0) || undefined,
-    queueAgeThresholdMs: Number(url.searchParams.get("queue_threshold_ms") || 300_000),
-    ocrTimeouts: Number(url.searchParams.get("ocr_timeouts") || 0),
-    storageFailures: Number(url.searchParams.get("storage_failures") || 0),
-    attemptsExhausted: Number(url.searchParams.get("attempts_exhausted") || 0),
-    needsReview: Number(url.searchParams.get("needs_review") || 0),
-    completed: Number(url.searchParams.get("completed") || 0),
-    migrationMismatch: readiness.checks.some((check) => check.code === "migration_mismatch"),
-    retentionFailure: url.searchParams.get("retention") === "failed"
-  });
-  return NextResponse.json({ alerts, ready: readiness.ready }, { headers: PRIVATE_HEADERS });
+  try {
+    const fetched = await fetchLiveOpsSnapshot();
+    if (!fetched.ok) {
+      return NextResponse.json({ error: "ops_unavailable" }, { status: 503, headers: PRIVATE_HEADERS });
+    }
+    const readiness = evaluateWebReadiness({ snapshot: fetched.snapshot, fetchError: null });
+    const alerts = evaluateTrustedAlerts({ snapshot: fetched.snapshot, fetchError: null }, readiness);
+    if (!alerts) {
+      return NextResponse.json({ error: "ops_unavailable" }, { status: 503, headers: PRIVATE_HEADERS });
+    }
+    return NextResponse.json({ alerts, ready: readiness.ready }, { headers: PRIVATE_HEADERS });
+  } catch (err) {
+    if (err instanceof ConfigurationError) {
+      return NextResponse.json({ error: "ops_unavailable" }, { status: 503, headers: PRIVATE_HEADERS });
+    }
+    return NextResponse.json({ error: "ops_unavailable" }, { status: 503, headers: PRIVATE_HEADERS });
+  }
 }

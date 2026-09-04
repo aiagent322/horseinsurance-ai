@@ -14,6 +14,7 @@ export const REQUIRED_STACK_CONTAINERS = ["fix5-pg", "fix5-rest", "fix5-auth", "
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BLOCKED_BRANCHES = new Set(["main", "master"]);
+const CANONICAL_PATH = "aiagent322/horseinsurance-ai";
 
 export type LiveSafetyInput = {
   remotes?: string[] | null;
@@ -62,17 +63,53 @@ export function isRemoteSupabaseUrl(value: string): boolean {
   }
 }
 
+function pathIsCanonicalRepo(pathname: string): boolean {
+  const stripped = pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!stripped || stripped.includes("\\") || stripped.includes("..")) return false;
+  const withoutGit = stripped.toLowerCase().endsWith(".git") ? stripped.slice(0, -4) : stripped;
+  return withoutGit === CANONICAL_PATH;
+}
+
+/**
+ * Accept only exact canonical GitHub remotes for aiagent322/horseinsurance-ai.
+ * Rejects suffix/prefix hosts, extra path segments, credentials, and lookalikes.
+ */
+export function isCanonicalHorseinsuranceRemote(remote: string): boolean {
+  const trimmed = remote.trim();
+  if (!trimmed || /\s/.test(trimmed) || trimmed.includes("\0")) return false;
+
+  const scp = /^git@github\.com:([^:\s]+)$/;
+  const scpMatch = trimmed.match(scp);
+  if (scpMatch) return pathIsCanonicalRepo(scpMatch[1]);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return false;
+  }
+
+  if (parsed.password) return false;
+  if (parsed.search || parsed.hash) return false;
+  if (parsed.hostname.toLowerCase() !== "github.com") return false;
+
+  if (parsed.protocol === "https:") {
+    if (parsed.username) return false;
+    if (parsed.port && parsed.port !== "443") return false;
+    return pathIsCanonicalRepo(parsed.pathname);
+  }
+
+  if (parsed.protocol === "ssh:") {
+    if (parsed.username && parsed.username !== "git") return false;
+    if (parsed.port && parsed.port !== "22") return false;
+    return pathIsCanonicalRepo(parsed.pathname);
+  }
+
+  return false;
+}
+
 export function remoteResolvesToCanonicalRepo(remotes: string[]): boolean {
-  return remotes.some((remote) => {
-    const normalized = remote.trim().toLowerCase().replace(/\.git$/, "");
-    return (
-      normalized === `https://github.com/${REQUIRED_REMOTE}` ||
-      normalized === `http://github.com/${REQUIRED_REMOTE}` ||
-      normalized === `git@github.com:${REQUIRED_REMOTE}` ||
-      normalized === `ssh://git@github.com/${REQUIRED_REMOTE}` ||
-      normalized.endsWith(`github.com/${REQUIRED_REMOTE}`)
-    );
-  });
+  return remotes.some((remote) => isCanonicalHorseinsuranceRemote(remote));
 }
 
 export function evaluateRepositorySafety(input: LiveSafetyInput): LiveSafetyDecision {

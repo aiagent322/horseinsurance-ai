@@ -5,7 +5,8 @@ import {
   evaluateCleanupScope,
   evaluateLiveSafety,
   evaluateRepositorySafety,
-  evaluateTargetSafety
+  evaluateTargetSafety,
+  isCanonicalHorseinsuranceRemote
 } from "./live-safety";
 
 const VALID_HEAD = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -69,6 +70,59 @@ function main() {
     validTarget({ branch: "cursor/policy-analyzer-fix6-worker", head: ACCEPTED_FIX6_SHA })
   );
   assert.equal(acceptFix6Name.ok, true);
+
+  for (const remote of [
+    "https://github.com/aiagent322/horseinsurance-ai.git",
+    "https://github.com/aiagent322/horseinsurance-ai",
+    "git@github.com:aiagent322/horseinsurance-ai.git",
+    "git@github.com:aiagent322/horseinsurance-ai",
+    "ssh://git@github.com/aiagent322/horseinsurance-ai.git",
+    "ssh://git@github.com/aiagent322/horseinsurance-ai"
+  ]) {
+    assert.equal(isCanonicalHorseinsuranceRemote(remote), true, remote);
+    assert.equal(evaluateRepositorySafety(validTarget({ remotes: [remote] })).ok, true, remote);
+  }
+
+  const adversarialRemotes = [
+    "https://evil.example/github.com/aiagent322/horseinsurance-ai",
+    "https://github.com.evil.com/aiagent322/horseinsurance-ai",
+    "https://evil-github.com/aiagent322/horseinsurance-ai",
+    "https://github.com/aiagent322/horseinsurance-ai.evil",
+    "https://github.com/aiagent322/horseinsurance-ai/extra",
+    "https://github.com/aiagent322/horseinsurance-ai.git/info/refs",
+    "https://github.com/aiagent322/horseinsurance-ai%2Egit/../other",
+    "https://user:pass@github.com/aiagent322/horseinsurance-ai.git",
+    "https://token@github.com/aiagent322/horseinsurance-ai.git",
+    "https://github.com/aiagent322/horseinsurance-ai.git?foo=1",
+    "https://github.com/aiagent322/horseinsurance-ai.git#main",
+    "http://github.com/aiagent322/horseinsurance-ai.git",
+    "https://github.com:8443/aiagent322/horseinsurance-ai.git",
+    "git@github.com:aiagent322/horseinsurance-ai.git/extra",
+    "git@evil.com:aiagent322/horseinsurance-ai.git",
+    "git@github.com:other/horseinsurance-ai.git",
+    "git@github.com:aiagent322/horseinsurance-ai-evil.git",
+    "ssh://git@github.com/aiagent322/horseinsurance-ai.git/foo",
+    "ssh://user@github.com/aiagent322/horseinsurance-ai.git",
+    "ssh://git@github.com:2222/aiagent322/horseinsurance-ai.git",
+    "https://github.com/AiAgent322/lookalike-repo.git",
+    "https://githubusercontent.com/aiagent322/horseinsurance-ai.git"
+  ];
+  for (const remote of adversarialRemotes) {
+    assert.equal(isCanonicalHorseinsuranceRemote(remote), false, remote);
+    const decision = evaluateRepositorySafety(validTarget({ remotes: [remote] }));
+    assert.equal(decision.ok, false, remote);
+    assert.equal(decision.code, "wrong_repository", remote);
+  }
+
+  const mixed = evaluateRepositorySafety(
+    validTarget({
+      remotes: [
+        "https://evil.example/github.com/aiagent322/horseinsurance-ai",
+        "https://github.com/aiagent322/horseinsurance-ai.git"
+      ]
+    })
+  );
+  assert.equal(mixed.ok, true, "A single canonical remote is sufficient.");
 
   const rejectHosted = evaluateTargetSafety(
     validTarget({ supabaseUrl: "https://abcdefghijklmnop.supabase.co" })

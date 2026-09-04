@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchLiveOpsSnapshot } from "@/lib/deploy/ops-probes";
 import { evaluateWebReadiness } from "@/lib/deploy/readiness";
 import { ConfigurationError } from "@/lib/persistence/config";
 import { PRIVATE_HEADERS } from "@/lib/persistence/headers";
@@ -18,7 +19,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
   }
   try {
-    const report = evaluateWebReadiness({});
+    const fetched = await fetchLiveOpsSnapshot();
+    const report = evaluateWebReadiness({
+      snapshot: fetched.ok ? fetched.snapshot : null,
+      fetchError: fetched.ok ? null : fetched.error
+    });
     return NextResponse.json(report, {
       status: report.ready ? 200 : 503,
       headers: PRIVATE_HEADERS
@@ -27,6 +32,6 @@ export async function GET(req: Request) {
     if (err instanceof ConfigurationError) {
       return NextResponse.json({ error: "configuration", ready: false }, { status: 503, headers: PRIVATE_HEADERS });
     }
-    return NextResponse.json({ error: "readiness_failure", ready: false }, { status: 503, headers: PRIVATE_HEADERS });
+    return NextResponse.json({ error: "readiness_unavailable", ready: false }, { status: 503, headers: PRIVATE_HEADERS });
   }
 }

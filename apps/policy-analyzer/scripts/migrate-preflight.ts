@@ -35,9 +35,7 @@ function applyIfRequested(): void {
   const databaseUrl = process.env.POLICY_ANALYZER_MIGRATE_DATABASE_URL || "postgres://postgres:postgres@127.0.0.1:5432/postgres";
   assertAuthorizedMigrationTarget({
     databaseUrl,
-    disposableMarker: process.env.POLICY_ANALYZER_LIVE_STACK_MARKER,
-    allowProductionMigrations: process.env.POLICY_ANALYZER_ALLOW_PRODUCTION_MIGRATIONS === "YES",
-    projectRef: process.env.POLICY_ANALYZER_STAGING_PROJECT_REF
+    disposableMarker: process.env.POLICY_ANALYZER_LIVE_STACK_MARKER
   });
   if (!existsSync("/usr/bin/docker") && !existsSync("/usr/local/bin/docker")) {
     throw new Error("docker is required to apply migrations to the disposable stack");
@@ -66,7 +64,7 @@ function verifyDisposableSchema(): void {
     { encoding: "utf8" }
   );
   assert.match(out, /t/);
-  assert.match(out, /20260903220000/);
+  assert.match(out, /20260904010000/);
   assert.match(out, /f/);
 }
 
@@ -78,11 +76,96 @@ function main(): void {
     assert.ok(existsSync(path.join(MIGRATION_DIR, name)));
     sha256(path.join(MIGRATION_DIR, name));
   }
-  const remote = evaluateMigrationTarget({
-    databaseUrl: "https://abc.supabase.co",
-    disposableMarker: "isolated-staging"
+  const local = evaluateMigrationTarget({
+    databaseUrl: "postgres://postgres@127.0.0.1:5432/postgres",
+    disposableMarker: "horseinsurance-fix5-live-stack",
+    allowStagingMigrations: true,
+    stagingProjectRefs: ["stagingsupabaseproj1"]
   });
-  assert.equal(remote.allowed, false);
+  assert.equal(local.allowed, true);
+  assert.equal(local.reason, "disposable_local");
+
+  const stagingRef = "stagingsupabaseproj1";
+  const productionRef = "productionsupabasepr";
+  const authorizedStaging = evaluateMigrationTarget({
+    databaseUrl: `https://${stagingRef}.supabase.co`,
+    allowStagingMigrations: true,
+    stagingProjectRefs: [stagingRef],
+    productionProjectRefs: [productionRef]
+  });
+  assert.equal(authorizedStaging.allowed, true);
+  assert.equal(authorizedStaging.reason, "authorized_staging");
+
+  const wrongProject = evaluateMigrationTarget({
+    databaseUrl: "https://wrongprojectref0001.supabase.co",
+    allowStagingMigrations: true,
+    stagingProjectRefs: [stagingRef]
+  });
+  assert.equal(wrongProject.allowed, false);
+  assert.equal(wrongProject.reason, "remote_refused");
+
+  const productionWithStagingAuth = evaluateMigrationTarget({
+    databaseUrl: `https://${productionRef}.supabase.co`,
+    allowStagingMigrations: true,
+    allowProductionMigrations: false,
+    stagingProjectRefs: [stagingRef],
+    productionProjectRefs: [productionRef]
+  });
+  assert.equal(productionWithStagingAuth.allowed, false);
+  assert.equal(productionWithStagingAuth.reason, "production_refused");
+
+  const stagingWithoutAuth = evaluateMigrationTarget({
+    databaseUrl: `https://${stagingRef}.supabase.co`,
+    allowStagingMigrations: false,
+    allowProductionMigrations: true,
+    stagingProjectRefs: [stagingRef],
+    productionProjectRefs: [productionRef]
+  });
+  assert.equal(stagingWithoutAuth.allowed, false);
+  assert.equal(stagingWithoutAuth.reason, "staging_refused");
+
+  const unknownRemote = evaluateMigrationTarget({
+    databaseUrl: "https://unknownprojectref001.supabase.co",
+    allowStagingMigrations: true,
+    allowProductionMigrations: true,
+    stagingProjectRefs: [stagingRef],
+    productionProjectRefs: [productionRef]
+  });
+  assert.equal(unknownRemote.allowed, false);
+  assert.equal(unknownRemote.reason, "remote_refused");
+
+  const lookalikes = [
+    `https://${stagingRef}.supabase.co.evil.com`,
+    `https://evil-${stagingRef}.supabase.co`,
+    `https://notgithub.com/${stagingRef}.supabase.co`,
+    `postgres://user@${stagingRef}.supabase.co.attacker:5432/postgres`
+  ];
+  for (const databaseUrl of lookalikes) {
+    const decision = evaluateMigrationTarget({
+      databaseUrl,
+      allowStagingMigrations: true,
+      stagingProjectRefs: [stagingRef],
+      stagingHosts: [`${stagingRef}.supabase.co`]
+    });
+    assert.equal(decision.allowed, false, databaseUrl);
+  }
+
+  const malformed = evaluateMigrationTarget({
+    databaseUrl: "not a url",
+    allowStagingMigrations: true,
+    stagingProjectRefs: [stagingRef]
+  });
+  assert.equal(malformed.reason, "malformed_target");
+
+  const overlapping = evaluateMigrationTarget({
+    databaseUrl: `https://${stagingRef}.supabase.co`,
+    allowStagingMigrations: true,
+    allowProductionMigrations: true,
+    stagingProjectRefs: [stagingRef],
+    productionProjectRefs: [stagingRef]
+  });
+  assert.equal(overlapping.allowed, false);
+  assert.equal(overlapping.reason, "unknown_database");
   applyIfRequested();
   verifyDisposableSchema();
   for (const doc of [

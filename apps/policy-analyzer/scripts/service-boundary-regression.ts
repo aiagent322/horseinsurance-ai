@@ -10,7 +10,8 @@ const FORBIDDEN = new Set([
   path.join(ROOT, "lib/persistence/service-role-boundary.ts"),
   path.join(ROOT, "lib/persistence/worker-store.ts"),
   path.join(ROOT, "lib/persistence/worker-factory.ts"),
-  path.join(ROOT, "lib/persistence/admin-client.ts")
+  path.join(ROOT, "lib/persistence/admin-client.ts"),
+  path.join(ROOT, "lib/deploy/ops-probes.ts")
 ]);
 
 function walkFiles(dir: string, acc: string[] = []): string[] {

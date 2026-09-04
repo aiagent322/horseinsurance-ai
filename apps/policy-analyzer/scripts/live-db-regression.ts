@@ -42,7 +42,8 @@ const EXPECTED_MIGRATIONS = [
   "20260903024500_analyzer_auth_persistence.sql",
   "20260903150000_durable_analysis_jobs.sql",
   "20260903200000_worker_completion_outcomes.sql",
-  "20260903220000_fix7_staging_ops.sql"
+  "20260903220000_fix7_staging_ops.sql",
+  "20260904010000_fix7_trusted_ops_snapshot.sql"
 ];
 const WORKER_RPCS = [
   { name: "claim_analysis_jobs", args: { p_worker_id: "probe-worker", p_limit: 1 } },

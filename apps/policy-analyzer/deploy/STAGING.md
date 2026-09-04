@@ -58,14 +58,17 @@ This task does not purchase hosting. An authorized staging deploy needs all of t
 2. Staging project URL, anon key, and service-role key stored only in the platform secret store
 3. An approved host that can run two long-lived processes from the same image
 4. Permission to apply analyzer migrations only to that isolated project
+5. `POLICY_ANALYZER_ALLOW_STAGING_MIGRATIONS=YES` plus the exact staging project ref/host allowlist — never the production authorization flags
 
 Until those exist, keep the image and runbooks and do not open public uploads.
 
 ## Web versus worker secrets
 
-Web receives browser-safe public values, the ops token, retention, and the uploads flag. It must not receive `SUPABASE_SERVICE_ROLE_KEY`.
+Web receives browser-safe public values, the ops token, retention, and the uploads flag. Protected readiness and alerts require a server-only `SUPABASE_SERVICE_ROLE_KEY` (or equivalent ops key) on the web process so they can call `analyzer_ops_snapshot`. That key must never be assigned to `NEXT_PUBLIC_*` variables or shipped to the browser.
 
 The worker receives the service-role key, worker identity, lease/heartbeat limits, and OCR limits. It must not be published on a public URL.
+
+Staging migration authorization (`POLICY_ANALYZER_ALLOW_STAGING_MIGRATIONS` plus the staging project allowlist) must never be combined with production project refs. Production authorization is a separate setting and does not classify unknown remotes as staging.
 
 ## Uploads
 

@@ -12,7 +12,7 @@ Private `policy-files` objects follow the staging project's object lifecycle. De
 
 ## Migration rollback
 
-Fix #7 adds `20260903220000_fix7_staging_ops.sql`. It is additive: a schema-version key and service-role ops functions. Rolling the application back to Fix #6 does not require dropping those objects. Do not edit or replay accepted Fix #5 or Fix #6 migrations.
+Fix #7 adds `20260903220000_fix7_staging_ops.sql` and `20260904010000_fix7_trusted_ops_snapshot.sql`. They are additive: a schema-version key and service-role ops functions. Rolling the application back to Fix #6 does not require dropping those objects. Do not edit or replay accepted Fix #5 or Fix #6 migrations.
 
 If the Fix #7 functions must be removed from an isolated staging database:
 
@@ -20,7 +20,7 @@ If the Fix #7 functions must be removed from an isolated staging database:
 drop function if exists analyzer_ops_snapshot();
 drop function if exists analyzer_schema_version();
 delete from analyzer_runtime_config
- where config_key in ('schema_version', 'fix7_staging_ops');
+ where config_key in ('schema_version', 'fix7_staging_ops', 'fix7_trusted_ops');
 ```
 
 ## Application and worker rollback

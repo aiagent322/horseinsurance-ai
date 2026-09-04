@@ -13,6 +13,10 @@ Fill these in the hosting platform's protected secret store only. Do not put val
 - [ ] `POLICY_RETENTION_DAYS`
 - [ ] `POLICY_ANALYZER_UPLOADS_ENABLED=false` until readiness passes
 - [ ] `POLICY_ANALYZER_OPS_TOKEN` — random operator token
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` — server-only, required for `/api/ops/ready` and `/api/ops/alerts` live probes; never `NEXT_PUBLIC_`
+- [ ] `POLICY_ANALYZER_ALLOW_STAGING_MIGRATIONS` — `YES` only when applying migrations to the allowlisted staging project
+- [ ] `POLICY_ANALYZER_STAGING_PROJECT_REF` / `POLICY_ANALYZER_STAGING_DB_HOSTS` — exact staging project only
+- [ ] Production migration flags unset in staging
 - [ ] `ENABLE_FIXTURE_ANALYSIS` — `true` only if the educational fixture should enqueue in staging
 
 ## Worker-only
