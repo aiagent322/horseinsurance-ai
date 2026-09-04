@@ -24,6 +24,8 @@
     "test:env-contract": "tsx scripts/env-contract-regression.ts",
     "test:migrate-preflight": "tsx scripts/migrate-preflight.ts",
     "test:ops": "tsx scripts/ops-readiness-regression.ts",
+    "test:quality": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-evaluation.ts",
+    "test:quality:harness": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-harness-regression.ts",
     "test:container": "bash scripts/container-verify.sh",
     "worker": "tsx worker/main.ts",
     "worker:once": "tsx worker/once.ts"

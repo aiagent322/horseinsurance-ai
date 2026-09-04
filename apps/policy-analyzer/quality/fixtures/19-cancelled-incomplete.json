@@ -1,0 +1,101 @@
+{
+  "package_id": "edu-qa-19-cancelled-incomplete",
+  "title": "Cancelled and still-processing jobs must not publish a report",
+  "scenario": "19. Cancellation or incomplete-job state with no publishable report",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Evaluates job publication gating, not coverage classification.",
+  "evaluation_scope": "job",
+  "documents": [
+    {
+      "document_id": "edu-19-doc",
+      "filename": "edu-19-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [],
+    "completeness": "DOCUMENT PACKAGE MAY BE INCOMPLETE",
+    "citations": {
+      "required": []
+    },
+    "acceptable_needs_review": false,
+    "critical_errors": [
+      "PUBLISHED_WITHOUT_BOUND_JOB"
+    ]
+  },
+  "job": {
+    "expected_state": "cancelled",
+    "publishable": false,
+    "mode": "cancelled",
+    "scenarios": [
+      {
+        "id": "cancelled",
+        "expected_state": "cancelled",
+        "publishable": false
+      },
+      {
+        "id": "incomplete",
+        "expected_state": "processing",
+        "publishable": false
+      }
+    ]
+  }
+}

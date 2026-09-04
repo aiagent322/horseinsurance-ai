@@ -1,0 +1,116 @@
+{
+  "package_id": "edu-qa-02-explicit-denial",
+  "title": "Explicit theft denial with mortality granted",
+  "scenario": "2. Explicit coverage denial",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Theft is denied in a complete sentence. Mortality remains granted.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-02-doc",
+      "filename": "edu-02-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+        },
+        {
+          "page": 2,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nNo theft coverage applies."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001",
+      "insured_horse_name": "Lesson Horse",
+      "insured_value": "$40,000"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-02-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "EXCLUDED",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-02-doc",
+          "page": 2
+        }
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "edition": "01/2024",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-02-doc",
+          "page": 2
+        },
+        {
+          "subject": "Theft",
+          "document_id": "edu-02-doc",
+          "page": 2
+        }
+      ]
+    },
+    "acceptable_needs_review": false,
+    "critical_errors": [
+      "FALSE_COVERED"
+    ]
+  },
+  "job": {
+    "expected_state": "completed",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

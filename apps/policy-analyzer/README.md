@@ -23,6 +23,7 @@ npm run test:retention
 npm run test:db-auth
 npm run test:jobs
 npm run test:worker
+npm run test:quality
 npm run test:db-live
 npm run worker:once
 npm run worker
@@ -90,3 +91,10 @@ These controls are isolation and retention measures. They are not a claim of HIP
 ## What this is not
 
 No quoting, claims, CRM, payments, or Horse Genius. Status labels are not scores. Educational notes are labeled and do not add coverage.
+
+## Quality evaluation
+
+`npm run test:quality` runs an independent, versioned accuracy evaluation against synthetic educational fixtures. Expected answers are hand-authored and are never taken from analyzer output. A failing exit status means the synthetic release gate was missed. It is not a production-accuracy claim.
+
+See `quality/README.md` and `quality/GROUND-TRUTH.md`.
+

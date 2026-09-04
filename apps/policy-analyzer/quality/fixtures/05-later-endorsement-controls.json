@@ -1,0 +1,136 @@
+{
+  "package_id": "edu-qa-05-later-endorsement",
+  "title": "Two medical endorsements; the later amount controls",
+  "scenario": "5. Multiple endorsements where the later endorsement controls",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Page 3 expressly supersedes page 2. In-force medical limit is $25,000.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-05-doc",
+      "filename": "edu-05-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024\nEQ-B-1 Ed. 01/2024\nEQ-C-1 Ed. 01/2024"
+        },
+        {
+          "page": 2,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nThis policy provides Major Medical coverage with a limit of $10,000 per policy period."
+        },
+        {
+          "page": 3,
+          "text": "Endorsement EQ-B-1 Ed. 01/2024\nThis endorsement modifies and replaces the Major Medical limit stated on the Declarations.\nThe medical limit is amended to $25,000. This endorsement supersedes the medical limit on prior pages."
+        },
+        {
+          "page": 4,
+          "text": "Endorsement EQ-C-1 Ed. 01/2024\nNotice: the later medical endorsement on the preceding page controls."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-05-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "COVERED WITH LIMITATIONS",
+        "limit": "$25,000",
+        "citation": {
+          "document_id": "edu-05-doc",
+          "page": 3
+        }
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [
+      {
+        "label_contains": "Major Medical",
+        "amount": "$25,000",
+        "citation": {
+          "document_id": "edu-05-doc",
+          "page": 3
+        }
+      }
+    ],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      },
+      {
+        "printed_identifier": "EQ-B-1",
+        "status": "PRESENT"
+      },
+      {
+        "printed_identifier": "EQ-C-1",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-05-doc",
+          "page": 2
+        },
+        {
+          "subject": "Major Medical",
+          "document_id": "edu-05-doc",
+          "page": 3
+        }
+      ]
+    },
+    "acceptable_needs_review": false,
+    "critical_errors": []
+  },
+  "job": {
+    "expected_state": "completed",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

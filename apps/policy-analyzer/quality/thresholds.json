@@ -1,0 +1,27 @@
+{
+  "coverage_status_accuracy_min": 0.85,
+  "precision_by_status_min": {
+    "COVERED": 0.8,
+    "EXCLUDED": 0.85
+  },
+  "recall_by_status_min": {
+    "COVERED": 0.8,
+    "EXCLUDED": 0.85
+  },
+  "f1_by_status_min": {
+    "COVERED": 0.8,
+    "EXCLUDED": 0.85
+  },
+  "false_covered_max": 0,
+  "false_excluded_max": 0,
+  "conflict_detection_recall_min": 0.8,
+  "limit_value_accuracy_min": 0.8,
+  "exclusion_recall_min": 0.8,
+  "form_presence_accuracy_min": 0.9,
+  "edition_mismatch_recall_min": 1,
+  "completeness_accuracy_min": 0.85,
+  "citation_document_accuracy_min": 0.9,
+  "citation_page_accuracy_min": 0.85,
+  "unsupported_uncited_max": 0,
+  "critical_error_max": 0
+}

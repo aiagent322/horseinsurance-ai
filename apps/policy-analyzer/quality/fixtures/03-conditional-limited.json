@@ -1,0 +1,152 @@
+{
+  "package_id": "edu-qa-03-conditional-limited",
+  "title": "Medical granted with deductible; colic limited by another grant",
+  "scenario": "3. Conditional or limited coverage",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Colic Surgery is granted only subject to the separately granted surgical amount.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-03-doc",
+      "filename": "edu-03-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nAgency: Classroom Agency\nAgent: Lesson Agent\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nPolicy Effective Date: January 1, 2026\nPolicy Expiration Date: January 1, 2027\nPolicy Type: Equine Mortality\nInsured Horse Name: Lesson Horse\nBreed: Quarter Horse\nAge: 8\nSex: Gelding\nStated Use: Pleasure\nInsured Value / Full Mortality: $40,000\nCurrency: USD\nForms:\nEQ-A-1 Ed. 01/2024\nEQ-B-1 Ed. 01/2024"
+        },
+        {
+          "page": 2,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nThis policy provides Major Medical coverage with a limit of $15,000 per policy period.\nMajor Medical Deductible: $500\nReimbursement is 80 percent."
+        },
+        {
+          "page": 3,
+          "text": "Endorsement EQ-B-1 Ed. 01/2024\nSurgical coverage is added with a $10,000 occurrence limit.\nColic Surgery coverage is provided, subject to the surgical limit.\nEmergency Requirements\n- Notify the company within 24 hours of colic or serious illness.\n- A veterinarian must certify injury before authorization."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001",
+      "insured_value": "$40,000"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "COVERED",
+        "limit": "$15,000",
+        "deductible": "$500",
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 2
+        }
+      },
+      "Surgical": {
+        "status": "COVERED",
+        "limit": "$10,000",
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 3
+        }
+      },
+      "Colic Surgery": {
+        "status": "COVERED WITH LIMITATIONS",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 3
+        }
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [
+      {
+        "label_contains": "Major Medical deductible",
+        "amount": "$500",
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 2
+        }
+      }
+    ],
+    "exclusions": [],
+    "requirements": [
+      {
+        "requirement_contains": "Notify the company within 24 hours",
+        "citation": {
+          "document_id": "edu-03-doc",
+          "page": 3
+        }
+      }
+    ],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      },
+      {
+        "printed_identifier": "EQ-B-1",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-03-doc",
+          "page": 2
+        },
+        {
+          "subject": "Major Medical",
+          "document_id": "edu-03-doc",
+          "page": 2
+        },
+        {
+          "subject": "Surgical",
+          "document_id": "edu-03-doc",
+          "page": 3
+        },
+        {
+          "subject": "Colic Surgery",
+          "document_id": "edu-03-doc",
+          "page": 3
+        }
+      ]
+    },
+    "acceptable_needs_review": false,
+    "critical_errors": []
+  },
+  "job": {
+    "expected_state": "completed",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

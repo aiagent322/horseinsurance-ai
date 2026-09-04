@@ -1,0 +1,133 @@
+{
+  "package_id": "edu-qa-14-multi-document",
+  "title": "Declarations, base form, and endorsement are separate documents",
+  "scenario": "14. Multi-document package",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Citations must name the document that actually contains the clause.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-14-dec",
+      "filename": "edu-14-dec.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nAgency: Classroom Agency\nAgent: Lesson Agent\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nPolicy Effective Date: January 1, 2026\nPolicy Expiration Date: January 1, 2027\nPolicy Type: Equine Mortality\nInsured Horse Name: Lesson Horse\nBreed: Quarter Horse\nAge: 8\nSex: Gelding\nStated Use: Pleasure\nInsured Value / Full Mortality: $40,000\nCurrency: USD\nForms:\nEQ-A-1 Ed. 01/2024\nEQ-B-1 Ed. 01/2024"
+        }
+      ]
+    },
+    {
+      "document_id": "edu-14-base",
+      "filename": "edu-14-base.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse."
+        }
+      ]
+    },
+    {
+      "document_id": "edu-14-end",
+      "filename": "edu-14-end.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Endorsement EQ-B-1 Ed. 01/2024\nSurgical coverage is added with a $8,000 occurrence limit."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-14-base",
+          "page": 1
+        }
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "COVERED",
+        "limit": "$8,000",
+        "citation": {
+          "document_id": "edu-14-end",
+          "page": 1
+        }
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      },
+      {
+        "printed_identifier": "EQ-B-1",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-14-base",
+          "page": 1
+        },
+        {
+          "subject": "Surgical",
+          "document_id": "edu-14-end",
+          "page": 1
+        }
+      ]
+    },
+    "acceptable_needs_review": false,
+    "critical_errors": [
+      "WRONG_DOCUMENT_CITATION"
+    ]
+  },
+  "job": {
+    "expected_state": "completed",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

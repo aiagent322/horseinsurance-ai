@@ -1,0 +1,117 @@
+{
+  "package_id": "edu-qa-06-conflicting-limits",
+  "title": "Same medical limit stated differently on two pages with no controlling endorsement",
+  "scenario": "6. Conflicting limits on different pages",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Neither page states that it supersedes the other. The in-force amount is not resolvable.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-06-doc",
+      "filename": "edu-06-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024\nMajor Medical Limit: $15,000"
+        },
+        {
+          "page": 2,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nThis policy provides Major Medical coverage with a limit of $7,500 per policy period.\nMajor Medical Limit: $7,500"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-06-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "POSSIBLE CONFLICT",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-06-doc",
+          "page": 1
+        },
+        "acceptable_needs_review": true
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [
+      {
+        "kind": "limit_conflict",
+        "description_contains": "Major Medical"
+      }
+    ],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      }
+    ],
+      "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-06-doc",
+          "page": 2
+        },
+        {
+          "subject": "Major Medical",
+          "document_id": "edu-06-doc",
+          "page": 1
+        }
+      ]
+    },
+    "acceptable_needs_review": true,
+    "critical_errors": []
+  },
+  "job": {
+    "expected_state": "needs_review",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

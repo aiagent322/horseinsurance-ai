@@ -1,0 +1,28 @@
+{
+  "corpus_version": "quality-corpus-v1",
+  "title": "Policy Analyzer educational accuracy corpus",
+  "disclaimer": "Synthetic educational language only. Not carrier policy forms. Results are not production accuracy.",
+  "fixture_count_minimum": 20,
+  "scenarios": [
+    "clear affirmative coverage",
+    "explicit coverage denial",
+    "conditional or limited coverage",
+    "base form contradicted by endorsement",
+    "later endorsement controls",
+    "conflicting limits on different pages",
+    "missing scheduled form",
+    "form edition mismatch",
+    "coverage mentioned without granting or denying",
+    "anatomical wording is not a coverage denial",
+    "negation separated from the coverage name",
+    "OCR noise and broken line wrapping",
+    "duplicate pages",
+    "multi-document package",
+    "missing declarations",
+    "missing named insured or policy number",
+    "unreadable page",
+    "duplicate or inconsistent document identifiers",
+    "cancellation or incomplete job with no publishable report",
+    "deliberately ambiguous case requiring human review"
+  ]
+}

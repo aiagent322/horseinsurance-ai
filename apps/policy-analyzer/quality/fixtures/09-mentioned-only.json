@@ -1,0 +1,113 @@
+{
+  "package_id": "edu-qa-09-mentioned-only",
+  "title": "Loss of Use is named without a grant or denial",
+  "scenario": "9. Coverage mentioned without granting or denying it",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "A mention is not a grant. Human review is the acceptable outcome.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-09-doc",
+      "filename": "edu-09-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+        },
+        {
+          "page": 2,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nThe application mentioned Loss of Use coverage."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-09-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NEEDS CLARIFICATION",
+        "citation": {
+          "document_id": "edu-09-doc",
+          "page": 2
+        },
+        "acceptable_needs_review": true
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-09-doc",
+          "page": 2
+        },
+        {
+          "subject": "Loss of Use",
+          "document_id": "edu-09-doc",
+          "page": 2
+        }
+      ]
+    },
+    "acceptable_needs_review": true,
+    "critical_errors": [
+      "FALSE_COVERED"
+    ]
+  },
+  "job": {
+    "expected_state": "completed",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "package_id": "edu-qa-08-edition-mismatch",
+  "title": "Listed form edition does not match uploaded form edition",
+  "scenario": "8. Form edition mismatch",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "EQ-A-1 is listed as Ed. 01/2024 and uploaded as Ed. 06/2025. That is not PRESENT.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-08-doc",
+      "filename": "edu-08-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+        },
+        {
+          "page": 2,
+          "text": "Form EQ-A-1 Ed. 06/2025\nThis policy provides Full Mortality coverage for the insured horse."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "limit": "$40,000",
+        "citation": {
+          "document_id": "edu-08-doc",
+          "page": 2
+        }
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "edition": "01/2024",
+        "status": "EDITION MISMATCH"
+      }
+    ],
+    "completeness": "DOCUMENT PACKAGE MAY BE INCOMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-08-doc",
+          "page": 2
+        }
+      ]
+    },
+    "acceptable_needs_review": true,
+    "critical_errors": [
+      "EDITION_MISMATCH_REPORTED_PRESENT"
+    ]
+  },
+  "job": {
+    "expected_state": "needs_review",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}

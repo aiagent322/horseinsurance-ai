@@ -1,0 +1,94 @@
+{
+  "package_id": "edu-qa-15-missing-declarations",
+  "title": "Package has a base form and no declarations page",
+  "scenario": "15. Missing declarations",
+  "corpus_version": "quality-corpus-v1",
+  "notes": "Without a declarations page the package is incomplete.",
+  "evaluation_scope": "analysis",
+  "documents": [
+    {
+      "document_id": "edu-15-doc",
+      "filename": "edu-15-package.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": false,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "COVERED",
+        "citation": {
+          "document_id": "edu-15-doc",
+          "page": 1
+        }
+      },
+      "Major Medical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Surgical": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [],
+    "forms": [],
+    "completeness": "DOCUMENT PACKAGE MAY BE INCOMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-15-doc",
+          "page": 1
+        }
+      ]
+    },
+    "acceptable_needs_review": true,
+    "critical_errors": []
+  },
+  "job": {
+    "expected_state": "needs_review",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}
