@@ -1,31 +1,53 @@
 import assert from "node:assert/strict";
-import { applyReleaseGate, evaluateCorpus, evaluateFixture } from "./evaluate";
+import { applyReleaseGate, evaluateCorpus, evaluateFixture, frac, type AggregateMetrics } from "./evaluate";
 import type { QualityThresholds } from "./schema";
 import { loadCorpus, loadThresholds } from "./load-corpus";
 import { cloneActual, syntheticMatchingActual } from "./synthetic-actual";
-import { CORPUS_VERSION } from "./schema";
+import { CORPUS_VERSION, REPORT_SCHEMA_VERSION } from "./schema";
+
+function passingMetrics(overrides: Partial<AggregateMetrics> = {}): AggregateMetrics {
+  const one = frac(1, 1);
+  return {
+    total_fixtures: 1,
+    total_evaluated_findings: 7,
+    coverage_status_accuracy: one,
+    precision_recall_f1_by_status: [],
+    false_covered_findings: 0,
+    false_excluded_findings: 0,
+    invented_coverage_findings: 0,
+    conflict_detection_recall: one,
+    limit_value_accuracy: one,
+    deductible_value_accuracy: one,
+    exclusion_recall: one,
+    requirement_recall: one,
+    form_presence_accuracy: one,
+    missing_form_recall: one,
+    edition_mismatch_recall: one,
+    completeness_accuracy: one,
+    citation_document_accuracy: one,
+    citation_page_accuracy: one,
+    unsupported_material_findings: 0,
+    uncited_material_findings: 0,
+    unsupported_uncited_material_findings: 0,
+    needs_review_frequency: frac(0, 1),
+    critical_error_count: 0,
+    ...overrides
+  };
+}
 
 function requireFail(label: string, actual: ReturnType<typeof evaluateFixture>, code: string) {
   const hit = actual.errors.find((err) => err.code === code && err.critical);
   assert.ok(hit, `${label}: expected critical ${code}, got ${actual.errors.map((e) => e.code).join(", ") || "no errors"}`);
   const gate = applyReleaseGate(
-    {
-      coverage_status_accuracy: 1,
-      precision_recall_f1_by_status: [],
+    passingMetrics({
       false_covered_findings: actual.false_covered,
-      false_excluded_findings: actual.false_excluded,
-      conflict_detection_recall: 1,
-      limit_value_accuracy: 1,
-      exclusion_recall: 1,
-      form_presence_accuracy: 1,
-      edition_mismatch_recall: 1,
-      completeness_accuracy: 1,
-      citation_document_accuracy: 1,
-      citation_page_accuracy: 1,
-      unsupported_uncited_material_findings: actual.unsupported_uncited,
-      needs_review_frequency: 0,
-      critical_error_count: actual.errors.filter((e) => e.critical).length
-    },
+      invented_coverage_findings: actual.invented_coverage,
+      uncited_material_findings: actual.uncited_material,
+      unsupported_material_findings: actual.unsupported_material,
+      unsupported_uncited_material_findings: actual.unsupported_material + actual.uncited_material,
+      critical_error_count: actual.errors.filter((e) => e.critical).length,
+      coverage_status_accuracy: frac(0, 1)
+    }),
     {
       ...loadThresholds(),
       coverage_status_accuracy_min: 0,
@@ -35,8 +57,11 @@ function requireFail(label: string, actual: ReturnType<typeof evaluateFixture>, 
       false_excluded_max: 99,
       conflict_detection_recall_min: 0,
       limit_value_accuracy_min: 0,
+      deductible_value_accuracy_min: 0,
       exclusion_recall_min: 0,
+      requirement_recall_min: 0,
       form_presence_accuracy_min: 0,
+      missing_form_recall_min: 0,
       edition_mismatch_recall_min: 0,
       completeness_accuracy_min: 0,
       citation_document_accuracy_min: 0,
@@ -52,10 +77,12 @@ export function runQualityHarness(): void {
   const byId = new Map(fixtures.map((f) => [f.package_id, f]));
   const denial = byId.get("edu-qa-02-explicit-denial");
   const edition = byId.get("edu-qa-08-edition-mismatch");
+  const missingForm = byId.get("edu-qa-07-missing-form");
   const multi = byId.get("edu-qa-14-multi-document");
   const cancelled = byId.get("edu-qa-19-cancelled-incomplete");
   const clear = byId.get("edu-qa-01-clear-affirmative");
-  assert.ok(denial && edition && multi && cancelled && clear, "harness fixtures missing");
+  const conflictFx = byId.get("edu-qa-06-conflicting-limits");
+  assert.ok(denial && edition && missingForm && multi && cancelled && clear && conflictFx, "harness fixtures missing");
 
   const falseCovered = cloneActual(syntheticMatchingActual(denial));
   const theft = falseCovered.report?.coverages.find((c) => c.coverage_type === "Theft");
@@ -78,6 +105,12 @@ export function runQualityHarness(): void {
   mort.source_document_id = "edu-14-wrong-document";
   requireFail("wrong document citation", evaluateFixture(multi, wrongDoc), "WRONG_DOCUMENT_CITATION");
 
+  const wrongPage = cloneActual(syntheticMatchingActual(multi));
+  const mortPage = wrongPage.report?.coverages.find((c) => c.coverage_type === "Full Mortality");
+  assert.ok(mortPage);
+  mortPage.source_page = 99;
+  requireFail("wrong page citation", evaluateFixture(multi, wrongPage), "WRONG_PAGE_CITATION");
+
   const missedEdition = cloneActual(syntheticMatchingActual(edition));
   const form = missedEdition.report?.form_inventory.find((f) => f.printed_identifier === "EQ-A-1");
   assert.ok(form);
@@ -88,16 +121,36 @@ export function runQualityHarness(): void {
     "EDITION_MISMATCH_REPORTED_PRESENT"
   );
 
+  const absentPresent = cloneActual(syntheticMatchingActual(missingForm));
+  const listed = absentPresent.report?.form_inventory.find((f) => f.printed_identifier === "EQ-B-1");
+  assert.ok(listed);
+  listed.status = "PRESENT";
+  requireFail(
+    "missing scheduled form reported PRESENT",
+    evaluateFixture(missingForm, absentPresent),
+    "ABSENT_FORM_REPORTED_PRESENT"
+  );
+
   const fabricated = cloneActual(syntheticMatchingActual(cancelled));
   fabricated.job_state = "cancelled";
   fabricated.published = true;
   fabricated.bound = false;
   fabricated.report = syntheticMatchingActual(clear).report;
-  requireFail(
-    "fabricated completed report",
-    evaluateFixture(cancelled, fabricated),
-    "PUBLISHED_WITHOUT_BOUND_JOB"
-  );
+  requireFail("fabricated completed report", evaluateFixture(cancelled, fabricated), "PUBLISHED_WITHOUT_BOUND_JOB");
+
+  const invalidBinding = cloneActual(syntheticMatchingActual(clear));
+  invalidBinding.job_state = "completed";
+  invalidBinding.published = true;
+  invalidBinding.bound = false;
+  invalidBinding.binding_error = "report_session_mismatch";
+  requireFail("invalid report binding", evaluateFixture(clear, invalidBinding), "INVALID_REPORT_BINDING");
+
+  const missedConflict = cloneActual(syntheticMatchingActual(conflictFx));
+  assert.ok(missedConflict.report);
+  missedConflict.report.conflicts = [];
+  const medical = missedConflict.report.coverages.find((c) => c.coverage_type === "Major Medical");
+  if (medical) medical.coverage_status = "COVERED";
+  requireFail("missed conflict", evaluateFixture(conflictFx, missedConflict), "CONFLICT_MISS");
 
   const metricMiss = cloneActual(syntheticMatchingActual(clear));
   const unused = metricMiss.report?.coverages.find((c) => c.coverage_type === "Theft");
@@ -114,33 +167,44 @@ export function runQualityHarness(): void {
     f1_by_status_min: {},
     false_covered_max: 99,
     false_excluded_max: 99,
+    invented_coverage_max: 99,
     conflict_detection_recall_min: 0,
     limit_value_accuracy_min: 0,
+    deductible_value_accuracy_min: 0,
     exclusion_recall_min: 0,
+    requirement_recall_min: 0,
     form_presence_accuracy_min: 0,
+    missing_form_recall_min: 0,
     edition_mismatch_recall_min: 0,
     completeness_accuracy_min: 0,
     citation_document_accuracy_min: 0,
     citation_page_accuracy_min: 0,
+    unsupported_material_max: 99,
+    uncited_material_max: 99,
     unsupported_uncited_max: 99,
     critical_error_max: 99
   };
-  const report = evaluateCorpus(
-    [{ fixture: clear, actuals: [metricMiss] }],
-    thresholds,
-    { corpus_version: CORPUS_VERSION, analyzer_version: "harness", analyzer_git_sha: "harness" }
-  );
+  const report = evaluateCorpus([{ fixture: clear, actuals: [metricMiss] }], thresholds, {
+    corpus_version: CORPUS_VERSION,
+    analyzer_version: "harness",
+    analyzer_git_sha: "harness",
+    report_schema_version: REPORT_SCHEMA_VERSION
+  });
   assert.equal(report.gate.passed, false, "metric below threshold should fail the gate");
   assert.ok(
     report.gate.failures.some((f) => /coverage-status accuracy/.test(f)),
     `expected accuracy failure, got ${report.gate.failures.join("; ")}`
   );
 
-  console.log("QUALITY HARNESS OK");
-  console.log("  false COVERED → FAIL");
-  console.log("  missing citation → FAIL");
-  console.log("  wrong document citation → FAIL");
-  console.log("  missed form-edition mismatch → FAIL");
-  console.log("  fabricated completed report → FAIL");
-  console.log("  metric below threshold → FAIL");
+  console.log("QUALITY SELF-TESTS OK");
+  console.log("  1 false COVERED → FAIL");
+  console.log("  2 missing required citation → FAIL");
+  console.log("  3 wrong document citation → FAIL");
+  console.log("  4 wrong page citation → FAIL");
+  console.log("  5 missed form-edition mismatch → FAIL");
+  console.log("  6 missing scheduled form reported PRESENT → FAIL");
+  console.log("  7 fabricated completed report → FAIL");
+  console.log("  8 invalid report binding → FAIL");
+  console.log("  9 missed conflict → FAIL");
+  console.log("  10 metric below threshold → FAIL");
 }

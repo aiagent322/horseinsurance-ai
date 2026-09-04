@@ -1,7 +1,7 @@
 {
   "package_id": "edu-qa-19-cancelled-incomplete",
   "title": "Cancelled and still-processing jobs must not publish a report",
-  "scenario": "19. Cancellation or incomplete-job state with no publishable report",
+  "scenario": "20. Cancelled or incomplete job with no publishable report",
   "corpus_version": "quality-corpus-v1",
   "notes": "Evaluates job publication gating, not coverage classification.",
   "evaluation_scope": "job",

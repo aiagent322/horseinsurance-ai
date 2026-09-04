@@ -1,7 +1,7 @@
 {
   "package_id": "edu-qa-20-ambiguous",
   "title": "Deliberately ambiguous medical wording requires human review",
-  "scenario": "20. A deliberately ambiguous case requiring human review",
+  "scenario": "23. Deliberately ambiguous language requiring human review",
   "corpus_version": "quality-corpus-v1",
   "notes": "The clause both gestures at medical coverage and withholds a grant. NEEDS CLARIFICATION is acceptable. COVERED is not.",
   "evaluation_scope": "analysis",

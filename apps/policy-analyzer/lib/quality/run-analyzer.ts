@@ -4,6 +4,7 @@ import { hydratePageDiagnostics } from "@/lib/extraction-quality";
 import { TEST_ACTOR_A } from "@/lib/persistence/actor-context";
 import { MemoryPolicyStore } from "@/lib/persistence/memory-store";
 import { analyzerReportBindingError } from "@/lib/persistence/report-binding";
+import type { ClaimedJob } from "@/lib/persistence/types";
 import type { DocumentRecord, PageText, PolicyRecord } from "@/lib/types";
 import { decideTerminalState } from "@/lib/worker/outcome";
 import type { GroundTruthFixture } from "./schema";
@@ -126,6 +127,106 @@ async function cancelledJobRun(): Promise<ActualRun> {
   };
 }
 
+function boundReportFor(claimed: ClaimedJob): PolicyRecord {
+  return {
+    policy_id: claimed.policyId,
+    session_id: claimed.sessionId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completeness_status: "APPEARS COMPLETE",
+    analysis_status: "complete",
+    identification: {},
+    documents: claimed.files.map((file) => ({
+      document_id: file.documentId,
+      session_id: claimed.sessionId,
+      original_filename: file.filename,
+      file_type: "application/pdf",
+      upload_timestamp: new Date().toISOString(),
+      file_hash: file.sha256 || "quality",
+      page_count: 1,
+      storage_location: file.path,
+      extraction_status: "extracted",
+      analysis_status: "complete",
+      classification: "Declarations",
+      pages: [{ page: 1, text: "Declarations page", extraction_method: "NATIVE_TEXT", quality_status: "GOOD" }]
+    })),
+    coverages: [],
+    exclusions: [],
+    financial_limits: [],
+    requirements: [],
+    endorsements: [],
+    conflicts: [],
+    form_inventory: [],
+    completeness: { status: "APPEARS COMPLETE", warnings: [] },
+    agent_questions: [],
+    coverage_gaps: [],
+    educational_notes: []
+  };
+}
+
+async function missingJobRun(): Promise<ActualRun> {
+  const store = new MemoryPolicyStore();
+  await store.ensureAccount(TEST_ACTOR_A.userId);
+  const queued = await store.enqueuePackage(TEST_ACTOR_A, {
+    files: [{ filename: "missing-job-edu.pdf", bytes: tinyPdf("quality-missing-job") }]
+  });
+  const claimed = await store.claimJobs("quality-missing-job", 1);
+  const job = claimed.find((row) => row.policyId === queued.policy_id);
+  if (!job) throw new Error("missing_job fixture: job was not claimed");
+  await store.completeJob(job.jobId, "quality-missing-job", boundReportFor(job), "completed");
+  const jobId = store.jobsByPolicy.get(queued.policy_id);
+  store.jobsByPolicy.delete(queued.policy_id);
+  if (jobId) store.jobs.delete(jobId);
+  const report = await store.getReport(TEST_ACTOR_A, queued.policy_id);
+  const status = await store.getStatus(TEST_ACTOR_A, queued.policy_id);
+  return {
+    scenario_id: "missing_job",
+    report,
+    job_state: status?.status || "missing",
+    published: Boolean(report),
+    bound: false,
+    binding_error: report ? "unexpected_report_without_job" : "report_unavailable"
+  };
+}
+
+async function inconsistentBindingRun(): Promise<ActualRun> {
+  const store = new MemoryPolicyStore();
+  await store.ensureAccount(TEST_ACTOR_A.userId);
+  const queued = await store.enqueuePackage(TEST_ACTOR_A, {
+    files: [{ filename: "binding-edu.pdf", bytes: tinyPdf("quality-binding") }]
+  });
+  const claimed = await store.claimJobs("quality-binding", 1);
+  const job = claimed.find((row) => row.policyId === queued.policy_id);
+  if (!job) throw new Error("inconsistent_binding fixture: job was not claimed");
+  const bad = boundReportFor(job);
+  bad.session_id = "00000000-0000-4000-8000-000000000099";
+  let published = false;
+  try {
+    await store.completeJob(job.jobId, "quality-binding", bad, "completed");
+    published = true;
+  } catch {
+    published = false;
+  }
+  const report = await store.getReport(TEST_ACTOR_A, queued.policy_id);
+  const status = await store.getStatus(TEST_ACTOR_A, queued.policy_id);
+  const binding_error = report
+    ? analyzerReportBindingError(report, {
+        policyId: job.policyId,
+        sessionId: job.sessionId,
+        documentCount: job.files.length,
+        documentIds: job.files.map((file) => file.documentId)
+      })
+    : "report_session_mismatch";
+  return {
+    scenario_id: "inconsistent_binding",
+    report,
+    job_state: status?.status || "processing",
+    published: published || Boolean(report),
+    bound: binding_error === null,
+    binding_error
+  };
+}
+
 async function incompleteJobRun(): Promise<ActualRun> {
   const store = new MemoryPolicyStore();
   await store.ensureAccount(TEST_ACTOR_A.userId);
@@ -151,6 +252,12 @@ export async function runFixture(fixture: GroundTruthFixture): Promise<ActualRun
   }
   if (fixture.job.mode === "incomplete") {
     return [await incompleteJobRun()];
+  }
+  if (fixture.job.mode === "missing_job") {
+    return [await missingJobRun()];
+  }
+  if (fixture.job.mode === "inconsistent_binding") {
+    return [await inconsistentBindingRun()];
   }
   return [analyzeRun(fixture)];
 }

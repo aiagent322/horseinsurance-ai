@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   assertSupportedCoverages,
   CORPUS_VERSION,
+  MIN_FIXTURE_COUNT,
   groundTruthFixtureSchema,
   qualityThresholdsSchema,
   type GroundTruthFixture,
@@ -29,8 +30,8 @@ export function loadCorpus(dir = fixtureDir()): GroundTruthFixture[] {
   const files = readdirSync(dir)
     .filter((name) => name.endsWith(".json"))
     .sort();
-  if (files.length < 20) {
-    throw new Error(`Expected at least 20 fixture files, found ${files.length} in ${dir}`);
+  if (files.length < MIN_FIXTURE_COUNT) {
+    throw new Error(`Expected at least ${MIN_FIXTURE_COUNT} fixture files, found ${files.length} in ${dir}`);
   }
   return files.map((name) => loadFixtureFile(path.join(dir, name)));
 }

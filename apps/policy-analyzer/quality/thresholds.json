@@ -22,6 +22,12 @@
   "completeness_accuracy_min": 0.85,
   "citation_document_accuracy_min": 0.9,
   "citation_page_accuracy_min": 0.85,
+  "deductible_value_accuracy_min": 0.8,
+  "requirement_recall_min": 0.8,
+  "missing_form_recall_min": 1,
+  "unsupported_material_max": 0,
+  "uncited_material_max": 0,
+  "invented_coverage_max": 0,
   "unsupported_uncited_max": 0,
   "critical_error_max": 0
 }

@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { AnalysisStatus, FormInventoryStatus } from "@/lib/types";
 
 export const CORPUS_VERSION = "quality-corpus-v1";
+export const REPORT_SCHEMA_VERSION = "policy-record-v1";
+export const MIN_FIXTURE_COUNT = 25;
 
 export const SUPPORTED_COVERAGES = [
   "Full Mortality",
@@ -55,8 +57,10 @@ export const groundTruthFixtureSchema = z.object({
   title: z.string().min(1),
   scenario: z.string().min(1),
   corpus_version: z.literal(CORPUS_VERSION),
+  fixture_version: z.string().min(1).default("1"),
   notes: z.string().min(1),
   evaluation_scope: z.enum(["analysis", "job", "both"]),
+  document_order: z.array(z.string().min(1)).optional(),
   documents: z
     .array(
       z.object({
@@ -118,7 +122,8 @@ export const groundTruthFixtureSchema = z.object({
       .array(
         z.object({
           kind: z.string().min(1),
-          description_contains: z.string().optional()
+          description_contains: z.string().optional(),
+          critical: z.boolean().default(true)
         })
       )
       .default([]),
@@ -142,17 +147,18 @@ export const groundTruthFixtureSchema = z.object({
       )
     }),
     acceptable_needs_review: z.boolean(),
+    human_review_required: z.boolean().optional(),
     critical_errors: z.array(z.string()).default([])
   }),
   job: z.object({
-    expected_state: z.enum(["completed", "needs_review", "failed", "cancelled", "processing"]),
+    expected_state: z.enum(["completed", "needs_review", "failed", "cancelled", "processing", "missing"]),
     publishable: z.boolean(),
-    mode: z.enum(["analyze", "cancelled", "incomplete"]),
+    mode: z.enum(["analyze", "cancelled", "incomplete", "missing_job", "inconsistent_binding"]),
     scenarios: z
       .array(
         z.object({
           id: z.string().min(1),
-          expected_state: z.enum(["completed", "needs_review", "failed", "cancelled", "processing"]),
+          expected_state: z.enum(["completed", "needs_review", "failed", "cancelled", "processing", "missing"]),
           publishable: z.boolean()
         })
       )
@@ -179,6 +185,12 @@ export const qualityThresholdsSchema = z.object({
   completeness_accuracy_min: z.number().min(0).max(1),
   citation_document_accuracy_min: z.number().min(0).max(1),
   citation_page_accuracy_min: z.number().min(0).max(1),
+  deductible_value_accuracy_min: z.number().min(0).max(1).default(0.8),
+  requirement_recall_min: z.number().min(0).max(1).default(0.8),
+  missing_form_recall_min: z.number().min(0).max(1).default(1),
+  unsupported_material_max: z.number().int().min(0).default(0),
+  uncited_material_max: z.number().int().min(0).default(0),
+  invented_coverage_max: z.number().int().min(0).default(0),
   unsupported_uncited_max: z.number().int().min(0),
   critical_error_max: z.number().int().min(0)
 });

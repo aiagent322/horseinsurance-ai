@@ -23,6 +23,7 @@ npm run test:retention
 npm run test:db-auth
 npm run test:jobs
 npm run test:worker
+npm run test:quality:self
 npm run test:quality
 npm run test:db-live
 npm run worker:once
@@ -94,7 +95,7 @@ No quoting, claims, CRM, payments, or Horse Genius. Status labels are not scores
 
 ## Quality evaluation
 
-`npm run test:quality` runs an independent, versioned accuracy evaluation against synthetic educational fixtures. Expected answers are hand-authored and are never taken from analyzer output. A failing exit status means the synthetic release gate was missed. It is not a production-accuracy claim.
+`npm run test:quality:self` proves the evaluator rejects corrupted results. `npm run test:quality` then runs those self-tests and scores the unmodified analyzer against synthetic educational fixtures. Expected answers are hand-authored and are never taken from analyzer output. A failing exit status means the synthetic release gate was missed. It is not a production-accuracy claim.
 
 See `quality/README.md` and `quality/GROUND-TRUTH.md`.
 

@@ -44,3 +44,7 @@ next-env.d.ts
 # uploaded policies — never commit
 /data
 .env*.local
+
+# transient quality evaluation reports
+/quality/reports/*
+!/quality/reports/.gitignore

@@ -1,27 +1,25 @@
 {
-  "package_id": "edu-qa-18-duplicate-ids",
-  "title": "Two files share the same document identifier",
-  "scenario": "19. Duplicate or inconsistent document identifiers",
+  "package_id": "edu-qa-21-missing-policy-number",
+  "title": "Declarations page omits the policy number",
+  "scenario": "17. Missing policy number",
   "corpus_version": "quality-corpus-v1",
-  "notes": "A bound publishable report is not allowed when document IDs collide.",
-  "evaluation_scope": "both",
+  "fixture_version": "1",
+  "notes": "Named insured is present. Policy number is absent.",
+  "evaluation_scope": "analysis",
+  "document_order": [
+    "edu-21-doc"
+  ],
   "documents": [
     {
-      "document_id": "edu-18-dup",
-      "filename": "edu-18-a.pdf",
+      "document_id": "edu-21-doc",
+      "filename": "edu-21-package.pdf",
       "pages": [
         {
           "page": 1,
-          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
-        }
-      ]
-    },
-    {
-      "document_id": "edu-18-dup",
-      "filename": "edu-18-b.pdf",
-      "pages": [
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+        },
         {
-          "page": 1,
+          "page": 2,
           "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse."
         }
       ]
@@ -31,14 +29,15 @@
     "declarations": {
       "present": true,
       "named_insured": "Jordan Rivers",
-      "policy_number": "EQ-EDU-0001"
+      "policy_number": null
     },
     "coverages": {
       "Full Mortality": {
         "status": "COVERED",
+        "limit": "$40,000",
         "citation": {
-          "document_id": "edu-18-dup",
-          "page": 1
+          "document_id": "edu-21-doc",
+          "page": 2
         }
       },
       "Major Medical": {
@@ -93,19 +92,18 @@
       "required": [
         {
           "subject": "Full Mortality",
-          "document_id": "edu-18-dup",
-          "page": 1
+          "document_id": "edu-21-doc",
+          "page": 2
         }
       ]
     },
     "acceptable_needs_review": true,
-    "critical_errors": [
-      "PUBLISHED_WITHOUT_BOUND_JOB"
-    ]
+    "human_review_required": true,
+    "critical_errors": []
   },
   "job": {
-    "expected_state": "failed",
-    "publishable": false,
+    "expected_state": "needs_review",
+    "publishable": true,
     "mode": "analyze"
   }
 }

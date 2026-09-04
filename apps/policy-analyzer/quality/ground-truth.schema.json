@@ -18,6 +18,11 @@
       "type": "string",
       "const": "quality-corpus-v1"
     },
+    "fixture_version": {
+      "type": "string",
+      "minLength": 1,
+      "default": "1"
+    },
     "notes": {
       "type": "string",
       "minLength": 1
@@ -29,6 +34,13 @@
         "job",
         "both"
       ]
+    },
+    "document_order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "documents": {
       "minItems": 1,
@@ -366,6 +378,10 @@
               },
               "description_contains": {
                 "type": "string"
+              },
+              "critical": {
+                "type": "boolean",
+                "default": true
               }
             },
             "required": [
@@ -449,6 +465,9 @@
         "acceptable_needs_review": {
           "type": "boolean"
         },
+        "human_review_required": {
+          "type": "boolean"
+        },
         "critical_errors": {
           "default": [],
           "type": "array",
@@ -482,7 +501,8 @@
             "needs_review",
             "failed",
             "cancelled",
-            "processing"
+            "processing",
+            "missing"
           ]
         },
         "publishable": {
@@ -493,7 +513,9 @@
           "enum": [
             "analyze",
             "cancelled",
-            "incomplete"
+            "incomplete",
+            "missing_job",
+            "inconsistent_binding"
           ]
         },
         "scenarios": {
@@ -512,7 +534,8 @@
                   "needs_review",
                   "failed",
                   "cancelled",
-                  "processing"
+                  "processing",
+                  "missing"
                 ]
               },
               "publishable": {

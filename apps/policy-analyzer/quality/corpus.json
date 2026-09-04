@@ -2,7 +2,8 @@
   "corpus_version": "quality-corpus-v1",
   "title": "Policy Analyzer educational accuracy corpus",
   "disclaimer": "Synthetic educational language only. Not carrier policy forms. Results are not production accuracy.",
-  "fixture_count_minimum": 20,
+  "fixture_count_minimum": 25,
+  "report_schema_version": "policy-record-v1",
   "scenarios": [
     "clear affirmative coverage",
     "explicit coverage denial",
@@ -19,10 +20,15 @@
     "duplicate pages",
     "multi-document package",
     "missing declarations",
-    "missing named insured or policy number",
+    "missing named insured",
+    "missing policy number",
     "unreadable page",
     "duplicate or inconsistent document identifiers",
     "cancellation or incomplete job with no publishable report",
-    "deliberately ambiguous case requiring human review"
+    "missing durable job with no publishable report",
+    "completed job with missing or inconsistent report binding",
+    "deliberately ambiguous case requiring human review",
+    "theft granted and denied in separate clauses",
+    "mortality, medical, and surgical limits that differ across documents"
   ]
 }

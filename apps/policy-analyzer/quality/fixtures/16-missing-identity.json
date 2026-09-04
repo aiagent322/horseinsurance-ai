@@ -1,9 +1,10 @@
 {
   "package_id": "edu-qa-16-missing-identity",
-  "title": "Declarations page omits named insured and policy number",
-  "scenario": "16. Missing named insured or policy number",
+  "title": "Declarations page omits the named insured",
+  "scenario": "16. Missing named insured",
   "corpus_version": "quality-corpus-v1",
-  "notes": "Identity fields are absent. Completeness must not be APPEARS COMPLETE.",
+  "fixture_version": "1",
+  "notes": "Policy number is present. Named insured is absent. Completeness must not be APPEARS COMPLETE.",
   "evaluation_scope": "analysis",
   "documents": [
     {
@@ -12,7 +13,7 @@
       "pages": [
         {
           "page": 1,
-          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
         },
         {
           "page": 2,
@@ -25,7 +26,7 @@
     "declarations": {
       "present": true,
       "named_insured": null,
-      "policy_number": null
+      "policy_number": "EQ-EDU-0001"
     },
     "coverages": {
       "Full Mortality": {

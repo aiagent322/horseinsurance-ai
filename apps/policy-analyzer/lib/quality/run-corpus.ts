@@ -1,4 +1,4 @@
-import { CORPUS_VERSION } from "./schema";
+import { CORPUS_VERSION, REPORT_SCHEMA_VERSION } from "./schema";
 import { evaluateCorpus, type CorpusReport } from "./evaluate";
 import { analyzerPackageVersion, gitSha } from "./git-meta";
 import { loadCorpus, loadThresholds } from "./load-corpus";
@@ -15,7 +15,8 @@ export async function runQualityCorpus(): Promise<CorpusReport> {
   return evaluateCorpus(items, thresholds, {
     corpus_version: CORPUS_VERSION,
     analyzer_version: analyzerPackageVersion(),
-    analyzer_git_sha: gitSha()
+    analyzer_git_sha: gitSha(),
+    report_schema_version: REPORT_SCHEMA_VERSION
   });
 }
 

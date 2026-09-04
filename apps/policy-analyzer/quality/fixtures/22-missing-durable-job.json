@@ -1,28 +1,22 @@
 {
-  "package_id": "edu-qa-18-duplicate-ids",
-  "title": "Two files share the same document identifier",
-  "scenario": "19. Duplicate or inconsistent document identifiers",
+  "package_id": "edu-qa-22-missing-durable-job",
+  "title": "Missing durable job must not publish a report",
+  "scenario": "21. Missing durable job with no publishable report",
   "corpus_version": "quality-corpus-v1",
-  "notes": "A bound publishable report is not allowed when document IDs collide.",
-  "evaluation_scope": "both",
+  "fixture_version": "1",
+  "notes": "A completed analysis row without its durable job must fail closed.",
+  "evaluation_scope": "job",
+  "document_order": [
+    "edu-22-doc"
+  ],
   "documents": [
     {
-      "document_id": "edu-18-dup",
-      "filename": "edu-18-a.pdf",
+      "document_id": "edu-22-doc",
+      "filename": "edu-22-package.pdf",
       "pages": [
         {
           "page": 1,
           "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Horse Name: Lesson Horse\nInsured Value / Full Mortality: $40,000\nForms:\nEQ-A-1 Ed. 01/2024"
-        }
-      ]
-    },
-    {
-      "document_id": "edu-18-dup",
-      "filename": "edu-18-b.pdf",
-      "pages": [
-        {
-          "page": 1,
-          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse."
         }
       ]
     }
@@ -35,11 +29,10 @@
     },
     "coverages": {
       "Full Mortality": {
-        "status": "COVERED",
-        "citation": {
-          "document_id": "edu-18-dup",
-          "page": 1
-        }
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
       },
       "Major Medical": {
         "status": "NOT FOUND",
@@ -82,23 +75,13 @@
     "exclusions": [],
     "requirements": [],
     "conflicts": [],
-    "forms": [
-      {
-        "printed_identifier": "EQ-A-1",
-        "status": "PRESENT"
-      }
-    ],
+    "forms": [],
     "completeness": "DOCUMENT PACKAGE MAY BE INCOMPLETE",
     "citations": {
-      "required": [
-        {
-          "subject": "Full Mortality",
-          "document_id": "edu-18-dup",
-          "page": 1
-        }
-      ]
+      "required": []
     },
-    "acceptable_needs_review": true,
+    "acceptable_needs_review": false,
+    "human_review_required": false,
     "critical_errors": [
       "PUBLISHED_WITHOUT_BOUND_JOB"
     ]
@@ -106,6 +89,6 @@
   "job": {
     "expected_state": "failed",
     "publishable": false,
-    "mode": "analyze"
+    "mode": "missing_job"
   }
 }

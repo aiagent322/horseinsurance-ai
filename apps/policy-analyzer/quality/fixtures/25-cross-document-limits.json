@@ -1,0 +1,166 @@
+{
+  "package_id": "edu-qa-25-cross-document-limits",
+  "title": "Mortality, medical and surgical limits differ across documents",
+  "scenario": "25. Mortality, medical and surgical limits that differ across documents",
+  "corpus_version": "quality-corpus-v1",
+  "fixture_version": "1",
+  "notes": "Three dollar figures disagree across documents with no controlling endorsement. The analyzer must not silently pick one amount.",
+  "evaluation_scope": "analysis",
+  "document_order": [
+    "edu-25-dec",
+    "edu-25-base",
+    "edu-25-end"
+  ],
+  "documents": [
+    {
+      "document_id": "edu-25-dec",
+      "filename": "edu-25-dec.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Declarations\nIssued by: Educational Equine Specialty Insurance Company\nPolicy Number: EQ-EDU-0001\nNamed Insured: Jordan Rivers\nInsured Value / Full Mortality: $40,000\nMajor Medical Limit: $15,000\nForms:\nEQ-A-1 Ed. 01/2024\nEQ-B-1 Ed. 01/2024"
+        }
+      ]
+    },
+    {
+      "document_id": "edu-25-base",
+      "filename": "edu-25-base.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Base Policy Form EQ-A-1 Ed. 01/2024\nThis policy provides Full Mortality coverage for the insured horse.\nInsured Value / Full Mortality: $55,000\nThis policy provides Major Medical coverage with a limit of $10,000 per policy period."
+        }
+      ]
+    },
+    {
+      "document_id": "edu-25-end",
+      "filename": "edu-25-end.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "text": "Endorsement EQ-B-1 Ed. 01/2024\nSurgical coverage is added with a $8,000 occurrence limit.\nSurgical coverage is added with a $12,000 occurrence limit."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "declarations": {
+      "present": true,
+      "named_insured": "Jordan Rivers",
+      "policy_number": "EQ-EDU-0001"
+    },
+    "coverages": {
+      "Full Mortality": {
+        "status": "POSSIBLE CONFLICT",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-25-base",
+          "page": 1
+        },
+        "acceptable_needs_review": true
+      },
+      "Major Medical": {
+        "status": "POSSIBLE CONFLICT",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-25-dec",
+          "page": 1
+        },
+        "acceptable_needs_review": true
+      },
+      "Surgical": {
+        "status": "POSSIBLE CONFLICT",
+        "limit": null,
+        "citation": {
+          "document_id": "edu-25-end",
+          "page": 1
+        },
+        "acceptable_needs_review": true
+      },
+      "Colic Surgery": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Loss of Use": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Stallion Infertility": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      },
+      "Theft": {
+        "status": "NOT FOUND",
+        "limit": null,
+        "deductible": null,
+        "citation": null
+      }
+    },
+    "limits": [],
+    "exclusions": [],
+    "requirements": [],
+    "conflicts": [
+      {
+        "kind": "limit_conflict",
+        "description_contains": "Mortality",
+        "critical": true
+      },
+      {
+        "kind": "limit_conflict",
+        "description_contains": "Major Medical",
+        "critical": true
+      },
+      {
+        "kind": "limit_conflict",
+        "description_contains": "Surgical",
+        "critical": true
+      }
+    ],
+    "forms": [
+      {
+        "printed_identifier": "EQ-A-1",
+        "status": "PRESENT"
+      },
+      {
+        "printed_identifier": "EQ-B-1",
+        "status": "PRESENT"
+      }
+    ],
+    "completeness": "APPEARS COMPLETE",
+    "citations": {
+      "required": [
+        {
+          "subject": "Full Mortality",
+          "document_id": "edu-25-base",
+          "page": 1
+        },
+        {
+          "subject": "Major Medical",
+          "document_id": "edu-25-dec",
+          "page": 1
+        },
+        {
+          "subject": "Surgical",
+          "document_id": "edu-25-end",
+          "page": 1
+        }
+      ]
+    },
+    "acceptable_needs_review": true,
+    "human_review_required": true,
+    "critical_errors": [
+      "CONFLICT_MISS"
+    ]
+  },
+  "job": {
+    "expected_state": "needs_review",
+    "publishable": true,
+    "mode": "analyze"
+  }
+}
