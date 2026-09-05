@@ -1,0 +1,5 @@
+{
+  "catalog_version": "real-policy-validation-v1",
+  "description": "Controlled real-policy validation catalog. Empty until a rights-cleared specimen is human-reviewed. Never mix these records into quality/fixtures.",
+  "records": []
+}

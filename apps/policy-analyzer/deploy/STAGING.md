@@ -89,6 +89,10 @@ Do not upload private customer policies to the disposable local stack. Use only 
 
 `20260905160000_m3_account_bootstrap.sql` is additive RLS: an account owner can read the account they just created so first-sign-in membership can be written. It does not rewrite Fix #5–#8 history.
 
+## Hosted staging (Milestone 4)
+
+Hosted staging is documented in `deploy/HOSTED.md`. It requires a dedicated non-production Supabase project and must not reuse production secrets. Local loopback password sign-in stays local-only. Do not apply migrations until `scripts/hosted-staging-preflight.ts` accepts the target.
+
 
 ## Web versus worker secrets
 

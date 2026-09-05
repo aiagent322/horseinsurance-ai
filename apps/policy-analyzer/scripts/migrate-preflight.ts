@@ -171,7 +171,8 @@ function main(): void {
   for (const doc of [
     "deploy/STAGING.md",
     "deploy/secrets-checklist.md",
-    "deploy/backup-rollback.md"
+    "deploy/backup-rollback.md",
+    "deploy/HOSTED.md"
   ]) {
     assert.ok(existsSync(path.join(process.cwd(), doc)), doc);
   }

@@ -28,6 +28,10 @@
     "test:quality:self": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-harness-regression.ts",
     "test:quality:harness": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-harness-regression.ts",
     "test:staging": "tsx scripts/staging-integration.ts",
+    "test:hosted-staging": "tsx scripts/hosted-staging-regression.ts",
+    "test:real-policy": "tsx scripts/real-policy-validation.ts",
+    "hosted:preflight": "tsx scripts/hosted-staging-preflight.ts",
+    "hosted:migrate": "tsx scripts/hosted-migrate.ts",
     "test:container": "bash scripts/container-verify.sh",
     "worker": "tsx worker/main.ts",
     "worker:once": "tsx worker/once.ts"

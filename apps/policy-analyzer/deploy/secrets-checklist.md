@@ -17,6 +17,7 @@ Fill these in the hosting platform's protected secret store only. Do not put val
 - [ ] `POLICY_ANALYZER_ALLOW_STAGING_MIGRATIONS` — `YES` only when applying migrations to the allowlisted staging project
 - [ ] `POLICY_ANALYZER_STAGING_PROJECT_REF` / `POLICY_ANALYZER_STAGING_DB_HOSTS` — exact staging project only
 - [ ] Production migration flags unset in staging
+- [ ] Hosted staging uses a dedicated project URL — not production and not `127.0.0.1`
 - [ ] `ENABLE_FIXTURE_ANALYSIS` — `true` only if the educational fixture should enqueue in staging
 
 ## Worker-only

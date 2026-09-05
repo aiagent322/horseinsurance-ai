@@ -2,17 +2,12 @@
 
 import { useState } from "react";
 import { createBrowserSupabase } from "@/lib/auth/browser";
+import { isLocalDisposableAuthUrl } from "@/lib/auth/local-disposable";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function localDisposableSignIn(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  try {
-    const host = new URL(url).hostname;
-    return host === "127.0.0.1" || host === "localhost" || host === "::1";
-  } catch {
-    return false;
-  }
+  return isLocalDisposableAuthUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
 }
 
 export function SignInForm() {
