@@ -151,7 +151,12 @@ async function main() {
   assert.equal(fixture.identification.insured_horse_name?.value, "Lucky Penny", "case 10: horse");
   assert.equal(fixture.coverages.find((c) => c.coverage_type === "Full Mortality")?.coverage_status, "COVERED");
   assert.equal(fixture.coverages.find((c) => c.coverage_type === "Loss of Use")?.coverage_status, "EXCLUDED");
-  assert.ok(fixture.conflicts.length >= 1, "case 10: medical conflict");
+  assert.equal(
+    fixture.coverages.find((c) => c.coverage_type === "Major Medical")?.coverage_status,
+    "COVERED WITH LIMITATIONS",
+    "case 10: later medical endorsement controls"
+  );
+  assert.equal(fixture.conflicts.length, 0, "case 10: superseding endorsement is not an unresolved conflict");
   const med200 = fixture.form_inventory.find((f) => f.printed_identifier === "EQ-MED-200");
   assert.equal(med200?.status, "MISSING", "case 10: list-only form is not PRESENT");
   assert.equal(fixture.completeness.status, "DOCUMENT PACKAGE MAY BE INCOMPLETE");

@@ -43,7 +43,8 @@ async function main() {
 
   const med = report.coverages.find((c) => c.coverage_type === "Major Medical");
   assert.ok(med);
-  assert.ok(med.coverage_status !== "NOT FOUND");
+  assert.equal(med.coverage_status, "COVERED WITH LIMITATIONS");
+  assert.ok(med.coverage_limit?.value.includes("10,000"), "later endorsement controls the medical limit");
 
   const medicalAmounts = report.financial_limits
     .filter((f) => f.label === "Major Medical limit")
@@ -58,11 +59,13 @@ async function main() {
   assert.ok(report.exclusions.length <= 4, "must not duplicate the same exclusion for every line");
   assert.ok(report.exclusions.every((e) => e.source_page > 0 && e.exact_source_excerpt));
 
-  assert.ok(report.conflicts.length >= 1, "15k vs 10k medical must conflict");
-  const conflictText = report.conflicts.map((c) => c.left.value + c.right.value).join(" ");
-  assert.ok(conflictText.includes("15,000") && conflictText.includes("10,000"));
+  assert.equal(report.conflicts.length, 0, "a superseding endorsement resolves the medical limit");
   assert.match(report.identification.carrier_name?.value || "", /great plains/i);
   assert.ok(report.endorsements.length >= 1);
+  assert.ok(
+    report.endorsements.some((e) => /amended to \$10,000/i.test(e.resulting_status)),
+    "endorsement effect records the controlling medical limit"
+  );
 
   const invented = report.coverages.find(
     (c) => c.coverage_type === "Trainer/Instructor Liability" && c.coverage_status === "COVERED"

@@ -178,18 +178,9 @@ export function isIndependentFormEvidence(line: string, printedId: string, pageT
   if (isFormsScheduleHeading(line)) return false;
   if (lineIsInScheduleBlock(pageText, line)) return false;
   if (!lineHasFormId(line, printedId)) return false;
-  const startsWithId = extractFormIdsFromText(line)[0]
-    ? normalizeFormId(extractFormIdsFromText(line)[0].printed) === normalizeFormId(printedId) &&
-      new RegExp(`^\\s*${escapeRe(extractFormIdsFromText(line)[0].printed)}\\b`, "i").test(line)
-    : false;
-  return (
-    /\b(base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\b/i.test(line) ||
-    startsWithId
+  return /\b(base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\b/i.test(
+    line
   );
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function extractEdition(text: string): string | undefined {

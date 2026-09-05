@@ -28,8 +28,16 @@ function materialConflict(report: PolicyRecord): boolean {
   return report.conflicts.length > 0;
 }
 
+function duplicateDocumentIds(documents: DocumentRecord[]): boolean {
+  const ids = documents.map((document) => document.document_id);
+  return new Set(ids).size !== ids.length;
+}
+
 export function decideTerminalState(documents: DocumentRecord[], report: PolicyRecord | null): TerminalDecision {
   if (!documents.length || !hasUsableText(documents) || !report) {
+    return "failed";
+  }
+  if (duplicateDocumentIds(documents)) {
     return "failed";
   }
   if (

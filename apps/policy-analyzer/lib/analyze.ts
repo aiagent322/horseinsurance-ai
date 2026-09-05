@@ -32,25 +32,27 @@ type Hit = {
   page: number;
   text: string;
   line: string;
+  document_id: string;
+  document_index: number;
 };
 
-function pagesOf(docs: DocumentRecord[]): Array<Hit & { document_id: string }> {
-  const collected: Array<Hit & { document_id: string }> = [];
-  for (const doc of docs) {
+function pagesOf(docs: DocumentRecord[]): Hit[] {
+  const collected: Hit[] = [];
+  docs.forEach((doc, document_index) => {
     for (const raw of doc.pages) {
       const p: PageText = hydratePageDiagnostics(raw);
       if (!isReliablePolicyPage(p)) continue;
       for (const line of p.text.split(/\n+/)) {
         const t = line.replace(/\s+/g, " ").trim();
-        if (t) collected.push({ page: p.page, text: p.text, line: t, document_id: doc.document_id });
+        if (t) collected.push({ page: p.page, text: p.text, line: t, document_id: doc.document_id, document_index });
       }
     }
-  }
+  });
   return collected;
 }
 
 function firstMatch(
-  hits: Array<Hit & { document_id: string }>,
+  hits: Hit[],
   re: RegExp
 ): Sourced<string> | undefined {
   for (const h of hits) {
@@ -83,7 +85,7 @@ function escapeRe(s: string): string {
 }
 
 function labeled(
-  hits: Array<Hit & { document_id: string }>,
+  hits: Hit[],
   labels: string[]
 ): Sourced<string> | undefined {
   for (const h of hits) {
@@ -116,7 +118,7 @@ function labeled(
 }
 
 function moneyHits(
-  hits: Array<Hit & { document_id: string }>,
+  hits: Hit[],
   context: RegExp,
   label: string
 ): FinancialLimit[] {
@@ -137,11 +139,11 @@ function moneyHits(
   return found;
 }
 
-function uniquePages(hits: Array<Hit & { document_id: string }>): Array<Hit & { document_id: string }> {
+function uniquePages(hits: Hit[]): Hit[] {
   const seen = new Set<string>();
-  const out: Array<Hit & { document_id: string }> = [];
+  const out: Hit[] = [];
   for (const h of hits) {
-    const key = `${h.document_id}:${h.page}`;
+    const key = `${h.document_index}:${h.document_id}:${h.page}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(h);
@@ -154,11 +156,25 @@ function hasPhrase(text: string, phrases: string[]): boolean {
   return phrases.some((p) => t.includes(p.toLowerCase()));
 }
 
+const ABBREVIATION_END =
+  /\b(?:Ed|Inc|Ltd|No|Mr|Mrs|Ms|Dr|Rev|vs|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.$/i;
+
 function splitClauses(text: string): string[] {
-  return text
-    .split(/(?<=[.!?;])\s+|\n+/)
+  const flattened = text.replace(/-\s*\n\s*/g, "").replace(/\n+/g, " ");
+  const parts = flattened
+    .split(/(?<=[.!?;])\s+/)
     .map((s) => s.replace(/\s+/g, " ").trim())
     .filter((s) => s.length > 0);
+  const out: string[] = [];
+  for (const part of parts) {
+    const prev = out[out.length - 1];
+    if (prev && ABBREVIATION_END.test(prev)) {
+      out[out.length - 1] = `${prev} ${part}`;
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
 }
 
 function coverageMentioned(clause: string, names: string[]): boolean {
@@ -201,8 +217,6 @@ function clauseIsAffirmative(clause: string, names: string[]): boolean {
     /\bis added\b/i.test(clause) ||
     /\bis covered\b/i.test(clause) ||
     /coverage with a limit/i.test(clause) ||
-    /insured value/i.test(clause) ||
-    /limit\s*[:]\s*\$/i.test(clause) ||
     /limit of\s*\$/i.test(clause) ||
     /amended to\s*\$/i.test(clause)
   );
@@ -211,26 +225,35 @@ function clauseIsAffirmative(clause: string, names: string[]): boolean {
 type CoverageEvidence = {
   status: AnalysisStatus;
   document_id: string;
+  document_index: number;
   page: number;
   clause: string;
   pageText: string;
+  contradiction?: { grant: CoverageEvidence; denial: CoverageEvidence };
 };
 
-function classifyCoverageEvidence(
-  hits: Array<Hit & { document_id: string }>,
-  names: string[]
-): CoverageEvidence | null {
+function pageIsEndorsement(text: string): boolean {
+  return /\bthis endorsement\b/i.test(text) || /(?:^|\n)\s*endorsement\b/i.test(text);
+}
+
+function laterEvidence(a: CoverageEvidence, b: CoverageEvidence): boolean {
+  if (a.document_index !== b.document_index) return a.document_index > b.document_index;
+  return a.page > b.page;
+}
+
+function classifyCoverageEvidence(hits: Hit[], names: string[]): CoverageEvidence | null {
   const seen = new Set<string>();
   const units: CoverageEvidence[] = [];
   for (const h of uniquePages(hits)) {
     for (const clause of splitClauses(h.text)) {
       if (!coverageMentioned(clause, names)) continue;
-      const key = `${h.document_id}:${h.page}:${clause.toLowerCase()}`;
+      const key = `${h.document_index}:${h.document_id}:${h.page}:${clause.toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
       units.push({
         status: "NEEDS CLARIFICATION",
         document_id: h.document_id,
+        document_index: h.document_index,
         page: h.page,
         clause,
         pageText: h.text
@@ -253,12 +276,120 @@ function classifyCoverageEvidence(
   }
 
   if (denial && affirmation) {
-    return { ...denial, status: "POSSIBLE CONFLICT" };
+    const endorsementControls = pageIsEndorsement(denial.pageText) && laterEvidence(denial, affirmation);
+    return {
+      ...(endorsementControls ? denial : denial),
+      status: endorsementControls ? "EXCLUDED" : "POSSIBLE CONFLICT",
+      contradiction: { grant: affirmation, denial }
+    };
   }
   if (denial) return denial;
   if (affirmation) return affirmation;
   if (mention) return mention;
   return null;
+}
+
+function uniqueLimitAmounts(items: FinancialLimit[]): FinancialLimit[] {
+  const seen = new Set<string>();
+  const out: FinancialLimit[] = [];
+  for (const item of items) {
+    const key = item.amount.replace(/[^\d.]/g, "");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function sourcedFromLimit(limit: FinancialLimit): Sourced<string> {
+  return {
+    value: limit.amount,
+    source_document_id: limit.source_document_id,
+    source_page: limit.source_page,
+    source_text: limit.source_text,
+    confidence_status: "HIGH"
+  };
+}
+
+function controllingLimit(
+  limits: FinancialLimit[],
+  hits: Hit[],
+  isController: (text: string) => boolean
+): FinancialLimit | undefined {
+  const ranked = limits
+    .map((limit) => {
+      const hit = hits.find((h) => h.document_id === limit.source_document_id && h.page === limit.source_page);
+      return { limit, hit };
+    })
+    .filter((row) => row.hit && isController(row.hit.text));
+  if (!ranked.length) return undefined;
+  ranked.sort((a, b) => {
+    const byDoc = (a.hit?.document_index || 0) - (b.hit?.document_index || 0);
+    if (byDoc !== 0) return byDoc;
+    return a.limit.source_page - b.limit.source_page;
+  });
+  return ranked[ranked.length - 1].limit;
+}
+
+function pageControlsMedical(text: string): boolean {
+  return (
+    /supersedes the medical limit/i.test(text) ||
+    /medical limit is amended/i.test(text) ||
+    /modifies and replaces the major medical limit/i.test(text) ||
+    (/\bthis endorsement supersedes\b/i.test(text) && /medical/i.test(text))
+  );
+}
+
+function pageControlsMortality(text: string): boolean {
+  return /supersedes the (?:mortality |insured value)?limit/i.test(text) || /mortality .{0,24}is amended/i.test(text);
+}
+
+function pageControlsSurgical(text: string): boolean {
+  return /supersedes the surgical limit/i.test(text) || /surgical limit is amended/i.test(text);
+}
+
+function limitConflictRecord(coverageName: string, left: FinancialLimit, right: FinancialLimit): ConflictRecord {
+  return {
+    id: newId(),
+    title: "Potential Policy Conflict",
+    description: `${coverageName} limits differ across uploaded pages. The analyzer does not choose which amount applies.`,
+    left: {
+      label: left.label,
+      value: left.amount,
+      source_page: left.source_page,
+      source_text: left.source_text
+    },
+    right: {
+      label: right.label,
+      value: right.amount,
+      source_page: right.source_page,
+      source_text: right.source_text
+    }
+  };
+}
+
+function coverageContradictionRecord(
+  coverageName: string,
+  grant: CoverageEvidence,
+  denial: CoverageEvidence
+): ConflictRecord {
+  return {
+    id: newId(),
+    title: "Potential Policy Conflict",
+    description: `${coverageName} is granted in one provision and excluded in another.`,
+    left: {
+      label: `${coverageName} grant`,
+      value: grant.clause,
+      source_page: grant.page,
+      source_text: excerpt(grant.pageText, grant.clause)
+    },
+    right: {
+      label: `${coverageName} denial`,
+      value: denial.clause,
+      source_page: denial.page,
+      source_text: excerpt(denial.pageText, denial.clause)
+    }
+  };
 }
 
 export function analyzeDocuments(policyId: string, sessionId: string, documents: DocumentRecord[]): PolicyRecord {
@@ -350,19 +481,47 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     });
   }
 
-  const mortalityLimit =
+  const mortalityLimits = [
+    ...moneyHits(hits, /insured value\s*\/\s*full mortality/i, "Mortality insured value"),
+    ...moneyHits(hits, /mortality insured value/i, "Mortality insured value")
+  ];
+  const labeledMortality =
     labeled(hits, ["Insured Value / Full Mortality", "Insured Value", "mortality insured value"]) ||
     identification.insured_value;
+  if (labeledMortality && !mortalityLimits.some((item) => item.amount === labeledMortality.value)) {
+    mortalityLimits.unshift({
+      id: newId(),
+      label: "Mortality insured value",
+      amount: labeledMortality.value,
+      source_document_id: labeledMortality.source_document_id,
+      source_page: labeledMortality.source_page,
+      source_text: labeledMortality.source_text
+    });
+  }
+  const uniqueMortality = uniqueLimitAmounts(mortalityLimits);
+  const mortalityController = controllingLimit(uniqueMortality, hits, pageControlsMortality);
   const mortalityEv = classifyCoverageEvidence(hits, [
     "full mortality coverage",
     "full mortality",
-    "mortality coverage",
-    "mortality insured value"
+    "mortality coverage"
   ]);
-  const mortalityStatus =
-    mortalityEv?.status === "COVERED" && mortalityLimit
-      ? "COVERED"
-      : mortalityEv?.status || (mortalityLimit ? "COVERED" : "NOT FOUND");
+  let mortalityStatus: AnalysisStatus = mortalityEv?.status || "NOT FOUND";
+  if (
+    mortalityStatus !== "EXCLUDED" &&
+    mortalityStatus !== "POSSIBLE CONFLICT" &&
+    uniqueMortality.length >= 2 &&
+    !mortalityController
+  ) {
+    mortalityStatus = "POSSIBLE CONFLICT";
+  }
+  const mortalityLimit =
+    mortalityStatus === "EXCLUDED" || mortalityStatus === "POSSIBLE CONFLICT"
+      ? undefined
+      : mortalityController
+        ? sourcedFromLimit(mortalityController)
+        : uniqueMortality[0]
+          ? sourcedFromLimit(uniqueMortality[0])
+          : labeledMortality;
   addCoverage(
     "Full Mortality",
     mortalityStatus !== "NOT FOUND",
@@ -375,51 +534,55 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
           : mortalityStatus === "NOT FOUND"
             ? "NOT FOUND IN DOCUMENTS PROVIDED"
             : "Full Mortality is stated in the uploaded documents.",
-      source_document_id: mortalityEv?.document_id,
-      source_page: mortalityEv?.page,
-      source_text: mortalityEv ? excerpt(mortalityEv.pageText, mortalityEv.clause) : ""
+      source_document_id: mortalityController?.source_document_id || mortalityEv?.document_id,
+      source_page: mortalityController?.source_page || mortalityEv?.page,
+      source_text: mortalityController
+        ? mortalityController.source_text
+        : mortalityEv
+          ? excerpt(mortalityEv.pageText, mortalityEv.clause)
+          : ""
     }
   );
-  if (mortalityLimit) {
-    financial_limits.push({
-      id: newId(),
-      label: "Mortality insured value",
-      amount: mortalityLimit.value,
-      source_document_id: mortalityLimit.source_document_id,
-      source_page: mortalityLimit.source_page,
-      source_text: mortalityLimit.source_text
-    });
-  }
+  financial_limits.push(...mortalityLimits);
 
   const medicalLimits = [
     ...moneyHits(hits, /major medical limit/i, "Major Medical limit"),
-    ...moneyHits(hits, /major medical coverage with a limit of/i, "Major Medical limit")
+    ...moneyHits(hits, /major medical coverage with a limit of/i, "Major Medical limit"),
+    ...moneyHits(hits, /medical limit is amended to/i, "Major Medical limit")
   ];
+  const uniqueMedical = uniqueLimitAmounts(medicalLimits);
+  const medicalController = controllingLimit(uniqueMedical, hits, pageControlsMedical);
   const medicalDeductible = labeled(hits, ["Major Medical Deductible", "deductible of"]);
   const reimbursement = firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i);
   const diagnostic = firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i);
   const medicalEv = classifyCoverageEvidence(hits, ["major medical coverage", "major medical"]);
-  const medicalAmended = hasPhrase(allText, ["medical limit is amended", "supersedes the medical limit"]);
-  let medicalStatus: AnalysisStatus =
-    medicalEv?.status || (medicalLimits[0] ? "COVERED" : "NOT FOUND");
-  if (medicalStatus === "COVERED" && (medicalAmended || medicalLimits.length > 0 || reimbursement || diagnostic)) {
-    medicalStatus = medicalAmended ? "COVERED WITH LIMITATIONS" : medicalStatus;
+  const medicalAmended = Boolean(medicalController) || hasPhrase(allText, ["medical limit is amended", "supersedes the medical limit"]);
+  let medicalStatus: AnalysisStatus = medicalEv?.status || "NOT FOUND";
+  if (
+    medicalStatus !== "EXCLUDED" &&
+    medicalStatus !== "POSSIBLE CONFLICT" &&
+    uniqueMedical.length >= 2 &&
+    !medicalController
+  ) {
+    medicalStatus = "POSSIBLE CONFLICT";
+  } else if (medicalStatus === "COVERED" && medicalAmended) {
+    medicalStatus = "COVERED WITH LIMITATIONS";
   }
+  const medicalLimit =
+    medicalStatus === "EXCLUDED" || medicalStatus === "POSSIBLE CONFLICT"
+      ? undefined
+      : medicalController
+        ? sourcedFromLimit(medicalController)
+        : uniqueMedical[0]
+          ? sourcedFromLimit(uniqueMedical[0])
+          : undefined;
   addCoverage("Major Medical", medicalStatus !== "NOT FOUND", medicalStatus, {
-    coverage_limit: medicalLimits[0]
-      ? {
-          value: medicalLimits[0].amount,
-          source_document_id: medicalLimits[0].source_document_id,
-          source_page: medicalLimits[0].source_page,
-          source_text: medicalLimits[0].source_text,
-          confidence_status: "HIGH"
-        }
-      : undefined,
+    coverage_limit: medicalLimit,
     deductible: medicalDeductible,
     reimbursement_percentage: reimbursement,
     sublimit: diagnostic,
-    conditions: medicalAmended
-      ? "An endorsement modifies the medical limit. See Potential Conflicts."
+    conditions: medicalAmended && medicalStatus !== "EXCLUDED" && medicalStatus !== "POSSIBLE CONFLICT"
+      ? "An endorsement modifies the medical limit."
       : undefined,
     description:
       medicalStatus === "EXCLUDED"
@@ -427,9 +590,13 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
         : medicalStatus === "NOT FOUND"
           ? "NOT FOUND IN DOCUMENTS PROVIDED"
           : undefined,
-    source_document_id: medicalEv?.document_id,
-    source_page: medicalEv?.page,
-    source_text: medicalEv ? excerpt(medicalEv.pageText, medicalEv.clause) : undefined
+    source_document_id: medicalController?.source_document_id || medicalEv?.document_id,
+    source_page: medicalController?.source_page || medicalEv?.page,
+    source_text: medicalController
+      ? medicalController.source_text
+      : medicalEv
+        ? excerpt(medicalEv.pageText, medicalEv.clause)
+        : undefined
   });
   financial_limits.push(...medicalLimits);
   if (medicalDeductible) {
@@ -463,11 +630,30 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     });
   }
 
-  const surgical = firstMatch(hits, /surgical coverage is added with a\s+(\$[\d,]+)/i) ||
-    labeled(hits, ["Surgical coverage"]);
+  const surgicalLimits = [
+    ...moneyHits(hits, /surgical coverage is added with a/i, "Surgical occurrence limit"),
+    ...moneyHits(hits, /surgical (?:occurrence )?limit/i, "Surgical occurrence limit")
+  ];
+  const uniqueSurgical = uniqueLimitAmounts(surgicalLimits);
+  const surgicalController = controllingLimit(uniqueSurgical, hits, pageControlsSurgical);
   const surgicalEv = classifyCoverageEvidence(hits, ["surgical coverage", "surgical"]);
-  const surgicalStatus: AnalysisStatus =
-    surgicalEv?.status || (surgical ? "COVERED" : "NOT FOUND");
+  let surgicalStatus: AnalysisStatus = surgicalEv?.status || "NOT FOUND";
+  if (
+    surgicalStatus !== "EXCLUDED" &&
+    surgicalStatus !== "POSSIBLE CONFLICT" &&
+    uniqueSurgical.length >= 2 &&
+    !surgicalController
+  ) {
+    surgicalStatus = "POSSIBLE CONFLICT";
+  }
+  const surgical =
+    surgicalStatus === "EXCLUDED" || surgicalStatus === "POSSIBLE CONFLICT"
+      ? undefined
+      : surgicalController
+        ? sourcedFromLimit(surgicalController)
+        : uniqueSurgical[0]
+          ? sourcedFromLimit(uniqueSurgical[0])
+          : labeled(hits, ["Surgical coverage"]);
   addCoverage("Surgical", surgicalStatus !== "NOT FOUND", surgicalStatus, {
     occurrence_limit: surgical,
     coverage_limit: surgical,
@@ -475,20 +661,15 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       surgicalStatus === "EXCLUDED"
         ? "The uploaded documents state that Surgical coverage is not provided."
         : undefined,
-    source_document_id: surgicalEv?.document_id,
-    source_page: surgicalEv?.page,
-    source_text: surgicalEv ? excerpt(surgicalEv.pageText, surgicalEv.clause) : undefined
+    source_document_id: surgicalController?.source_document_id || surgicalEv?.document_id,
+    source_page: surgicalController?.source_page || surgicalEv?.page,
+    source_text: surgicalController
+      ? surgicalController.source_text
+      : surgicalEv
+        ? excerpt(surgicalEv.pageText, surgicalEv.clause)
+        : undefined
   });
-  if (surgical) {
-    financial_limits.push({
-      id: newId(),
-      label: "Surgical occurrence limit",
-      amount: surgical.value,
-      source_document_id: surgical.source_document_id,
-      source_page: surgical.source_page,
-      source_text: surgical.source_text
-    });
-  }
+  financial_limits.push(...surgicalLimits);
 
   const colicEv = classifyCoverageEvidence(hits, ["colic surgery"]);
   let colicStatus: AnalysisStatus = colicEv?.status || "NOT FOUND";
@@ -611,25 +792,40 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   }
 
   const conflicts: ConflictRecord[] = [];
-  const uniqueMedical = [...new Map(medicalLimits.map((m) => [m.amount, m])).values()];
-  if (uniqueMedical.length >= 2) {
-    conflicts.push({
-      id: newId(),
-      title: "Potential Policy Conflict",
-      description: "Major Medical limits differ across uploaded pages. The analyzer does not choose which amount applies.",
-      left: {
-        label: uniqueMedical[0].label,
-        value: uniqueMedical[0].amount,
-        source_page: uniqueMedical[0].source_page,
-        source_text: uniqueMedical[0].source_text
-      },
-      right: {
-        label: uniqueMedical[1].label,
-        value: uniqueMedical[1].amount,
-        source_page: uniqueMedical[1].source_page,
-        source_text: uniqueMedical[1].source_text
-      }
-    });
+  if (mortalityEv?.contradiction) {
+    conflicts.push(
+      coverageContradictionRecord("Full Mortality", mortalityEv.contradiction.grant, mortalityEv.contradiction.denial)
+    );
+  } else if (uniqueMortality.length >= 2 && !mortalityController && mortalityStatus !== "EXCLUDED") {
+    conflicts.push(limitConflictRecord("Mortality", uniqueMortality[0], uniqueMortality[1]));
+  }
+  if (medicalEv?.contradiction) {
+    conflicts.push(
+      coverageContradictionRecord("Major Medical", medicalEv.contradiction.grant, medicalEv.contradiction.denial)
+    );
+  } else if (uniqueMedical.length >= 2 && !medicalController && medicalStatus !== "EXCLUDED") {
+    conflicts.push(limitConflictRecord("Major Medical", uniqueMedical[0], uniqueMedical[1]));
+  }
+  if (surgicalEv?.contradiction) {
+    conflicts.push(
+      coverageContradictionRecord("Surgical", surgicalEv.contradiction.grant, surgicalEv.contradiction.denial)
+    );
+  } else if (uniqueSurgical.length >= 2 && !surgicalController && surgicalStatus !== "EXCLUDED") {
+    conflicts.push(limitConflictRecord("Surgical", uniqueSurgical[0], uniqueSurgical[1]));
+  }
+  if (theftEv?.contradiction) {
+    conflicts.push(coverageContradictionRecord("Theft", theftEv.contradiction.grant, theftEv.contradiction.denial));
+  }
+  if (louEv?.contradiction) {
+    conflicts.push(coverageContradictionRecord("Loss of Use", louEv.contradiction.grant, louEv.contradiction.denial));
+  }
+  if (stallionEv?.contradiction) {
+    conflicts.push(
+      coverageContradictionRecord("Stallion Infertility", stallionEv.contradiction.grant, stallionEv.contradiction.denial)
+    );
+  }
+  if (colicEv?.contradiction) {
+    conflicts.push(coverageContradictionRecord("Colic Surgery", colicEv.contradiction.grant, colicEv.contradiction.denial));
   }
 
   const datePairs = hits.filter((h) => /effective date|expiration date/i.test(h.line));
@@ -701,6 +897,12 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   }
   if (!identification.policy_number) warnings.push("Policy number was not found.");
   if (!identification.named_insured) warnings.push("Named insured was not found.");
+  const documentIds = documents.map((d) => d.document_id);
+  if (new Set(documentIds).size !== documentIds.length) {
+    warnings.push(
+      "Uploaded documents reuse the same document identifier. The package cannot be treated as complete or published."
+    );
+  }
 
   const allListedPresent =
     scheduleFound &&
@@ -795,8 +997,8 @@ function isDeclarationsPage(text: string): boolean {
 }
 
 function buildFormInventory(
-  hits: Array<Hit & { document_id: string }>,
-  declarationPages: Array<Hit & { document_id: string }>
+  hits: Hit[],
+  declarationPages: Hit[]
 ): PolicyFormRecord[] {
   const listed: PolicyFormRecord[] = [];
   const seen = new Set<string>();
@@ -823,29 +1025,32 @@ function buildFormInventory(
 
   const pages = uniquePages(hits);
   for (const form of listed) {
-    let match:
-      | { document_id: string; page: number; line: string; text: string; edition?: string }
-      | undefined;
+    const candidates: Array<{
+      document_id: string;
+      page: number;
+      line: string;
+      text: string;
+      edition?: string;
+      listing: boolean;
+    }> = [];
     for (const p of pages) {
-      for (const line of splitClauses(p.text).concat(p.text.split(/\n+/).map((s) => s.trim()))) {
-        const t = line.replace(/\s+/g, " ").trim();
+      for (const rawLine of p.text.split(/\n+/)) {
+        const t = rawLine.replace(/\s+/g, " ").trim();
         if (!t) continue;
-        if (!lineHasFormId(t, form.printed_identifier) && !lineHasFormId(p.text, form.printed_identifier)) {
-          continue;
-        }
+        if (!lineHasFormId(t, form.printed_identifier)) continue;
         if (isFormsScheduleHeading(t)) continue;
         if (!isIndependentFormEvidence(t, form.printed_identifier, p.text)) continue;
-        match = {
+        candidates.push({
           document_id: p.document_id,
           page: p.page,
           line: t,
           text: p.text,
-          edition: extractEdition(t) || extractEdition(p.text)
-        };
-        break;
+          edition: extractEdition(t) || extractEdition(p.text),
+          listing: p.document_id === form.listing_document_id && p.page === form.listing_page
+        });
       }
-      if (match) break;
     }
+    const match = candidates.find((c) => !c.listing) || candidates[0];
     if (!match) {
       form.status = "MISSING";
       continue;
