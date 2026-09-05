@@ -73,7 +73,7 @@ bash scripts/local-staging.sh
 node scripts/local-staging-session.mjs
 ```
 
-`local-staging.sh` starts the web process and the dedicated worker with uploads enabled. It sources `/tmp/fix5-live-stack/env` and never prints secrets. `local-staging-session.mjs` writes a loopback login to `/tmp/fix5-live-stack/human-login` (mode 0600). Password sign-in appears only when the public Supabase URL is loopback. Hosted staging continues to use email.
+`local-staging.sh` starts the web process and the dedicated worker with uploads enabled. It sources `/tmp/fix5-live-stack/env` and never prints secrets. `local-staging-session.mjs` writes a loopback login to `/tmp/fix5-live-stack/human-login` (mode 0600). Password sign-in appears only when the public Supabase URL is loopback. Hosted staging continues to use email. The disposable gateway grants CORS only to loopback browser origins so that local sign-in can reach Auth.
 
 Automated coverage:
 

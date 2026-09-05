@@ -470,6 +470,33 @@ function assertCitations(report: PolicyRecord) {
 async function main() {
   const target = loadTarget();
   assertSafety(target);
+  const preflight = await fetch(`${target.url}/auth/v1/token?grant_type=password`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "http://127.0.0.1:43171",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "apikey,authorization,content-type,x-client-info"
+    }
+  });
+  const allowOrigin = preflight.headers.get("access-control-allow-origin");
+  if (preflight.status !== 204 || allowOrigin !== "http://127.0.0.1:43171") {
+    fail(
+      "auth.cors",
+      { status: preflight.status },
+      "Loopback Auth gateway did not grant CORS to the local analyzer origin."
+    );
+  }
+  const remotePreflight = await fetch(`${target.url}/auth/v1/token?grant_type=password`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://evil.example",
+      "Access-Control-Request-Method": "POST"
+    }
+  });
+  if (remotePreflight.headers.get("access-control-allow-origin")) {
+    fail("auth.cors", {}, "Gateway granted CORS to a non-loopback origin.");
+  }
+  originalLog("  ✓ loopback Auth CORS is granted only to local analyzer origins");
   configureWorkerEnv(target);
   const admin = client(target.url, target.serviceRoleKey);
   await admin.from("analyzer_runtime_config").update({ config_value: "100" }).eq("config_key", "uploads_per_account_per_hour");
@@ -523,19 +550,22 @@ async function main() {
     }
 
     let claimedOurs = 0;
+    let workerStatus = "queued";
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const pendingNow = await api(userA.cookie, `/api/policies/${queued.policy_id}/status`);
-      const pendingStatus = (pendingNow.json as { status?: string }).status;
-      if (pendingStatus && pendingStatus !== "queued" && pendingStatus !== "processing") break;
+      workerStatus = (pendingNow.json as { status?: string }).status || workerStatus;
+      if (workerStatus !== "queued" && workerStatus !== "processing") break;
       const once = await new AnalysisWorker({
         store: persistence,
         config: workerCfg(`m3-happy-${randomUUID().slice(0, 8)}`)
       }).runOnce();
       claimedOurs += once.claimed;
-      if (once.claimed === 0) break;
+      if (once.claimed === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
     }
-    if (claimedOurs < 1) {
-      fail("happy.worker", { claimed: claimedOurs }, "Worker did not claim the uploaded job.");
+    if (workerStatus === "queued") {
+      fail("happy.worker", { claimed: claimedOurs }, "No worker claimed the uploaded job.");
     }
 
     const done = await api(userA.cookie, `/api/policies/${queued.policy_id}/status`);

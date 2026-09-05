@@ -2,6 +2,7 @@
 /**
  * Loopback API gateway for the disposable local live-DB stack.
  * Does not log request bodies, tokens, or query strings.
+ * Browser clients on loopback origins may call Auth; other origins get no CORS grant.
  */
 import http from "node:http";
 
@@ -23,12 +24,48 @@ function targetFor(urlPath) {
   return null;
 }
 
+function isLoopbackOrigin(origin) {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function corsHeaders(req) {
+  const origin = req.headers.origin;
+  if (!origin || !isLoopbackOrigin(origin)) return null;
+  const requested = req.headers["access-control-request-headers"];
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
+    "access-control-allow-headers":
+      typeof requested === "string" && requested.trim()
+        ? requested
+        : "authorization,apikey,content-type,x-client-info,x-supabase-api-version,prefer,accept,x-upsert",
+    "access-control-allow-credentials": "true",
+    "access-control-max-age": "600",
+    vary: "Origin"
+  };
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url || "/";
   const pathOnly = url.split("?")[0];
   const mapped = targetFor(pathOnly);
+  const cors = corsHeaders(req);
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors || { vary: "Origin" });
+    res.end();
+    return;
+  }
   if (!mapped) {
     res.statusCode = 404;
+    if (cors) {
+      for (const [key, value] of Object.entries(cors)) res.setHeader(key, value);
+    }
     res.end("not_found");
     return;
   }
@@ -45,12 +82,17 @@ const server = http.createServer((req, res) => {
       headers
     },
     (up) => {
-      res.writeHead(up.statusCode || 502, up.headers);
+      const outgoing = { ...up.headers };
+      if (cors) Object.assign(outgoing, cors);
+      res.writeHead(up.statusCode || 502, outgoing);
       up.pipe(res);
     }
   );
   upstream.on("error", () => {
     if (!res.headersSent) {
+      if (cors) {
+        for (const [key, value] of Object.entries(cors)) res.setHeader(key, value);
+      }
       res.statusCode = 502;
       res.end("upstream_unavailable");
     }
