@@ -87,6 +87,8 @@ npm run test:staging
 
 Do not upload private customer policies to the disposable local stack. Use only synthetic or deliberately selected, rights-cleared educational PDFs.
 
+`20260905160000_m3_account_bootstrap.sql` is additive RLS: an account owner can read the account they just created so first-sign-in membership can be written. It does not rewrite Fix #5–#8 history.
+
 
 ## Web versus worker secrets
 

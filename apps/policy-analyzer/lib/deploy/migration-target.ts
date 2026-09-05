@@ -4,6 +4,7 @@ const ACCEPTED_FIX5_MIGRATION = "20260903150000_durable_analysis_jobs.sql";
 const ACCEPTED_FIX6_MIGRATION = "20260903200000_worker_completion_outcomes.sql";
 export const FIX7_MIGRATION = "20260903220000_fix7_staging_ops.sql";
 export const FIX7_TRUSTED_OPS_MIGRATION = "20260904010000_fix7_trusted_ops_snapshot.sql";
+export const M3_ACCOUNT_BOOTSTRAP_MIGRATION = "20260905160000_m3_account_bootstrap.sql";
 
 export const ANALYZER_MIGRATIONS = [
   "20260705022540_phase_1_persistence_schema.sql",
@@ -12,7 +13,8 @@ export const ANALYZER_MIGRATIONS = [
   ACCEPTED_FIX5_MIGRATION,
   ACCEPTED_FIX6_MIGRATION,
   FIX7_MIGRATION,
-  FIX7_TRUSTED_OPS_MIGRATION
+  FIX7_TRUSTED_OPS_MIGRATION,
+  M3_ACCOUNT_BOOTSTRAP_MIGRATION
 ] as const;
 
 export type MigrationTargetDecision =

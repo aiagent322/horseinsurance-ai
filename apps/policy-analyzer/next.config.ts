@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   serverExternalPackages: ["pdf-parse", "tesseract.js", "tesseract.js-core", "@napi-rs/canvas"],
   async headers() {
     return [

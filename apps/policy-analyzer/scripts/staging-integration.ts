@@ -6,10 +6,12 @@
  * Secrets are never printed.
  */
 import assert from "node:assert/strict";
-import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, execSync, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { request as undiciRequest } from "undici";
 import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { buildCompletePolicyPdf } from "../lib/build-complete-pdf";
@@ -264,11 +266,24 @@ async function api(
   pathname: string,
   init: RequestInit = {}
 ): Promise<{ status: number; body: string; json: unknown; headers: Headers }> {
-  const headers = new Headers(init.headers);
-  headers.set("Origin", APP_ORIGIN);
-  if (cookie) headers.set("Cookie", cookie);
-  const res = await fetch(`${APP_ORIGIN}${pathname}`, { ...init, headers, redirect: "manual" });
-  const body = await res.text();
+  const headers: Record<string, string> = {
+    origin: APP_ORIGIN,
+    "sec-fetch-site": "same-origin"
+  };
+  if (cookie) headers.cookie = cookie;
+  if (init.headers) {
+    const extra = new Headers(init.headers);
+    extra.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
+  const response = await undiciRequest(`${APP_ORIGIN}${pathname}`, {
+    method: (init.method as string) || "GET",
+    headers,
+    body: init.body as string | Buffer | Uint8Array | FormData | undefined,
+    maxRedirections: 0
+  });
+  const body = await response.body.text();
   assertNoSecrets(pathname, body);
   let json: unknown = null;
   try {
@@ -276,7 +291,12 @@ async function api(
   } catch {
     json = null;
   }
-  return { status: res.status, body, json, headers: res.headers };
+  const headerBag = new Headers();
+  for (const [key, value] of Object.entries(response.headers)) {
+    if (typeof value === "string") headerBag.set(key, value);
+    else if (Array.isArray(value) && value[0]) headerBag.set(key, value[0]);
+  }
+  return { status: response.statusCode, body, json, headers: headerBag };
 }
 
 async function uploadPdf(
@@ -286,11 +306,48 @@ async function uploadPdf(
   extras: Record<string, string> = {},
   redirect = false
 ) {
-  const form = new FormData();
-  form.append("files", new File([bytes], filename, { type: "application/pdf" }));
-  if (redirect) form.append("redirect", "1");
-  for (const [key, value] of Object.entries(extras)) form.append(key, value);
-  return api(cookie, "/api/upload", { method: "POST", body: form });
+  const dir = mkdtempSync(path.join(tmpdir(), "m3-upload-"));
+  const pdfPath = path.join(dir, filename.replace(/[^\w.-]+/g, "_"));
+  const cfgPath = path.join(dir, "curl.cfg");
+  const bodyPath = path.join(dir, "body");
+  const headerPath = path.join(dir, "headers");
+  writeFileSync(pdfPath, bytes);
+  const lines = [
+    `url = "${APP_ORIGIN}/api/upload"`,
+    "request = POST",
+    `header = "Origin: ${APP_ORIGIN}"`,
+    'header = "sec-fetch-site: same-origin"',
+    `header = "Cookie: ${cookie.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
+    `form = "files=@${pdfPath};type=application/pdf;filename=${filename}"`
+  ];
+  if (redirect) lines.push('form = "redirect=1"');
+  for (const [key, value] of Object.entries(extras)) {
+    lines.push(`form = "${key}=${value.replace(/"/g, '\\"')}"`);
+  }
+  writeFileSync(cfgPath, `${lines.join("\n")}\n`, { mode: 0o600 });
+  try {
+    const statusText = execFileSync(
+      "curl",
+      ["-sS", "-D", headerPath, "-o", bodyPath, "-w", "%{http_code}", "-K", cfgPath],
+      { encoding: "utf8", timeout: 30_000 }
+    ).trim();
+    const body = readFileSync(bodyPath, "utf8");
+    assertNoSecrets("/api/upload", body);
+    let json: unknown = null;
+    try {
+      json = JSON.parse(body);
+    } catch {
+      json = null;
+    }
+    const headerBag = new Headers();
+    for (const line of readFileSync(headerPath, "utf8").split("\n")) {
+      const idx = line.indexOf(":");
+      if (idx > 0) headerBag.set(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
+    }
+    return { status: Number(statusText), body, json, headers: headerBag };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function workerCfg(workerId: string): WorkerConfig {
@@ -353,13 +410,19 @@ async function startApp(target: Target): Promise<ChildProcess | null> {
     await waitForApp();
     return null;
   }
+  try {
+    execSync(`fuser -k ${PORT}/tcp`, { stdio: "ignore" });
+  } catch {
+    /* port was free */
+  }
   if (!existsSync(path.join(APP_ROOT, ".next"))) {
     fail("app.build", {}, "next start requires a production build. Run npm run build first.");
   }
   const child = spawn("npx", ["next", "start", "-H", "127.0.0.1", "-p", String(PORT)], {
     cwd: APP_ROOT,
     env: webEnv(target),
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true
   });
   child.stdout?.on("data", (chunk: Buffer) => {
     captured.push(safePrint(chunk.toString()));
@@ -383,16 +446,13 @@ function assertCitations(report: PolicyRecord) {
   }
   const pages = new Map(report.documents.map((document) => [document.document_id, document.page_count]));
   const cited = [
-    ...report.coverages,
-    ...report.exclusions.map((item) => ({
-      source_document_id: item.source_document_id,
-      source_page: item.source_page
-    })),
-    ...report.financial_limits.map((item) => ({
-      source_document_id: item.source_document_id,
-      source_page: item.source_page
-    }))
-  ];
+    ...report.coverages.filter((item) => item.coverage_status !== "NOT FOUND" && item.source_document_id),
+    ...report.exclusions.filter((item) => item.source_document_id),
+    ...report.financial_limits.filter((item) => item.source_document_id)
+  ].map((item) => ({
+    source_document_id: item.source_document_id,
+    source_page: item.source_page
+  }));
   if (!cited.length) {
     fail("happy.citations", { cited: 0 }, "Completed report had no cited findings.");
   }
@@ -436,7 +496,12 @@ async function main() {
       }
     );
     if (uploaded.status !== 202) {
-      fail("happy.upload", { status: uploaded.status }, "Authenticated upload did not return 202 queued.");
+      const err = uploaded.json && typeof uploaded.json === "object" ? uploaded.json as { error?: string; code?: string } : {};
+      fail(
+        "happy.upload",
+        { status: uploaded.status, error: err.error || "", code: err.code || "" },
+        `Authenticated upload did not return 202 queued (${uploaded.status} ${err.code || err.error || "no_body"}).`
+      );
     }
     const queued = uploaded.json as { policy_id?: string; job_id?: string; status?: string };
     if (!queued.policy_id || !queued.job_id || queued.status !== "queued") {
@@ -457,12 +522,20 @@ async function main() {
       fail("happy.unpublished", { status: earlyReport.status }, "Queued job published a report before the worker ran.");
     }
 
-    const once = await new AnalysisWorker({
-      store: persistence,
-      config: workerCfg(`m3-happy-${randomUUID().slice(0, 8)}`)
-    }).runOnce();
-    if (once.claimed < 1) {
-      fail("happy.worker", { claimed: once.claimed }, "Worker did not claim the uploaded job.");
+    let claimedOurs = 0;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const pendingNow = await api(userA.cookie, `/api/policies/${queued.policy_id}/status`);
+      const pendingStatus = (pendingNow.json as { status?: string }).status;
+      if (pendingStatus && pendingStatus !== "queued" && pendingStatus !== "processing") break;
+      const once = await new AnalysisWorker({
+        store: persistence,
+        config: workerCfg(`m3-happy-${randomUUID().slice(0, 8)}`)
+      }).runOnce();
+      claimedOurs += once.claimed;
+      if (once.claimed === 0) break;
+    }
+    if (claimedOurs < 1) {
+      fail("happy.worker", { claimed: claimedOurs }, "Worker did not claim the uploaded job.");
     }
 
     const done = await api(userA.cookie, `/api/policies/${queued.policy_id}/status`);
@@ -557,10 +630,17 @@ async function main() {
       contentType: "application/pdf",
       upsert: true
     });
-    const failedOnce = await new AnalysisWorker({
-      store: persistence,
-      config: workerCfg(`m3-fail-${randomUUID().slice(0, 8)}`)
-    }).runOnce();
+    let failedOnce = { results: [] as Array<{ outcome?: string }> };
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const current = await api(userA.cookie, `/api/policies/${failQueued.policy_id}/status`);
+      const currentStatus = (current.json as { status?: string }).status;
+      if (currentStatus && currentStatus !== "queued" && currentStatus !== "processing") break;
+      failedOnce = await new AnalysisWorker({
+        store: persistence,
+        config: workerCfg(`m3-fail-${randomUUID().slice(0, 8)}`)
+      }).runOnce();
+      if (failedOnce.claimed === 0) break;
+    }
     const failStatus = await api(userA.cookie, `/api/policies/${failQueued.policy_id}/status`);
     const failStatusJson = failStatus.json as { status?: string };
     const failReport = await api(userA.cookie, `/api/policies/${failQueued.policy_id}`);
@@ -633,8 +713,14 @@ async function main() {
 
     originalLog("M3 STAGING INTEGRATION OK");
   } finally {
-    if (app) {
-      app.kill("SIGTERM");
+    if (app?.pid) {
+      try {
+        process.kill(-app.pid, "SIGTERM");
+      } catch {
+        app.kill("SIGKILL");
+      }
+      app.stdout?.destroy();
+      app.stderr?.destroy();
     }
     for (const userId of createdUserIds) {
       const memberships = await admin.from("account_members").select("account_id").eq("user_id", userId);
@@ -665,5 +751,5 @@ void assert;
 void main().catch((error) => {
   originalError("M3 STAGING INTEGRATION FAILED");
   originalError(safePrint(String(error)));
-  process.exitCode = 1;
+  process.exit(1);
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -142,9 +143,9 @@ export function JobStatusView({
             {cancelling ? "Cancelling…" : "Cancel analysis"}
           </button>
         ) : (
-          <a href="/" className={cn(buttonVariants({ variant: "outline" }), "mt-4 inline-flex")}>
+          <Link href="/" className={cn(buttonVariants({ variant: "outline" }), "mt-4 inline-flex")}>
             Back to upload
-          </a>
+          </Link>
         )}
       </section>
     </div>
