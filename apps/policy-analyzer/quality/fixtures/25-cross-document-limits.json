@@ -4,7 +4,7 @@
   "scenario": "25. Mortality, medical and surgical limits that differ across documents",
   "corpus_version": "quality-corpus-v1",
   "fixture_version": "1",
-  "notes": "Three dollar figures disagree across documents with no controlling endorsement. The analyzer must not silently pick one amount.",
+  "notes": "Three dollar figures disagree across documents with no controlling endorsement. The analyzer must not silently pick one amount. The Major Medical citation is the granting clause on the base form; the declarations amount is a conflicting limit, not the coverage source.",
   "evaluation_scope": "analysis",
   "document_order": [
     "edu-25-dec",
@@ -63,7 +63,7 @@
         "status": "POSSIBLE CONFLICT",
         "limit": null,
         "citation": {
-          "document_id": "edu-25-dec",
+          "document_id": "edu-25-base",
           "page": 1
         },
         "acceptable_needs_review": true
@@ -142,7 +142,7 @@
         },
         {
           "subject": "Major Medical",
-          "document_id": "edu-25-dec",
+          "document_id": "edu-25-base",
           "page": 1
         },
         {

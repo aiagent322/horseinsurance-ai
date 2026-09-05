@@ -3,7 +3,7 @@
   "title": "Same medical limit stated differently on two pages with no controlling endorsement",
   "scenario": "6. Conflicting limits on different pages",
   "corpus_version": "quality-corpus-v1",
-  "notes": "Neither page states that it supersedes the other. The in-force amount is not resolvable.",
+  "notes": "Neither page states that it supersedes the other. The in-force amount is not resolvable. The Major Medical citation is the granting clause on the base form; the declarations dollar figure is recorded as a conflicting limit, not as the coverage source.",
   "evaluation_scope": "analysis",
   "documents": [
     {
@@ -41,7 +41,7 @@
         "limit": null,
         "citation": {
           "document_id": "edu-06-doc",
-          "page": 1
+          "page": 2
         },
         "acceptable_needs_review": true
       },
@@ -102,7 +102,7 @@
         {
           "subject": "Major Medical",
           "document_id": "edu-06-doc",
-          "page": 1
+          "page": 2
         }
       ]
     },
