@@ -6,7 +6,7 @@
  * Secrets are never printed.
  */
 import assert from "node:assert/strict";
-import { execFileSync, execSync, spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -467,9 +467,99 @@ function assertCitations(report: PolicyRecord) {
   }
 }
 
+function localStagingUrlCheckOutputContains(haystack: string, needle: string): boolean {
+  return needle.length > 0 && haystack.includes(needle);
+}
+
+function runLocalStagingUrlCheck(url: string | null): { status: number; combined: string } {
+  const envPath = LIVE_ENV_FILE;
+  const backup = readFileSync(envPath, "utf8");
+  try {
+    const lines = [
+      url === null ? "LIVE_SUPABASE_URL=" : `LIVE_SUPABASE_URL=${url}`,
+      "LIVE_SUPABASE_ANON_KEY=test-anon",
+      "LIVE_SUPABASE_SERVICE_ROLE_KEY=test-service",
+      ""
+    ];
+    writeFileSync(envPath, lines.join("\n"), { mode: 0o600 });
+    const result = spawnSync("bash", ["scripts/local-staging.sh"], {
+      cwd: APP_ROOT,
+      env: { ...process.env, LOCAL_STAGING_URL_CHECK_ONLY: "1" },
+      encoding: "utf8"
+    });
+    return {
+      status: result.status ?? 1,
+      combined: `${result.stdout || ""}\n${result.stderr || ""}`
+    };
+  } finally {
+    writeFileSync(envPath, backup, { mode: 0o600 });
+  }
+}
+
+function proveLocalStagingUrlGate(): void {
+  const existing = spawnSync("bash", ["scripts/local-staging.sh"], {
+    cwd: APP_ROOT,
+    env: { ...process.env, LOCAL_STAGING_URL_CHECK_ONLY: "1" },
+    encoding: "utf8"
+  });
+  if (existing.status !== 0 || !(existing.stdout || "").includes("LOCAL_STAGING_URL_LOOPBACK_OK")) {
+    fail(
+      "safety.local_staging_url",
+      { status: existing.status ?? 1 },
+      "Existing disposable local staging env was rejected by the loopback URL gate."
+    );
+  }
+  if (SENSITIVE.test(`${existing.stdout || ""}\n${existing.stderr || ""}`)) {
+    fail("security.leak", {}, "local-staging.sh printed a token or service-role marker.");
+  }
+
+  const accepted = [
+    "http://127.0.0.1:54321",
+    "http://localhost:54321",
+    "http://[::1]:54321"
+  ];
+  for (const url of accepted) {
+    const result = runLocalStagingUrlCheck(url);
+    if (result.status !== 0 || !result.combined.includes("LOCAL_STAGING_URL_LOOPBACK_OK")) {
+      fail("safety.local_staging_url", { status: result.status }, "A loopback Auth URL was rejected.");
+    }
+    if (localStagingUrlCheckOutputContains(result.combined, url) || SENSITIVE.test(result.combined)) {
+      fail("security.leak", {}, "local-staging.sh printed a loopback URL or secret.");
+    }
+  }
+
+  const rejected: Array<{ kind: string; url: string | null }> = [
+    { kind: "example", url: "https://example.com" },
+    { kind: "hosted", url: "https://abcdefghijklmnop.supabase.co" },
+    { kind: "malformed", url: "not-a-url" },
+    { kind: "malformed", url: "http://" },
+    { kind: "malformed", url: null },
+    { kind: "userinfo-remote", url: "https://user:leaked-secret@example.com" }
+  ];
+  for (const caseItem of rejected) {
+    const result = runLocalStagingUrlCheck(caseItem.url);
+    if (result.status === 0 || !result.combined.includes("LOCAL_STAGING_URL_NOT_LOOPBACK")) {
+      fail(
+        "safety.local_staging_url",
+        { status: result.status, kind: caseItem.kind },
+        "A non-loopback or malformed Auth URL was accepted."
+      );
+    }
+    if (caseItem.url && localStagingUrlCheckOutputContains(result.combined, caseItem.url)) {
+      fail("security.leak", { kind: caseItem.kind }, "local-staging.sh printed a rejected URL.");
+    }
+    if (result.combined.includes("leaked-secret") || SENSITIVE.test(result.combined)) {
+      fail("security.leak", { kind: caseItem.kind }, "local-staging.sh printed credentials from a rejected URL.");
+    }
+  }
+
+  originalLog("  ✓ local-staging.sh accepts only loopback Auth URLs");
+}
+
 async function main() {
   const target = loadTarget();
   assertSafety(target);
+  proveLocalStagingUrlGate();
   const preflight = await fetch(`${target.url}/auth/v1/token?grant_type=password`, {
     method: "OPTIONS",
     headers: {

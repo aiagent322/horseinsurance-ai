@@ -25,6 +25,34 @@ set -a
 source "$STACK_ENV"
 set +a
 
+# Independent of how the env file was written. Hostname only; never print the URL.
+if ! python3 - <<'PY'
+import os
+import sys
+from urllib.parse import urlparse
+
+raw = os.environ.get("LIVE_SUPABASE_URL", "")
+try:
+    parsed = urlparse(raw)
+except Exception:
+    sys.exit(1)
+if parsed.scheme.lower() not in ("http", "https"):
+    sys.exit(1)
+host = (parsed.hostname or "").lower()
+if host not in {"127.0.0.1", "localhost", "::1"}:
+    sys.exit(1)
+sys.exit(0)
+PY
+then
+  echo "LOCAL_STAGING_URL_NOT_LOOPBACK" >&2
+  exit 1
+fi
+
+if [[ "${LOCAL_STAGING_URL_CHECK_ONLY:-}" == "1" ]]; then
+  echo "LOCAL_STAGING_URL_LOOPBACK_OK"
+  exit 0
+fi
+
 if [[ -z "${LIVE_SUPABASE_URL:-}" || -z "${LIVE_SUPABASE_ANON_KEY:-}" || -z "${LIVE_SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
   echo "LOCAL_STAGING_ENV_INCOMPLETE" >&2
   exit 1
