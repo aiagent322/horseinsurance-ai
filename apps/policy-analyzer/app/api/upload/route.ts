@@ -29,26 +29,43 @@ function userError(code: string): { message: string; status: number; code: strin
   }
 }
 
+function wantsRedirect(form: FormData): boolean {
+  return String(form.get("redirect") || "") === "1";
+}
+
+function redirectTo(req: Request, path: string) {
+  return NextResponse.redirect(new URL(path, req.url), { status: 303, headers: PRIVATE_HEADERS });
+}
+
 export async function POST(req: Request) {
   if (!assertSameOrigin(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: PRIVATE_HEADERS });
   }
+
+  let form: FormData | null = null;
+  try {
+    form = await req.formData();
+  } catch {
+    form = null;
+  }
+  const redirect = form ? wantsRedirect(form) : false;
+
   if (!analyzerUploadsEnabled()) {
+    if (redirect) return redirectTo(req, "/");
     return NextResponse.json(
       { error: "Uploads are not enabled.", code: "uploads_disabled" },
       { status: 503, headers: PRIVATE_HEADERS }
     );
   }
 
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
+  if (!form) {
+    if (redirect) return redirectTo(req, "/?error=choose");
     return NextResponse.json({ error: "Upload a PDF file." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
   const files = await collectUploadFiles(form);
   if (!files.length) {
+    if (redirect) return redirectTo(req, "/?error=choose");
     return NextResponse.json({ error: "Upload at least one PDF." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
@@ -59,6 +76,7 @@ export async function POST(req: Request) {
       submittedPolicyId: String(form.get("policy_id") || form.get("policyId") || ""),
       submittedStoragePath: String(form.get("storage_path") || "")
     });
+    if (redirect) return redirectTo(req, `/analysis/${result.policy_id}`);
     return NextResponse.json(
       {
         policy_id: result.policy_id,
@@ -71,9 +89,11 @@ export async function POST(req: Request) {
     );
   } catch (err) {
     if (err instanceof AuthRequiredError) {
+      if (redirect) return redirectTo(req, "/sign-in");
       return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
     }
     if (err instanceof ConfigurationError) {
+      if (redirect) return redirectTo(req, "/?error=config");
       return NextResponse.json(
         { error: "Analyzer persistence is not configured." },
         { status: 503, headers: PRIVATE_HEADERS }
@@ -93,8 +113,10 @@ export async function POST(req: Request) {
     }
     if (err instanceof UploadRejectedError) {
       const mapped = userError(err.code);
+      if (redirect) return redirectTo(req, `/?error=${mapped.code}`);
       return NextResponse.json({ error: mapped.message }, { status: mapped.status, headers: PRIVATE_HEADERS });
     }
+    if (redirect) return redirectTo(req, "/?error=read");
     return NextResponse.json(
       { error: "Could not read one or more PDFs." },
       { status: 422, headers: PRIVATE_HEADERS }

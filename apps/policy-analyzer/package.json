@@ -27,6 +27,7 @@
     "test:quality": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-evaluation.ts",
     "test:quality:self": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-harness-regression.ts",
     "test:quality:harness": "POLICY_ANALYZER_STORE=memory tsx scripts/quality-harness-regression.ts",
+    "test:staging": "tsx scripts/staging-integration.ts",
     "test:container": "bash scripts/container-verify.sh",
     "worker": "tsx worker/main.ts",
     "worker:once": "tsx worker/once.ts"

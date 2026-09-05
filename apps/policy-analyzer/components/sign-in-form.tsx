@@ -5,12 +5,24 @@ import { createBrowserSupabase } from "@/lib/auth/browser";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+function localDisposableSignIn(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  try {
+    const host = new URL(url).hostname;
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
 export function SignInForm() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const localStack = localDisposableSignIn();
 
   async function sendLink(event: React.FormEvent) {
     event.preventDefault();
@@ -29,6 +41,26 @@ export function SignInForm() {
       }
       setSent(true);
       setMessage("Check your email for a sign-in link or one-time code.");
+    } catch {
+      setError("Authentication is not configured on this server.");
+    }
+  }
+
+  async function signInLocalPassword(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (!localDisposableSignIn()) {
+      setError("Password sign-in is only available on the disposable local stack.");
+      return;
+    }
+    try {
+      const supabase = createBrowserSupabase();
+      const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
+      if (passwordError) {
+        setError("That local sign-in is not valid.");
+        return;
+      }
+      window.location.assign("/");
     } catch {
       setError("Authentication is not configured on this server.");
     }
@@ -93,6 +125,29 @@ export function SignInForm() {
         </form>
       ) : null}
       {error ? <p className="text-sm text-[#b91c1c]">{error}</p> : null}
+      {localStack ? (
+        <form onSubmit={signInLocalPassword} className="space-y-3 border-t border-[#e5e7eb] pt-4">
+          <p className="text-sm text-[#4a5568]">
+            This browser is pointed at a loopback Auth server. Use the disposable local login written by
+            <code className="mx-1 text-xs">scripts/local-staging-session.mjs</code>
+            — hosted staging still uses email.
+          </p>
+          <label className="block text-sm font-medium text-[#0b3c5d]" htmlFor="local-password">
+            Local stack password
+          </label>
+          <input
+            id="local-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-sm"
+            autoComplete="current-password"
+          />
+          <button type="submit" className={cn(buttonVariants({ variant: "outline" }))}>
+            Sign in on the local stack
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -62,6 +62,32 @@ This task does not purchase hosting. An authorized staging deploy needs all of t
 
 Until those exist, keep the image and runbooks and do not open public uploads.
 
+## Local disposable staging (Milestone 3)
+
+The accepted Fix #5–#8 machine can run a real analysis on the loopback stack without a hosted project:
+
+```bash
+cd apps/policy-analyzer
+bash scripts/live-stack-start.sh
+bash scripts/local-staging.sh
+node scripts/local-staging-session.mjs
+```
+
+`local-staging.sh` starts the web process and the dedicated worker with uploads enabled. It sources `/tmp/fix5-live-stack/env` and never prints secrets. `local-staging-session.mjs` writes a loopback login to `/tmp/fix5-live-stack/human-login` (mode 0600). Password sign-in appears only when the public Supabase URL is loopback. Hosted staging continues to use email.
+
+Automated coverage:
+
+```bash
+set -a && source /tmp/fix5-live-stack/env && set +a
+npm run test:db-live
+npm run test:staging
+```
+
+`test:staging` is the Milestone 3 HTTP integration: authenticated upload, durable job, worker claim, cited report retrieval, cross-account denial, fail-closed publication, cancel-cannot-complete, and single-winner leases.
+
+Do not upload private customer policies to the disposable local stack. Use only synthetic or deliberately selected, rights-cleared educational PDFs.
+
+
 ## Web versus worker secrets
 
 Web receives browser-safe public values, the ops token, retention, and the uploads flag. Protected readiness and alerts require a server-only `SUPABASE_SERVICE_ROLE_KEY` (or equivalent ops key) on the web process so they can call `analyzer_ops_snapshot`. That key must never be assigned to `NEXT_PUBLIC_*` variables or shipped to the browser.

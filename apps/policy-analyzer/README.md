@@ -26,6 +26,7 @@ npm run test:worker
 npm run test:quality:self
 npm run test:quality
 npm run test:db-live
+npm run test:staging
 npm run worker:once
 npm run worker
 npm run dev
@@ -57,6 +58,16 @@ The worker uses the Supabase service role only. It will not start in staging or 
 ## Staging
 
 Web and worker are separate processes from one image. See `deploy/STAGING.md`, `deploy/secrets-checklist.md`, and `deploy/backup-rollback.md`. Staging uploads stay disabled until Auth, database, and the private bucket pass readiness. External hosting is not created by this repository.
+
+Local disposable staging (no hosted Supabase project):
+
+```bash
+bash scripts/live-stack-start.sh
+bash scripts/local-staging.sh
+node scripts/local-staging-session.mjs
+```
+
+Then open http://127.0.0.1:43163/ and sign in with the loopback login. `npm run test:staging` is the Milestone 3 HTTP regression against that stack.
 
 ## Package limits
 
