@@ -348,15 +348,15 @@ async function runLive(): Promise<void> {
     const userB = await createUser(target, admin, "B");
     users.push(userA, userB);
 
-    setStage("fixture");
+    setStage("prepare_pdf");
     let pdf: Buffer;
     try {
       pdf = await buildCompletePolicyPdf();
     } catch {
-      fail("happy.fixture", "Could not build the synthetic complete policy PDF.");
+      fail("happy.pdf", "Could not build the synthetic complete policy PDF.");
     }
     if (!pdf.length || pdf.subarray(0, 4).toString() !== "%PDF") {
-      fail("happy.fixture", "Synthetic complete policy PDF was not readable.");
+      fail("happy.pdf", "Synthetic complete policy PDF was not readable.");
     }
 
     setStage("upload");
