@@ -12,6 +12,7 @@ import {
   ANALYZER_MIGRATIONS,
   AUTHORITATIVE_STAGING_MIGRATION_HISTORY,
   MOVE_RLS_HELPERS_MIGRATION,
+  evaluateHostedMigrationHistory,
   parseAnalyzerMigrationFilename
 } from "../lib/deploy/migration-target";
 import { analyzerUploadsEnabled } from "../lib/persistence/config";
@@ -130,6 +131,46 @@ function main(): void {
   const hostedMigrate = readFileSync(path.join(APP_ROOT, "scripts/hosted-migrate.ts"), "utf8");
   assert.match(hostedMigrate, /--single-transaction/);
   assert.match(hostedMigrate, /ON_ERROR_STOP=1/);
+  assert.match(hostedMigrate, /supabase_migrations\.schema_migrations/);
+  assert.match(hostedMigrate, /lookupHistory\(/);
+  assert.match(hostedMigrate, /evaluateHostedMigrationHistory\(/);
+  assert.match(hostedMigrate, /HOSTED_MIGRATE_SKIPPED=/);
+  assert.match(hostedMigrate, /insert into supabase_migrations\.schema_migrations/);
+  const historyLib = readFileSync(path.join(APP_ROOT, "lib/deploy/migration-target.ts"), "utf8");
+  assert.match(historyLib, /HOSTED_MIGRATE_HISTORY_CONFLICT/);
+  assert.match(historyLib, /evaluateHostedMigrationHistory/);
+  assert.match(hostedMigrate, /MOVE_RLS_HELPERS_MIGRATION/);
+  const mainAt = hostedMigrate.indexOf("function main");
+  assert.ok(mainAt >= 0);
+  const lookupAt = hostedMigrate.indexOf("lookupHistory(", mainAt);
+  const applyAt = hostedMigrate.indexOf("applyOne(", mainAt);
+  assert.ok(lookupAt >= 0 && applyAt > lookupAt);
+
+  const sample = "20260906180000_move_rls_helpers_to_private_schema.sql";
+  assert.equal(
+    evaluateHostedMigrationHistory(sample, "20260906180000", "move_rls_helpers_to_private_schema", [
+      { version: "20260906180000", name: "move_rls_helpers_to_private_schema" }
+    ]),
+    "skip"
+  );
+  assert.equal(
+    evaluateHostedMigrationHistory(sample, "20260906180000", "move_rls_helpers_to_private_schema", []),
+    "apply"
+  );
+  assert.throws(
+    () =>
+      evaluateHostedMigrationHistory(sample, "20260906180000", "move_rls_helpers_to_private_schema", [
+        { version: "20260906180000", name: "other_name" }
+      ]),
+    /HOSTED_MIGRATE_HISTORY_CONFLICT/
+  );
+  assert.throws(
+    () =>
+      evaluateHostedMigrationHistory(sample, "20260906180000", "move_rls_helpers_to_private_schema", [
+        { version: "19990101000000", name: "move_rls_helpers_to_private_schema" }
+      ]),
+    /HOSTED_MIGRATE_HISTORY_CONFLICT/
+  );
 
   const helperMove = readFileSync(
     path.resolve(APP_ROOT, "../..", "supabase/migrations", MOVE_RLS_HELPERS_MIGRATION),

@@ -27,6 +27,31 @@ export function parseAnalyzerMigrationFilename(filename: string): { version: str
   return { version: match[1], name: match[2] };
 }
 
+export type HostedMigrationHistoryRow = { version: string; name: string };
+
+export function evaluateHostedMigrationHistory(
+  filename: string,
+  version: string,
+  name: string,
+  rows: HostedMigrationHistoryRow[]
+): "apply" | "skip" {
+  const versionMatch = rows.find((row) => row.version === version);
+  const nameMatch = rows.find((row) => row.name === name);
+  if (versionMatch && versionMatch.name === name && nameMatch && nameMatch.version === version) {
+    return "skip";
+  }
+  if (versionMatch && versionMatch.name !== name) {
+    throw new Error(`HOSTED_MIGRATE_HISTORY_CONFLICT:${filename}`);
+  }
+  if (nameMatch && nameMatch.version !== version) {
+    throw new Error(`HOSTED_MIGRATE_HISTORY_CONFLICT:${filename}`);
+  }
+  if (versionMatch || nameMatch) {
+    throw new Error(`HOSTED_MIGRATE_HISTORY_CONFLICT:${filename}`);
+  }
+  return "apply";
+}
+
 export const ANALYZER_MIGRATIONS = [
   "20260705022540_phase_1_persistence_schema.sql",
   "20260705145522_phase_1_rls_policies.sql",
