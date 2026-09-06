@@ -44,7 +44,8 @@ const EXPECTED_MIGRATIONS = [
   "20260903200000_worker_completion_outcomes.sql",
   "20260903220000_fix7_staging_ops.sql",
   "20260904010000_fix7_trusted_ops_snapshot.sql",
-  "20260905160000_m3_account_bootstrap.sql"
+  "20260905160000_m3_account_bootstrap.sql",
+  "20260906180000_move_rls_helpers_to_private_schema.sql"
 ];
 const WORKER_RPCS = [
   { name: "claim_analysis_jobs", args: { p_worker_id: "probe-worker", p_limit: 1 } },
