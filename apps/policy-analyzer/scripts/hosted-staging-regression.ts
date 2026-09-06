@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isLocalDisposableAuthUrl } from "../lib/auth/local-disposable";
 import { evaluateHostedStagingTarget } from "../lib/deploy/hosted-staging-target";
+import { MOVE_RLS_HELPERS_MIGRATION } from "../lib/deploy/migration-target";
 import { analyzerUploadsEnabled } from "../lib/persistence/config";
 
 const STAGING_REF = "stagingsupabaseproj1";
@@ -124,6 +125,23 @@ function main(): void {
   const hostedMigrate = readFileSync(path.join(APP_ROOT, "scripts/hosted-migrate.ts"), "utf8");
   assert.match(hostedMigrate, /--single-transaction/);
   assert.match(hostedMigrate, /ON_ERROR_STOP=1/);
+
+  const helperMove = readFileSync(
+    path.resolve(APP_ROOT, "../..", "supabase/migrations", MOVE_RLS_HELPERS_MIGRATION),
+    "utf8"
+  );
+  assert.match(helperMove, /create schema if not exists private/);
+  assert.match(helperMove, /alter function public\.app_is_account_member\(uuid\) set schema private/);
+  assert.match(helperMove, /alter function public\.app_has_role\(uuid, text\) set schema private/);
+  assert.match(helperMove, /alter function public\.app_is_staff\(text\) set schema private/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.app_is_account_member/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.app_has_role/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.app_is_staff/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.reserve_analyzer_package/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.finalize_analyzer_package/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.abandon_analyzer_reservation/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.get_own_job_status/);
+  assert.doesNotMatch(helperMove, /create (or replace )?function public\.cancel_own_analysis_job/);
 
   const signIn = readFileSync(path.join(APP_ROOT, "components/sign-in-form.tsx"), "utf8");
   assert.match(signIn, /isLocalDisposableAuthUrl/);
