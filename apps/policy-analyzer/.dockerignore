@@ -11,7 +11,9 @@ data
 .git
 .github
 *.md
-scripts
+scripts/*
+!scripts/hosted-e2e.ts
+!scripts/live-safety.ts
 test-results
 playwright-report
 .vscode
