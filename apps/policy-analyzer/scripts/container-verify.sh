@@ -32,6 +32,32 @@ if [[ -n "$FS_HIT" ]]; then
   exit 1
 fi
 
+echo "==> container-verify: hosted E2E runner is in the runtime image"
+docker run --rm --entrypoint sh "$IMAGE" -c 'test -f /app/scripts/hosted-e2e.ts && test -f /app/scripts/live-safety.ts && test ! -f /app/scripts/hosted-migrate.ts && test ! -f /app/scripts/live-db-regression.ts && test ! -f /app/scripts/retention.ts && test ! -f /app/scripts/jobs.ts'
+
+echo "==> container-verify: npm run test:hosted-e2e reaches the runner when disabled"
+set +e
+HOSTED_E2E_OUT="$(docker run --rm --entrypoint npm \
+  -e POLICY_ANALYZER_HOSTED_E2E= \
+  -e POLICY_ANALYZER_STAGING_APP_URL= \
+  "$IMAGE" \
+  run test:hosted-e2e 2>&1)"
+HOSTED_E2E_CODE=$?
+set -e
+printf '%s\n' "$HOSTED_E2E_OUT"
+if [[ "$HOSTED_E2E_CODE" -ne 0 ]]; then
+  echo "HOSTED_E2E_DISABLED_DID_NOT_EXIT_CLEANLY" >&2
+  exit 1
+fi
+printf '%s\n' "$HOSTED_E2E_OUT" | grep -q "HOSTED_E2E_NOT_CONFIGURED" || {
+  echo "HOSTED_E2E_DISABLED_MISSING_MARKER" >&2
+  exit 1
+}
+if printf '%s\n' "$HOSTED_E2E_OUT" | grep -q "ERR_MODULE_NOT_FOUND"; then
+  echo "HOSTED_E2E_MODULE_NOT_FOUND" >&2
+  exit 1
+fi
+
 WEB_CID="$(docker run -d --user 10001:10001 \
   -e POLICY_ANALYZER_ENV=staging \
   -e POLICY_ANALYZER_PROCESS=web \

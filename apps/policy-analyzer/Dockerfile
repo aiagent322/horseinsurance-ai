@@ -41,6 +41,8 @@ COPY --from=build --chown=analyzer:analyzer /app/components ./components
 COPY --from=build --chown=analyzer:analyzer /app/deploy ./deploy
 COPY --from=build --chown=analyzer:analyzer /app/tessdata ./tessdata
 COPY --from=build --chown=analyzer:analyzer /app/proxy.ts ./proxy.ts
+COPY --from=build --chown=analyzer:analyzer /app/scripts/hosted-e2e.ts ./scripts/hosted-e2e.ts
+COPY --from=build --chown=analyzer:analyzer /app/scripts/live-safety.ts ./scripts/live-safety.ts
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOME=/app \
