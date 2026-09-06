@@ -9,6 +9,7 @@ import type {
   Actor,
   EnqueuePackageInput,
   EnqueuePackageResult,
+  JobStatusName,
   PolicyStore,
   SafeStatusPayload,
   SavePackageInput,
@@ -388,9 +389,38 @@ export class SupabasePolicyStore implements PolicyStore {
 
   async getStatus(actor: Actor | null, policyId: string): Promise<SafeStatusPayload | null> {
     if (!actor) return null;
-    const { data, error } = await this.client.rpc("get_own_job_status", { p_policy_id: policyId });
+    const { data, error } = await this.client
+      .from("analysis_jobs")
+      .select(
+        "analysis_id, status, stage, document_count, documents_processed, page_count, pages_processed, error_code, retryable, updated_at, owner_user_id, account_id"
+      )
+      .eq("policy_id", policyId)
+      .maybeSingle();
     if (error || !data) return null;
-    return data as SafeStatusPayload;
+    if (data.owner_user_id !== actor.userId || data.account_id !== actor.accountId) return null;
+    const status = data.status as JobStatusName;
+    if (
+      status !== "queued" &&
+      status !== "processing" &&
+      status !== "completed" &&
+      status !== "failed" &&
+      status !== "needs_review" &&
+      status !== "cancelled"
+    ) {
+      return null;
+    }
+    return {
+      analysis_id: data.analysis_id,
+      status,
+      stage: String(data.stage || status),
+      document_count: Number(data.document_count || 0),
+      documents_processed: Number(data.documents_processed || 0),
+      page_count: data.page_count == null ? null : Number(data.page_count),
+      pages_processed: Number(data.pages_processed || 0),
+      error_code: data.error_code == null ? null : String(data.error_code),
+      retryable: Boolean(data.retryable),
+      updated_at: typeof data.updated_at === "string" ? data.updated_at : undefined
+    };
   }
 
   async cancelJob(actor: Actor | null, policyId: string): Promise<boolean> {
