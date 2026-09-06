@@ -1,4 +1,4 @@
-export const EXPECTED_SCHEMA_VERSION = "20260904010000";
+export const EXPECTED_SCHEMA_VERSION = "20260906190000";
 
 export type OpsFetchError = "timeout" | "rpc_error" | "malformed" | "unavailable";
 

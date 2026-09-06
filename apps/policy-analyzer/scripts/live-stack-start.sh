@@ -110,7 +110,9 @@ for f in \
   "$ROOT/supabase/migrations/20260903200000_worker_completion_outcomes.sql" \
   "$ROOT/supabase/migrations/20260903220000_fix7_staging_ops.sql" \
   "$ROOT/supabase/migrations/20260904010000_fix7_trusted_ops_snapshot.sql" \
-  "$ROOT/supabase/migrations/20260905160000_m3_account_bootstrap.sql"
+  "$ROOT/supabase/migrations/20260905160000_m3_account_bootstrap.sql" \
+  "$ROOT/supabase/migrations/20260906180000_move_rls_helpers_to_private_schema.sql" \
+  "$ROOT/supabase/migrations/20260906190000_worker_process_heartbeat.sql"
 do
   docker exec -i "$PG_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <"$f" >/dev/null
 done

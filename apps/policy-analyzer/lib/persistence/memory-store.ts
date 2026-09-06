@@ -149,6 +149,7 @@ export class MemoryPolicyStore implements PolicyStore, WorkerPersistence {
   storageUnavailable = false;
   private claimChain: Promise<void> = Promise.resolve();
   private quotaChain: Promise<void> = Promise.resolve();
+  readonly workerHeartbeats = new Map<string, Date>();
   readonly now: () => Date;
 
   constructor(options?: { backend?: MemoryObjectBackend; now?: () => Date }) {
@@ -886,6 +887,18 @@ export class MemoryPolicyStore implements PolicyStore, WorkerPersistence {
       });
     }
     return claimed;
+  }
+
+  async heartbeatWorker(workerId: string): Promise<void> {
+    const id = workerId.trim();
+    if (!id) return;
+    this.workerHeartbeats.set(id, this.now());
+  }
+
+  workerHeartbeatAgeSeconds(workerId: string): number | null {
+    const seen = this.workerHeartbeats.get(workerId);
+    if (!seen) return null;
+    return Math.max(0, Math.floor((this.now().getTime() - seen.getTime()) / 1000));
   }
 
   async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {

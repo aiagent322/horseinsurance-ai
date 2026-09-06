@@ -66,7 +66,7 @@ function verifyDisposableSchema(): void {
     { encoding: "utf8" }
   );
   assert.match(out, /t/);
-  assert.match(out, /20260904010000/);
+  assert.match(out, /20260906190000/);
   assert.match(out, /f/);
 }
 

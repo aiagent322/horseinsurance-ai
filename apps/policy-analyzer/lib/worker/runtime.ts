@@ -125,6 +125,12 @@ export class AnalysisWorker {
     if (this.stopping) {
       return { claimed: 0, results: [], counters: this.counters };
     }
+    try {
+      await this.store.heartbeatWorker(this.config.workerId);
+    } catch (err) {
+      if (err instanceof WorkerRpcError) throw err;
+      throw new WorkerRpcError();
+    }
     const limit = Math.min(this.config.claimLimit, this.config.concurrency);
     let claimed: ClaimedJob[];
     try {

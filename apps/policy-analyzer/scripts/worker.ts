@@ -413,6 +413,29 @@ async function main() {
     assert.equal(/secret-policy-name|EQUINE MEDICAL|Ada Cole/i.test(blob), false);
   });
 
+  await test("idle worker writes a process heartbeat with no queued jobs", async () => {
+    const store = resetMemoryStoreForTests();
+    const worker = new AnalysisWorker({
+      store,
+      config: cfg({ workerId: "w-idle", pollMs: 25, backoffMaxMs: 40 })
+    });
+    const first = await worker.runOnce();
+    assert.equal(first.claimed, 0);
+    const firstAge = store.workerHeartbeatAgeSeconds("w-idle");
+    assert.ok(firstAge !== null);
+    assert.ok(firstAge <= 1);
+
+    const running = worker.runLoop();
+    await new Promise((r) => setTimeout(r, 70));
+    worker.requestStop();
+    await running;
+    const laterAge = store.workerHeartbeatAgeSeconds("w-idle");
+    assert.ok(laterAge !== null);
+    assert.ok(laterAge <= 1);
+    assert.equal(worker.counters.claimed, 0);
+    assert.ok(store.jobs.size === 0);
+  });
+
   await test("SIGTERM stops new claims and exits within the shutdown bound", async () => {
     const store = resetMemoryStoreForTests();
     const pdf = await buildCompletePolicyPdf();

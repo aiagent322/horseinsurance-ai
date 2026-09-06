@@ -12,6 +12,7 @@ import {
   ANALYZER_MIGRATIONS,
   AUTHORITATIVE_STAGING_MIGRATION_HISTORY,
   MOVE_RLS_HELPERS_MIGRATION,
+  WORKER_PROCESS_HEARTBEAT_MIGRATION,
   evaluateHostedMigrationHistory,
   parseAnalyzerMigrationFilename
 } from "../lib/deploy/migration-target";
@@ -203,6 +204,21 @@ function main(): void {
   assert.doesNotMatch(helperMove, /create (or replace )?function public\.get_own_job_status/);
   assert.doesNotMatch(helperMove, /create (or replace )?function public\.cancel_own_analysis_job/);
 
+  const workerHeartbeat = readFileSync(
+    path.resolve(APP_ROOT, "../..", "supabase/migrations", WORKER_PROCESS_HEARTBEAT_MIGRATION),
+    "utf8"
+  );
+  assert.match(workerHeartbeat, /create table if not exists analyzer_worker_heartbeats/);
+  assert.match(workerHeartbeat, /create or replace function heartbeat_analyzer_worker\(p_worker_id text\)/);
+  assert.match(workerHeartbeat, /revoke all on function heartbeat_analyzer_worker\(text\) from anon/);
+  assert.match(workerHeartbeat, /revoke all on function heartbeat_analyzer_worker\(text\) from authenticated/);
+  assert.match(workerHeartbeat, /grant execute on function heartbeat_analyzer_worker\(text\) to service_role/);
+  assert.match(workerHeartbeat, /from analyzer_worker_heartbeats/);
+  assert.doesNotMatch(
+    workerHeartbeat,
+    /last_worker_heartbeat_age_seconds[\s\S]*from analysis_jobs[\s\S]*last_heartbeat/
+  );
+
   assert.equal(AUTHORITATIVE_STAGING_MIGRATION_HISTORY.length, ANALYZER_MIGRATIONS.length);
   for (const [index, filename] of ANALYZER_MIGRATIONS.entries()) {
     const parsed = parseAnalyzerMigrationFilename(filename);
@@ -212,7 +228,7 @@ function main(): void {
   }
   assert.equal(
     AUTHORITATIVE_STAGING_MIGRATION_HISTORY[AUTHORITATIVE_STAGING_MIGRATION_HISTORY.length - 1].name,
-    "move_rls_helpers_to_private_schema"
+    "worker_process_heartbeat"
   );
 
   const signIn = readFileSync(path.join(APP_ROOT, "components/sign-in-form.tsx"), "utf8");

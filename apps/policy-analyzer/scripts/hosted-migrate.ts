@@ -10,6 +10,7 @@ import path from "node:path";
 import {
   ANALYZER_MIGRATIONS,
   MOVE_RLS_HELPERS_MIGRATION,
+  WORKER_PROCESS_HEARTBEAT_MIGRATION,
   evaluateHostedMigrationHistory,
   parseAnalyzerMigrationFilename,
   type HostedMigrationHistoryRow
@@ -76,6 +77,9 @@ function main(): void {
   const databaseUrl = (input.databaseUrl || "").trim();
   if (!ANALYZER_MIGRATIONS.includes(MOVE_RLS_HELPERS_MIGRATION)) {
     throw new Error("HOSTED_MIGRATE_MISSING:20260906180000_move_rls_helpers_to_private_schema.sql");
+  }
+  if (!ANALYZER_MIGRATIONS.includes(WORKER_PROCESS_HEARTBEAT_MIGRATION)) {
+    throw new Error("HOSTED_MIGRATE_MISSING:20260906190000_worker_process_heartbeat.sql");
   }
   if (!apply) {
     console.log("HOSTED_MIGRATE_DRY_RUN");

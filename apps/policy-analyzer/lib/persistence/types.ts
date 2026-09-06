@@ -180,6 +180,7 @@ export function isWorkerProgressStage(value: string): value is WorkerProgressSta
 export interface WorkerPersistence {
   readonly kind: "memory" | "supabase";
   claimJobs(workerId: string, limit: number): Promise<ClaimedJob[]>;
+  heartbeatWorker(workerId: string): Promise<void>;
   heartbeatJob(jobId: string, workerId: string): Promise<boolean>;
   updateJobProgress(
     jobId: string,

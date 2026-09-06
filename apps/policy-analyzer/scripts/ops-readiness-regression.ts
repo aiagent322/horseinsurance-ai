@@ -70,6 +70,18 @@ async function main(): Promise<void> {
   assert.equal(ready.ready, true);
   assert.equal(ready.schema_version_expected, EXPECTED_SCHEMA_VERSION);
 
+  const idleReady = evaluateWebReadiness({
+    snapshot: validSnapshot({
+      queued_count: 0,
+      processing_count: 0,
+      oldest_queued_age_seconds: 0,
+      last_worker_heartbeat_age_seconds: 4
+    }),
+    fetchError: null
+  });
+  assert.equal(idleReady.ready, true);
+  assert.ok(idleReady.checks.some((check) => check.name === "worker_heartbeat" && check.code === "worker_heartbeat_fresh"));
+
   const omitted = evaluateWebReadiness({ snapshot: null, fetchError: "unavailable" });
   assert.equal(omitted.ready, false);
   assert.ok(omitted.checks.every((check) => check.name === "configuration" || check.name === "uploads" || !check.ok));

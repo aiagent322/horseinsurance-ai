@@ -45,7 +45,8 @@ const EXPECTED_MIGRATIONS = [
   "20260903220000_fix7_staging_ops.sql",
   "20260904010000_fix7_trusted_ops_snapshot.sql",
   "20260905160000_m3_account_bootstrap.sql",
-  "20260906180000_move_rls_helpers_to_private_schema.sql"
+  "20260906180000_move_rls_helpers_to_private_schema.sql",
+  "20260906190000_worker_process_heartbeat.sql"
 ];
 const WORKER_RPCS = [
   { name: "claim_analysis_jobs", args: { p_worker_id: "probe-worker", p_limit: 1 } },
@@ -54,7 +55,8 @@ const WORKER_RPCS = [
   { name: "fail_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_error_code: "probe", p_stage: "ocr", p_retryable: false } },
   { name: "complete_analysis_job", args: { p_job_id: "00000000-0000-0000-0000-000000000001", p_worker_id: "probe-worker", p_report: { policy_id: "00000000-0000-0000-0000-000000000001" } } },
   { name: "analyzer_ops_snapshot", args: {} },
-  { name: "analyzer_schema_version", args: {} }
+  { name: "analyzer_schema_version", args: {} },
+  { name: "heartbeat_analyzer_worker", args: { p_worker_id: "probe-worker" } }
 ] as const;
 const AUTH_RPCS = [
   { name: "reserve_analyzer_package", args: { p_file_count: 1 } },
@@ -67,7 +69,8 @@ const PROTECTED_TABLES = [
   "analyzer_runtime_config",
   "account_usage_windows",
   "upload_reservations",
-  "upload_reservation_files"
+  "upload_reservation_files",
+  "analyzer_worker_heartbeats"
 ] as const;
 const DEFAULT_CONFIG: Record<string, string> = {
   uploads_per_account_per_hour: "20",

@@ -6,6 +6,7 @@ export const FIX7_MIGRATION = "20260903220000_fix7_staging_ops.sql";
 export const FIX7_TRUSTED_OPS_MIGRATION = "20260904010000_fix7_trusted_ops_snapshot.sql";
 export const M3_ACCOUNT_BOOTSTRAP_MIGRATION = "20260905160000_m3_account_bootstrap.sql";
 export const MOVE_RLS_HELPERS_MIGRATION = "20260906180000_move_rls_helpers_to_private_schema.sql";
+export const WORKER_PROCESS_HEARTBEAT_MIGRATION = "20260906190000_worker_process_heartbeat.sql";
 
 export const AUTHORITATIVE_STAGING_MIGRATION_HISTORY = [
   { version: "20260705022540", name: "phase_1_persistence_schema" },
@@ -16,7 +17,8 @@ export const AUTHORITATIVE_STAGING_MIGRATION_HISTORY = [
   { version: "20260903220000", name: "fix7_staging_ops" },
   { version: "20260904010000", name: "fix7_trusted_ops_snapshot" },
   { version: "20260905160000", name: "m3_account_bootstrap" },
-  { version: "20260906180000", name: "move_rls_helpers_to_private_schema" }
+  { version: "20260906180000", name: "move_rls_helpers_to_private_schema" },
+  { version: "20260906190000", name: "worker_process_heartbeat" }
 ] as const;
 
 export function parseAnalyzerMigrationFilename(filename: string): { version: string; name: string } {
@@ -61,7 +63,8 @@ export const ANALYZER_MIGRATIONS = [
   FIX7_MIGRATION,
   FIX7_TRUSTED_OPS_MIGRATION,
   M3_ACCOUNT_BOOTSTRAP_MIGRATION,
-  MOVE_RLS_HELPERS_MIGRATION
+  MOVE_RLS_HELPERS_MIGRATION,
+  WORKER_PROCESS_HEARTBEAT_MIGRATION
 ] as const;
 
 export type MigrationTargetDecision =

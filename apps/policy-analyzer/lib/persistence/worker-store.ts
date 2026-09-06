@@ -49,6 +49,13 @@ export class SupabaseWorkerStore implements WorkerPersistence {
     return inspected.jobs;
   }
 
+  async heartbeatWorker(workerId: string): Promise<void> {
+    const { error } = await this.client.rpc("heartbeat_analyzer_worker", {
+      p_worker_id: workerId
+    });
+    if (rpcFailed(error)) throw new WorkerRpcError();
+  }
+
   async heartbeatJob(jobId: string, workerId: string): Promise<boolean> {
     const { data, error } = await this.client.rpc("heartbeat_analysis_job", {
       p_job_id: jobId,

@@ -215,7 +215,8 @@ function main() {
   const protectedTables = [
     "analysis_jobs",
     "account_usage_windows",
-    "analyzer_runtime_config"
+    "analyzer_runtime_config",
+    "analyzer_worker_heartbeats"
   ];
 
   for (const table of protectedTables) {
@@ -249,7 +250,7 @@ function main() {
   assert.equal(/create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+update/i.test(sql), false, "No UPDATE RLS policy on analysis_jobs");
   assert.equal(/create\s+policy\s+\S+\s+on\s+analysis_jobs\s+for\s+delete/i.test(sql), false, "No DELETE RLS policy on analysis_jobs");
 
-  for (const table of ["account_usage_windows", "analyzer_runtime_config"]) {
+  for (const table of ["account_usage_windows", "analyzer_runtime_config", "analyzer_worker_heartbeats"]) {
     const anyPolicy = new RegExp(`create\\s+policy\\s+\\S+\\s+on\\s+${table}`, "i");
     assert.equal(anyPolicy.test(sql), false, `No RLS policy at all on ${table}`);
   }
@@ -279,7 +280,8 @@ function main() {
     { name: "fail_analysis_job", args: "uuid, text, text, text, boolean" },
     { name: "complete_analysis_job", args: "uuid, text, jsonb" },
     { name: "analyzer_ops_snapshot", args: "" },
-    { name: "analyzer_schema_version", args: "" }
+    { name: "analyzer_schema_version", args: "" },
+    { name: "heartbeat_analyzer_worker", args: "text" }
   ];
 
   for (const fn of workerFunctions) {
@@ -537,6 +539,15 @@ function main() {
     assert.ok(/auth\.uid\(\)\s+is\s+not\s+null/i.test(body), `${fn.name} keeps auth.uid() IS NULL as defense in depth`);
     assert.ok(/service_role_required/i.test(body), `${fn.name} raises service_role_required`);
   }
+
+  const snapshotBody = extractFunctionBody(sql, "analyzer_ops_snapshot");
+  assert.ok(/analyzer_worker_heartbeats/i.test(snapshotBody), "ops snapshot reads worker-process heartbeats");
+  assert.ok(/last_seen_at/i.test(snapshotBody), "ops snapshot uses last_seen_at from worker heartbeats");
+  assert.equal(
+    /from analysis_jobs[\s\S]{0,80}last_heartbeat/i.test(snapshotBody),
+    false,
+    "ops snapshot must not derive worker liveness from analysis_jobs.last_heartbeat"
+  );
 
   assert.ok(/reservation_expired/i.test(finalizeBody), "finalize rejects expired reservations");
   assert.ok(/reservation_already_used/i.test(finalizeBody), "finalize rejects already-used reservations");
