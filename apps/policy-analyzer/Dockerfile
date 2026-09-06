@@ -24,7 +24,7 @@ LABEL org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.title="horseinsurance-policy-analyzer" \
       org.opencontainers.image.description="Protected analyzer web process and dedicated worker"
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends tini ca-certificates \
+  && apt-get install -y --no-install-recommends tini ca-certificates curl \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system --gid 10001 analyzer \
   && useradd --system --uid 10001 --gid analyzer --home-dir /app --shell /usr/sbin/nologin analyzer \

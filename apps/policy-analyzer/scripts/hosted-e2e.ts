@@ -39,12 +39,19 @@ console.error = (...args: unknown[]) => {
 
 class HostedE2EFailure extends Error {
   constructor(
+    readonly stage: string,
     readonly invariant: string,
     readonly likelyCause: string
   ) {
     super(`${invariant}: ${likelyCause}`);
     this.name = "HostedE2EFailure";
   }
+}
+
+let currentStage = "setup";
+
+function setStage(stage: string): void {
+  currentStage = stage;
 }
 
 function safePrint(value: unknown): string {
@@ -56,7 +63,7 @@ function safePrint(value: unknown): string {
 }
 
 function fail(invariant: string, cause: string): never {
-  throw new HostedE2EFailure(invariant, cause);
+  throw new HostedE2EFailure(currentStage, invariant, cause);
 }
 
 function assertNoSecrets(label: string, body: string): void {
@@ -123,19 +130,33 @@ async function cookieHeader(target: Target, session: Session): Promise<string> {
     refresh_token: session.refresh_token
   });
   if (error || jar.size === 0) {
-    fail("setup.users", "Could not materialize Auth cookies for the HTTP client.");
+    fail("setup.session", "Could not materialize Auth cookies for the HTTP client.");
   }
   return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join("; ");
 }
 
 async function createUser(target: Target, admin: SupabaseClient, label: "A" | "B"): Promise<UserSession> {
+  const createStage = label === "A" ? "create_user_a" : "create_user_b";
+  const signinStage = label === "A" ? "signin_user_a" : "signin_user_b";
   const email = `hosted-e2e-${randomUUID()}-${label.toLowerCase()}@example.test`;
   const password = randomBytes(24).toString("base64url") + `${label}a1`;
-  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  setStage(createStage);
+  let created;
+  try {
+    created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  } catch {
+    fail("setup.users", "Could not create an isolated hosted staging user.");
+  }
   if (created.error || !created.data.user) {
     fail("setup.users", "Could not create an isolated hosted staging user.");
   }
-  const signed = await client(target.url, target.anonKey).auth.signInWithPassword({ email, password });
+  setStage(signinStage);
+  let signed;
+  try {
+    signed = await client(target.url, target.anonKey).auth.signInWithPassword({ email, password });
+  } catch {
+    fail("setup.users", "Could not authenticate an isolated hosted staging user.");
+  }
   if (signed.error || !signed.data.session) {
     fail("setup.users", "Could not authenticate an isolated hosted staging user.");
   }
@@ -194,11 +215,20 @@ async function uploadPdf(target: Target, cookie: string, filename: string, bytes
     { mode: 0o600 }
   );
   try {
-    const statusText = execFileSync(
-      "curl",
-      ["-sS", "-o", bodyPath, "-w", "%{http_code}", "-K", cfgPath],
-      { encoding: "utf8", timeout: 60_000 }
-    ).trim();
+    let statusText: string;
+    try {
+      statusText = execFileSync(
+        "curl",
+        ["-sS", "-o", bodyPath, "-w", "%{http_code}", "-K", cfgPath],
+        { encoding: "utf8", timeout: 60_000 }
+      ).trim();
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code === "ENOENT") {
+        fail("happy.upload", "Upload client is not available in the runtime image.");
+      }
+      fail("happy.upload", "Authenticated upload could not be sent.");
+    }
     const body = readFileSync(bodyPath, "utf8");
     assertNoSecrets("/api/upload", body);
     let json: unknown = null;
@@ -236,6 +266,7 @@ function assertCitations(report: PolicyRecord): number {
 }
 
 async function assertReadiness(target: Target): Promise<void> {
+  setStage("readiness");
   const token = (process.env.POLICY_ANALYZER_OPS_TOKEN || "").trim();
   if (!token) fail("readiness", "POLICY_ANALYZER_OPS_TOKEN is required for hosted readiness.");
   const response = await undiciRequest(`${target.appOrigin}/api/ops/ready`, {
@@ -254,6 +285,7 @@ async function assertReadiness(target: Target): Promise<void> {
     fail("readiness", "Hosted readiness is not healthy.");
   }
   if (json.uploads_enabled !== true) {
+    setStage("uploads");
     fail("uploads", "Hosted staging uploads are disabled.");
   }
 }
@@ -316,7 +348,18 @@ async function runLive(): Promise<void> {
     const userB = await createUser(target, admin, "B");
     users.push(userA, userB);
 
-    const pdf = await buildCompletePolicyPdf();
+    setStage("fixture");
+    let pdf: Buffer;
+    try {
+      pdf = await buildCompletePolicyPdf();
+    } catch {
+      fail("happy.fixture", "Could not build the synthetic complete policy PDF.");
+    }
+    if (!pdf.length || pdf.subarray(0, 4).toString() !== "%PDF") {
+      fail("happy.fixture", "Synthetic complete policy PDF was not readable.");
+    }
+
+    setStage("upload");
     const uploaded = await uploadPdf(target, userA.cookie, "hosted-e2e-complete.pdf", pdf);
     if (uploaded.status !== 202) {
       fail("happy.upload", `Authenticated upload did not return 202 queued (${uploaded.status}).`);
@@ -329,6 +372,7 @@ async function runLive(): Promise<void> {
     userA.accountId = await resolveAccountId(admin, userA.userId);
     userB.accountId = await resolveAccountId(admin, userB.userId);
 
+    setStage("progress");
     const seen = new Set<string>(["queued"]);
     let last = "queued";
     const deadline = Date.now() + 180_000;
@@ -352,6 +396,7 @@ async function runLive(): Promise<void> {
       fail("happy.progress", "Job never left queued.");
     }
 
+    setStage("report");
     const reportRes = await api(target, userA.cookie, `/api/policies/${queued.policy_id}`);
     if (reportRes.status !== 200 || !reportRes.json || typeof reportRes.json !== "object") {
       fail("happy.report", "Owner could not retrieve the published report.");
@@ -362,6 +407,7 @@ async function runLive(): Promise<void> {
     }
     const citationCount = assertCitations(report);
 
+    setStage("isolation");
     const crossStatus = await api(target, userB.cookie, `/api/policies/${queued.policy_id}/status`);
     const crossReport = await api(target, userB.cookie, `/api/policies/${queued.policy_id}`);
     const crossOriginal = await api(target, userB.cookie, `/api/policies/${queued.policy_id}/original`);
@@ -383,6 +429,7 @@ async function runLive(): Promise<void> {
     originalLog("isolation=PASS");
   } finally {
     try {
+      setStage("cleanup");
       await cleanup(admin, users);
       originalLog("cleanup=PASS");
     } catch (error) {
@@ -400,7 +447,9 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  const message = error instanceof Error ? error.message : "HOSTED_E2E_FAILED";
+  const stage = error instanceof HostedE2EFailure ? error.stage : currentStage;
+  originalError(`stage=${safePrint(stage)}`);
+  const message = error instanceof HostedE2EFailure ? error.message : "HOSTED_E2E_FAILED";
   originalError(safePrint(message.includes(":") ? message : "HOSTED_E2E_FAILED"));
   originalError("HOSTED E2E: FAIL");
   process.exitCode = 1;

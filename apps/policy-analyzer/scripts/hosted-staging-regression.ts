@@ -286,6 +286,10 @@ function main(): void {
   assert.match(hostedE2E, /HOSTED_E2E_NOT_CONFIGURED/);
   assert.match(hostedE2E, /buildCompletePolicyPdf/);
   assert.match(hostedE2E, /\/api\/upload/);
+  assert.match(hostedE2E, /stage=fixture|setStage\("fixture"\)/);
+  assert.match(hostedE2E, /create_user_a/);
+  assert.match(hostedE2E, /signin_user_a/);
+  assert.match(hostedE2E, /setStage\("upload"\)/);
   assert.match(hostedE2E, /User B enumerated/);
   assert.doesNotMatch(hostedE2E, /new AnalysisWorker/);
   assert.doesNotMatch(hostedE2E, /runWorkerOnce/);
