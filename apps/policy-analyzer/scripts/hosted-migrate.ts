@@ -15,7 +15,7 @@ function applyOne(databaseUrl: string, file: string): void {
   if (!existsSync("/usr/bin/psql") && !existsSync("/usr/local/bin/psql")) {
     throw new Error("HOSTED_MIGRATE_PSQL_MISSING");
   }
-  execFileSync("psql", [databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", file], {
+  execFileSync("psql", [databaseUrl, "--single-transaction", "-v", "ON_ERROR_STOP=1", "-f", file], {
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8"
   });

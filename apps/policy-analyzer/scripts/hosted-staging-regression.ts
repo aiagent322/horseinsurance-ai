@@ -121,6 +121,10 @@ function main(): void {
   assert.equal(isLocalDisposableAuthUrl("https://example.com"), false);
   assert.equal(isLocalDisposableAuthUrl("not-a-url"), false);
 
+  const hostedMigrate = readFileSync(path.join(APP_ROOT, "scripts/hosted-migrate.ts"), "utf8");
+  assert.match(hostedMigrate, /--single-transaction/);
+  assert.match(hostedMigrate, /ON_ERROR_STOP=1/);
+
   const signIn = readFileSync(path.join(APP_ROOT, "components/sign-in-form.tsx"), "utf8");
   assert.match(signIn, /isLocalDisposableAuthUrl/);
   assert.doesNotMatch(signIn, /window\.location\.hostname/);
