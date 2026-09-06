@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 
-const role = (process.argv[2] || process.env.POLICY_ANALYZER_PROCESS || "web").trim();
+const role = (process.env.POLICY_ANALYZER_PROCESS || process.argv[2] || "web").trim();
 const shutdownMs = Number(process.env.POLICY_ANALYZER_WORKER_SHUTDOWN_MS || 20_000);
 
 function fail(message) {

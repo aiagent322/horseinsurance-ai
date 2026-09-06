@@ -128,6 +128,20 @@ function main(): void {
   assert.equal(isLocalDisposableAuthUrl("https://example.com"), false);
   assert.equal(isLocalDisposableAuthUrl("not-a-url"), false);
 
+  const entrypoint = readFileSync(path.join(APP_ROOT, "deploy/entrypoint.mjs"), "utf8");
+  assert.match(
+    entrypoint,
+    /process\.env\.POLICY_ANALYZER_PROCESS \|\| process\.argv\[2\] \|\| "web"/
+  );
+  assert.doesNotMatch(
+    entrypoint,
+    /process\.argv\[2\] \|\| process\.env\.POLICY_ANALYZER_PROCESS \|\| "web"/
+  );
+  function resolveEntrypointRole(envProcess: string | undefined, argvRole: string | undefined): string {
+    return (envProcess || argvRole || "web").trim();
+  }
+  assert.equal(resolveEntrypointRole("worker", "web"), "worker");
+
   const hostedMigrate = readFileSync(path.join(APP_ROOT, "scripts/hosted-migrate.ts"), "utf8");
   assert.match(hostedMigrate, /--single-transaction/);
   assert.match(hostedMigrate, /ON_ERROR_STOP=1/);
