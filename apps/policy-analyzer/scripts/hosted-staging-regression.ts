@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isLocalDisposableAuthUrl } from "../lib/auth/local-disposable";
+import { evaluateHostedE2ETarget } from "../lib/deploy/hosted-e2e-target";
 import { evaluateHostedStagingTarget } from "../lib/deploy/hosted-staging-target";
 import {
   ANALYZER_MIGRATIONS,
@@ -246,6 +247,51 @@ function main(): void {
       assert.equal(analyzerUploadsEnabled(), false);
     }
   );
+
+  const e2eAuthorized = {
+    hostedE2E: true,
+    appUrl: "https://analyzer-staging.example",
+    supabaseUrl: `https://${STAGING_REF}.supabase.co`,
+    deployTier: "staging",
+    stagingProjectRefs: [STAGING_REF],
+    productionProjectRefs: [PRODUCTION_REF]
+  };
+  const e2eAccepted = evaluateHostedE2ETarget(e2eAuthorized);
+  assert.equal(e2eAccepted.allowed, true);
+  assert.equal(e2eAccepted.allowed && e2eAccepted.reason, "authorized_hosted_e2e");
+  assert.equal(e2eAccepted.allowed && e2eAccepted.appHost, "analyzer-staging.example");
+  assert.ok(!JSON.stringify(e2eAccepted).includes("leaked-secret"));
+
+  assert.equal(evaluateHostedE2ETarget({ ...e2eAuthorized, hostedE2E: false }).reason, "not_requested");
+  assert.equal(
+    evaluateHostedE2ETarget({ ...e2eAuthorized, appUrl: "http://127.0.0.1:43147" }).reason,
+    "disposable_refused"
+  );
+  assert.equal(
+    evaluateHostedE2ETarget({ ...e2eAuthorized, supabaseUrl: "http://127.0.0.1:54321" }).reason,
+    "disposable_refused"
+  );
+  assert.equal(
+    evaluateHostedE2ETarget({ ...e2eAuthorized, supabaseUrl: "https://abcdefghijklmnopxx.supabase.co" }).reason,
+    "remote_refused"
+  );
+  assert.equal(
+    evaluateHostedE2ETarget({ ...e2eAuthorized, supabaseUrl: `https://${PRODUCTION_REF}.supabase.co` }).reason,
+    "production_refused"
+  );
+  assert.equal(evaluateHostedE2ETarget({ ...e2eAuthorized, appUrl: undefined }).reason, "missing_app");
+
+  const hostedE2E = readFileSync(path.join(APP_ROOT, "scripts/hosted-e2e.ts"), "utf8");
+  assert.match(hostedE2E, /evaluateHostedE2ETarget/);
+  assert.match(hostedE2E, /HOSTED_E2E_NOT_CONFIGURED/);
+  assert.match(hostedE2E, /buildCompletePolicyPdf/);
+  assert.match(hostedE2E, /\/api\/upload/);
+  assert.match(hostedE2E, /User B enumerated/);
+  assert.doesNotMatch(hostedE2E, /new AnalysisWorker/);
+  assert.doesNotMatch(hostedE2E, /runWorkerOnce/);
+  const stagingIntegration = readFileSync(path.join(APP_ROOT, "scripts/staging-integration.ts"), "utf8");
+  assert.match(stagingIntegration, /Remote Supabase URLs are rejected/);
+  assert.match(stagingIntegration, /disposable loopback stack only/);
 
   const liveRequested = process.env.POLICY_ANALYZER_HOSTED_STAGING_LIVE === "YES";
   if (liveRequested) {

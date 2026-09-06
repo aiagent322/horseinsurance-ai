@@ -28,6 +28,7 @@ npm run test:quality
 npm run test:db-live
 npm run test:staging
 npm run test:hosted-staging
+npm run test:hosted-e2e
 npm run test:real-policy
 npm run worker:once
 npm run worker
