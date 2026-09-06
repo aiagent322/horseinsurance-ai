@@ -69,16 +69,18 @@ PREUPLOAD_OUT="$(docker run --rm --user 10001:10001 \
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildCompletePolicyPdf } from "./lib/build-complete-pdf.ts";
-const pdf = await buildCompletePolicyPdf();
-if (!Buffer.isBuffer(pdf) || pdf.length < 64 || pdf.subarray(0, 4).toString() !== "%PDF") {
-  process.exit(2);
-}
-const out = path.join(tmpdir(), "hosted-e2e-preupload.pdf");
-writeFileSync(out, pdf);
-const roundTrip = readFileSync(out);
-unlinkSync(out);
-if (roundTrip.subarray(0, 4).toString() !== "%PDF") process.exit(3);
-console.log("HOSTED_E2E_PREUPLOAD_INPUT_OK");')"
+void (async () => {
+  const pdf = await buildCompletePolicyPdf();
+  if (!Buffer.isBuffer(pdf) || pdf.length < 64 || pdf.subarray(0, 4).toString() !== "%PDF") {
+    process.exit(2);
+  }
+  const out = path.join(tmpdir(), "hosted-e2e-preupload.pdf");
+  writeFileSync(out, pdf);
+  const roundTrip = readFileSync(out);
+  unlinkSync(out);
+  if (roundTrip.subarray(0, 4).toString() !== "%PDF") process.exit(3);
+  console.log("HOSTED_E2E_PREUPLOAD_INPUT_OK");
+})();')"
 printf '%s\n' "$PREUPLOAD_OUT"
 printf '%s\n' "$PREUPLOAD_OUT" | grep -q "HOSTED_E2E_PREUPLOAD_INPUT_OK" || {
   echo "HOSTED_E2E_PREUPLOAD_INPUT_MISSING" >&2
