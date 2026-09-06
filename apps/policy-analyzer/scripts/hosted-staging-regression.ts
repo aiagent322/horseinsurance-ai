@@ -8,7 +8,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isLocalDisposableAuthUrl } from "../lib/auth/local-disposable";
 import { evaluateHostedStagingTarget } from "../lib/deploy/hosted-staging-target";
-import { MOVE_RLS_HELPERS_MIGRATION } from "../lib/deploy/migration-target";
+import {
+  ANALYZER_MIGRATIONS,
+  AUTHORITATIVE_STAGING_MIGRATION_HISTORY,
+  MOVE_RLS_HELPERS_MIGRATION,
+  parseAnalyzerMigrationFilename
+} from "../lib/deploy/migration-target";
 import { analyzerUploadsEnabled } from "../lib/persistence/config";
 
 const STAGING_REF = "stagingsupabaseproj1";
@@ -142,6 +147,18 @@ function main(): void {
   assert.doesNotMatch(helperMove, /create (or replace )?function public\.abandon_analyzer_reservation/);
   assert.doesNotMatch(helperMove, /create (or replace )?function public\.get_own_job_status/);
   assert.doesNotMatch(helperMove, /create (or replace )?function public\.cancel_own_analysis_job/);
+
+  assert.equal(AUTHORITATIVE_STAGING_MIGRATION_HISTORY.length, ANALYZER_MIGRATIONS.length);
+  for (const [index, filename] of ANALYZER_MIGRATIONS.entries()) {
+    const parsed = parseAnalyzerMigrationFilename(filename);
+    const expected = AUTHORITATIVE_STAGING_MIGRATION_HISTORY[index];
+    assert.equal(parsed.version, expected.version, filename);
+    assert.equal(parsed.name, expected.name, filename);
+  }
+  assert.equal(
+    AUTHORITATIVE_STAGING_MIGRATION_HISTORY[AUTHORITATIVE_STAGING_MIGRATION_HISTORY.length - 1].name,
+    "move_rls_helpers_to_private_schema"
+  );
 
   const signIn = readFileSync(path.join(APP_ROOT, "components/sign-in-form.tsx"), "utf8");
   assert.match(signIn, /isLocalDisposableAuthUrl/);

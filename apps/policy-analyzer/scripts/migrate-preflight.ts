@@ -5,6 +5,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   ANALYZER_MIGRATIONS,
+  AUTHORITATIVE_STAGING_MIGRATION_HISTORY,
+  parseAnalyzerMigrationFilename,
   acceptedHistoryFiles,
   assertAuthorizedMigrationTarget,
   evaluateMigrationTarget
@@ -71,6 +73,13 @@ function verifyDisposableSchema(): void {
 function main(): void {
   const present = readdirSync(MIGRATION_DIR).filter((name) => name.endsWith(".sql")).sort();
   assert.deepEqual(present, [...ANALYZER_MIGRATIONS]);
+  assert.equal(AUTHORITATIVE_STAGING_MIGRATION_HISTORY.length, ANALYZER_MIGRATIONS.length);
+  for (const [index, filename] of ANALYZER_MIGRATIONS.entries()) {
+    const parsed = parseAnalyzerMigrationFilename(filename);
+    const expected = AUTHORITATIVE_STAGING_MIGRATION_HISTORY[index];
+    assert.equal(parsed.version, expected.version, filename);
+    assert.equal(parsed.name, expected.name, filename);
+  }
   historyUnchanged();
   for (const name of ANALYZER_MIGRATIONS) {
     assert.ok(existsSync(path.join(MIGRATION_DIR, name)));

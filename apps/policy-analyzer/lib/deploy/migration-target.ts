@@ -7,6 +7,26 @@ export const FIX7_TRUSTED_OPS_MIGRATION = "20260904010000_fix7_trusted_ops_snaps
 export const M3_ACCOUNT_BOOTSTRAP_MIGRATION = "20260905160000_m3_account_bootstrap.sql";
 export const MOVE_RLS_HELPERS_MIGRATION = "20260906180000_move_rls_helpers_to_private_schema.sql";
 
+export const AUTHORITATIVE_STAGING_MIGRATION_HISTORY = [
+  { version: "20260705022540", name: "phase_1_persistence_schema" },
+  { version: "20260705145522", name: "phase_1_rls_policies" },
+  { version: "20260903024500", name: "analyzer_auth_persistence" },
+  { version: "20260903150000", name: "durable_analysis_jobs" },
+  { version: "20260903200000", name: "worker_completion_outcomes" },
+  { version: "20260903220000", name: "fix7_staging_ops" },
+  { version: "20260904010000", name: "fix7_trusted_ops_snapshot" },
+  { version: "20260905160000", name: "m3_account_bootstrap" },
+  { version: "20260906180000", name: "move_rls_helpers_to_private_schema" }
+] as const;
+
+export function parseAnalyzerMigrationFilename(filename: string): { version: string; name: string } {
+  const match = /^(\d{14})_(.+)\.sql$/.exec(filename);
+  if (!match) {
+    throw new Error(`HOSTED_MIGRATE_NAME_INVALID:${filename}`);
+  }
+  return { version: match[1], name: match[2] };
+}
+
 export const ANALYZER_MIGRATIONS = [
   "20260705022540_phase_1_persistence_schema.sql",
   "20260705145522_phase_1_rls_policies.sql",
