@@ -1,21 +1,37 @@
+import {
+  looksLikeDeclarationsPage,
+  policyFormSignalCount
+} from "./policy-semantics";
 import type { DocumentClass, PageText } from "./types";
 
 export function classifyPackage(pages: PageText[]): DocumentClass {
-  const hay = pages.map((p) => p.text).join("\n").toLowerCase();
-  const hits: Array<[DocumentClass, number]> = [
-    ["Declarations", count(hay, ["declarations", "named insured", "policy number"])],
+  const texts = pages.map((page) => page.text || "");
+  const hay = texts.join("\n").toLowerCase();
+  const joined = texts.join("\n");
+  const declarationPages = texts.filter((text) => looksLikeDeclarationsPage(text)).length;
+  const formScore = policyFormSignalCount(joined);
+
+  if (declarationPages > 0) return "Declarations";
+
+  const specificHits: Array<[DocumentClass, number]> = [
     ["Exclusion Endorsement", count(hay, ["exclusion endorsement", "this endorsement excludes"])],
     ["Major Medical Endorsement", count(hay, ["major medical endorsement", "medical limit is amended"])],
     ["Surgical Endorsement", count(hay, ["surgical endorsement", "surgical coverage"])],
     ["Mortality Endorsement", count(hay, ["mortality endorsement"])],
-    ["Base Policy Form", count(hay, ["base policy form", "this policy provides"])],
     ["Schedule", count(hay, ["schedule of"])],
     ["Notice", count(hay, ["notice to policyholder"])],
     ["Renewal", count(hay, ["renewal declarations"])],
     ["Amendment", count(hay, ["this amendment"])]
   ];
-  hits.sort((a, b) => b[1] - a[1]);
-  return hits[0][1] > 0 ? hits[0][0] : "Unknown Document";
+  specificHits.sort((a, b) => b[1] - a[1]);
+  const bestSpecific = specificHits[0];
+
+  if (bestSpecific[1] > 0 && bestSpecific[1] >= formScore) return bestSpecific[0];
+  if (formScore >= 2) return "Base Policy Form";
+  if (count(hay, ["base policy form", "this policy provides"]) > 0) return "Base Policy Form";
+  if (formScore > 0) return "Base Policy Form";
+  if (bestSpecific[1] > 0) return bestSpecific[0];
+  return "Unknown Document";
 }
 
 function count(hay: string, terms: string[]): number {

@@ -14,16 +14,91 @@ export function isExternalReferenceValue(value: string): boolean {
   return false;
 }
 
-export function looksLikeDeclarationsPage(text: string): boolean {
-  if (!/\bdeclarations\b/i.test(text)) return false;
-  if (/issued by\s*:/i.test(text) || /underwritten by\s*:/i.test(text)) return true;
-  if (/policy (?:number|no\.?|#)\s*[:.–—]\s*[A-Z0-9][-A-Z0-9]{2,}/i.test(text)) return true;
-  if (/insured horse name\s*[:.–—]\s+\S+/i.test(text)) return true;
-  if (/(?:^|\n)\s*forms\s*:/i.test(text)) return true;
-  if (/named insured\s*[:.–—]\s+\S+/i.test(text)) {
-    const named = text.match(/named insured\s*[:.–—]\s*([^\n]+)/i);
-    if (named?.[1] && !isExternalReferenceValue(named[1])) return true;
+function firstContentLines(text: string, count = 8): string {
+  return String(text || "")
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, count)
+    .join("\n");
+}
+
+export function isDeclarationsHeading(text: string): boolean {
+  const head = firstContentLines(text, 8);
+  for (const line of head.split("\n")) {
+    if (/^declarations\s*:/i.test(line)) continue;
+    if (/^declarations\b/i.test(line)) return true;
+    if (/^(?:equine\s+)?(?:mortality\s+)?policy\s+declarations\b/i.test(line) && !/\bform\b/i.test(line)) return true;
+    if (/^renewal declarations\b/i.test(line)) return true;
   }
+  return false;
+}
+
+export function isFilledPolicySpecificValue(value: string): boolean {
+  const v = value.replace(/\s+/g, " ").trim();
+  if (!v) return false;
+  if (isExternalReferenceValue(v)) return false;
+  const lower = v.toLowerCase();
+  if (/\bdeclarations form\b/.test(lower)) return false;
+  if (/\bform\s+[A-Z0-9]/i.test(v) && /\bdeclarations\b/i.test(v)) return false;
+  if (/^(?:the )?(?:declarations|schedule|policy|endorsement)\b/.test(lower)) return false;
+  return /[A-Za-z0-9]{2,}/.test(v);
+}
+
+const DECLARATIONS_FIELD_PATTERNS: RegExp[] = [
+  /policy\s+(?:number|no\.?|#)\s*[:.–—]\s*([^\n]+)/i,
+  /named insured\s*[:.–—]\s*([^\n]+)/i,
+  /(?:mailing\s+)?address\s*[:.–—]\s*([^\n]+)/i,
+  /(?:policy\s+)?effective date\s*[:.–—]\s*([^\n]+)/i,
+  /(?:policy\s+)?expiration date\s*[:.–—]\s*([^\n]+)/i,
+  /premium\s*[:.–—]\s*([^\n]+)/i,
+  /deductible\s*[:.–—]\s*([^\n]+)/i,
+  /insured horse(?: name)?\s*[:.–—]\s*([^\n]+)/i,
+  /insured value[^\n]{0,40}[:.–—]\s*([^\n]+)/i,
+  /(?:agent|producer)\s*[:.–—]\s*([^\n]+)/i,
+  /(?:issued|underwritten)\s+by\s*[:.–—]\s*([^\n]+)/i
+];
+
+export function filledDeclarationsFieldCount(text: string): number {
+  let n = 0;
+  for (const pattern of DECLARATIONS_FIELD_PATTERNS) {
+    const match = text.match(pattern);
+    if (match?.[1] && isFilledPolicySpecificValue(match[1])) n += 1;
+  }
+  if (/(?:^|\n)\s*forms\s*:\s*\n?\s*[A-Z0-9]/i.test(text)) n += 1;
+  return n;
+}
+
+export function policyFormSignalCount(text: string): number {
+  const hay = String(text || "");
+  let n = 0;
+  if (/\bdefinitions\b/i.test(hay)) n += 1;
+  if (/\binsuring agreement\b/i.test(hay) || /\b(?:the company )?will indemnify\b/i.test(hay) || /\bagrees to indemnify\b/i.test(hay)) {
+    n += 1;
+  }
+  if (/(?:^|\n)\s*(?:part\s+[ivxl]+\.?\s*)?(?:general\s+)?conditions\b/im.test(hay)) n += 1;
+  if (/(?:^|\n)\s*(?:part\s+[ivxl]+\.?\s*)?exclusions\b/im.test(hay) || /\bthis insurance does not cover\b/i.test(hay)) {
+    n += 1;
+  }
+  if (/\barbitration\b/i.test(hay)) n += 1;
+  if (/\bas (?:stated|shown|set forth|listed|specified) in (?:item [a-z] of )?the declarations\b/i.test(hay)) n += 1;
+  if (/\bitem [a-z] of the declarations\b/i.test(hay)) n += 1;
+  if (/\bbase policy form\b/i.test(hay) || /\bthis policy provides\b/i.test(hay)) n += 1;
+  if (/\bpolicy form\b/i.test(hay) && /\bform\s+[A-Z]{2,8}\s+\d{2,4}/i.test(hay)) n += 1;
+  return n;
+}
+
+export function hasStrongPolicyFormStructure(text: string): boolean {
+  return policyFormSignalCount(text) >= 3;
+}
+
+export function looksLikeDeclarationsPage(text: string): boolean {
+  const filled = filledDeclarationsFieldCount(text);
+  if (hasStrongPolicyFormStructure(text) && filled === 0) return false;
+  if (hasStrongPolicyFormStructure(text) && !isDeclarationsHeading(text) && filled < 2) return false;
+  if (isDeclarationsHeading(text) && filled > 0) return true;
+  if (isDeclarationsHeading(text) && /(?:^|\n)\s*forms\s*:/i.test(text)) return true;
+  if (/\bdeclarations\b/i.test(text) && filled >= 2 && !hasStrongPolicyFormStructure(text)) return true;
   return false;
 }
 

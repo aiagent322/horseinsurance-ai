@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { analyzeDocuments } from "../lib/analyze";
+import { classifyPackage } from "../lib/classify";
 import { collectSourceReferences } from "../lib/policy-semantics";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
@@ -17,7 +18,7 @@ function docFromPages(pages: Array<{ page: number; text: string }>, filename = "
     storage_location: "memory",
     extraction_status: "extracted",
     analysis_status: "complete",
-    classification: "Base Policy Form",
+    classification: classifyPackage(pages),
     pages
   };
 }
@@ -32,6 +33,11 @@ function main() {
   const doc = docFromPages(EQUINE_MORTALITY_JACKET_PAGES);
   const report = analyzeDocuments(newId(), doc.session_id, [doc]);
   const refs = collectSourceReferences(report);
+
+  assert.notEqual(doc.classification, "Declarations");
+  assert.equal(doc.classification, "Base Policy Form");
+  assert.equal(report.documents[0].classification, "Base Policy Form");
+  assert.ok(report.completeness.warnings.some((warning) => /no page was classified as declarations/i.test(warning)));
 
   assert.match(report.identification.carrier_name?.value || "", /Diamond State Insurance Company/i);
   assert.match(report.identification.policy_form?.value || "", /AEM 200\s*\(08\/07\)/i);
