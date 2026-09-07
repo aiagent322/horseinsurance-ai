@@ -17,6 +17,7 @@
     "test:coverage-explanation": "POLICY_ANALYZER_STORE=memory tsx scripts/coverage-explanation-regression.ts",
     "test:source-references": "POLICY_ANALYZER_STORE=memory tsx scripts/source-references-regression.ts",
     "test:final-report": "POLICY_ANALYZER_STORE=memory tsx scripts/final-report-regression.ts",
+    "test:agent-questions": "POLICY_ANALYZER_STORE=memory tsx scripts/agent-question-regression.ts",
     "test:live-duty-parity": "POLICY_ANALYZER_STORE=memory tsx scripts/live-duty-parity-regression.ts",
     "test:live-exclusion-parity": "POLICY_ANALYZER_STORE=memory tsx scripts/live-exclusion-parity-regression.ts",
     "test:exclusion-structure": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-structure-regression.ts",

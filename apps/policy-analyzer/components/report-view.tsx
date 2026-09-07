@@ -436,11 +436,15 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
       </Section>
 
       <Section title="Questions for Your Agent">
-        <ol className="list-decimal space-y-2 pl-5 text-sm">
-          {record.agent_questions.map((q) => (
-            <li key={q}>{q}</li>
-          ))}
-        </ol>
+        {record.agent_questions.length === 0 ? (
+          <p className="text-sm text-[#6b7280]">No unresolved questions were generated from the uploaded documents.</p>
+        ) : (
+          <ol className="list-decimal space-y-2 pl-5 text-sm">
+            {record.agent_questions.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+        )}
       </Section>
 
       <Section title="Source References">

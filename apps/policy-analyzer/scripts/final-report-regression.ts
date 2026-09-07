@@ -8,6 +8,7 @@ import {
   looksLikeRawPolicyFragment,
   walkPolicyClauses
 } from "../lib/policy-semantics";
+import { looksLikeQuotedPolicyLanguage } from "../lib/agent-questions";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
@@ -165,6 +166,9 @@ function main() {
     /exclusion language[\s\S]{0,400}(thirty|30\s+days)|((thirty|30\s+days)[\s\S]{0,400}exclusion language)/i
   );
   assert.ok(report.agent_questions.some((question) => /missing declarations/i.test(question)));
+  assert.ok(report.agent_questions.length >= 3 && report.agent_questions.length <= 5);
+  assert.ok(!report.agent_questions.some((question) => /intentional destruction|please confirm the exclusion language/i.test(question)));
+  assert.ok(report.agent_questions.every((question) => !looksLikeQuotedPolicyLanguage(question)));
 
   const excluded = analyzeDocuments(newId(), doc.session_id, [
     docFromPages(

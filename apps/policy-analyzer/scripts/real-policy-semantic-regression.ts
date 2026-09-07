@@ -9,6 +9,7 @@ import {
   looksLikeRawExclusionExplanation,
   walkPolicyClauses
 } from "../lib/policy-semantics";
+import { looksLikeQuotedPolicyLanguage } from "../lib/agent-questions";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
@@ -246,11 +247,31 @@ function main() {
   assert.ok(reqBy(/proof of loss/i)?.source_page === 2 || reqBy(/proof of loss/i)?.source_page === 3);
   assert.ok(reqBy(/examination under oath/i)?.source_page === 2 || reqBy(/examination under oath/i)?.source_page === 3);
   assert.equal(reqBy(/records|documents|receipts/i)?.source_page, 3);
+  const questions = report.agent_questions;
+  assert.ok(questions.length >= 3 && questions.length <= 5, `expected 3-5 agent questions, got ${questions.length}: ${questions.join(" | ")}`);
   assert.ok(
-    report.agent_questions.some((question) => /item g of the declarations/i.test(question) && /missing declarations/i.test(question)),
+    questions.some((question) => /complete issued policy package|declarations/i.test(question) && /schedule/i.test(question)),
+    "complete-package / missing Declarations-Schedule question"
+  );
+  assert.ok(
+    questions.some((question) => /policy number/i.test(question) && /insured horse/i.test(question)),
+    "missing policy-specific values question"
+  );
+  assert.ok(
+    questions.some((question) => /item g of the declarations/i.test(question) && /missing declarations/i.test(question) && /notice|contact/i.test(question)),
     "missing Declarations notice-contact question must be accurate"
   );
-  assert.ok(!report.agent_questions.some((question) => /mortality coverage language/i.test(question)));
+  assert.ok(
+    questions.some((question) => /major medical/i.test(question) && /surgical/i.test(question) && /schedule|endorsement/i.test(question)),
+    "Major Medical/Surgical unresolved coverage question"
+  );
+  assert.ok(!questions.some((question) => /intentional destruction/i.test(question)));
+  assert.ok(!questions.some((question) => /mortality coverage language|confirm that mortality/i.test(question)));
+  assert.ok(!questions.some((question) => /confirm that theft|theft coverage exists/i.test(question)));
+  assert.ok(!questions.some((question) => /proof of loss/i.test(question)));
+  assert.ok(!questions.some((question) => /thirty|30\s+days|not been recovered/i.test(question)));
+  assert.ok(questions.every((question) => !looksLikeQuotedPolicyLanguage(question)));
+  assert.doesNotMatch(questions.join("\n"), /please confirm the following language|please confirm the exclusion language/i);
 
   assert.ok(refs.length > 0, "source references must be nonempty");
   assert.ok(refs.some((item) => item.label === "Full Mortality" && item.page === 1));

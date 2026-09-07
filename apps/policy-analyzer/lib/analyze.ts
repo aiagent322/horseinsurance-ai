@@ -11,7 +11,6 @@ import {
 } from "./form-schedule";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
-  classifyPolicyTerm,
   clauseConcernsMortality,
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
@@ -26,7 +25,6 @@ import {
   genericExclusionTitle,
   hasExclusionExceptionCue,
   isCoverageGrantLanguage,
-  isCoverageLimitationLanguage,
   isExclusionQualificationLanguage,
   isExternalReferenceValue,
   isOptionalCoverageMention,
@@ -39,6 +37,7 @@ import {
   summarizeExclusionSatellite,
   walkPolicyClauses
 } from "./policy-semantics";
+import { buildAgentQuestions } from "./agent-questions";
 import type {
   AnalysisStatus,
   CompletenessResult,
@@ -1206,45 +1205,15 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     coverage_gaps.push("Conflicting medical limits appear in the package. Ask which page controls after endorsements.");
   }
 
-  const agent_questions: string[] = [];
-  if (identification.policy_number) {
-    agent_questions.push(`Is policy ${identification.policy_number.value} the complete in-force contract for ${identification.insured_horse_name?.value || "this horse"}?`);
-  } else {
-    agent_questions.push("Which policy number is in force, and is this the complete package?");
-  }
-  if (conflicts.length) {
-    agent_questions.push(
-      `The documents show Major Medical as ${uniqueMedical.map((m) => m.amount + " (p." + m.source_page + ")").join(" and ")}. Which amount is in force after endorsements?`
-    );
-  }
-  const questionExclusion = exclusions.find((row) => {
-    if (isCoverageLimitationLanguage(row.description)) return false;
-    const kind = classifyPolicyTerm(row.description, null);
-    return kind !== "limitation" && kind !== "condition" && kind !== "duty";
+  const agent_questions = buildAgentQuestions({
+    completeness,
+    declarationsPresent: declarationPages.length > 0,
+    identification,
+    coverages,
+    requirements,
+    conflicts,
+    formInventory
   });
-  if (questionExclusion) {
-    agent_questions.push(
-      `Please confirm the exclusion language on page ${questionExclusion.source_page}: “${questionExclusion.description}” — does this apply to the current policy period only?`
-    );
-  }
-  const contactDuty = requirements.find((row) => /item\s+[a-z0-9]+\s+of\s+(?:the\s+)?(?:missing\s+)?declarations/i.test(`${row.requirement} ${row.source_text}`));
-  if (contactDuty && declarationsMissing) {
-    const item = `${contactDuty.requirement} ${contactDuty.source_text}`.match(/\bitem\s+([a-z0-9]+)\b/i)?.[1] || "the";
-    const itemLabel = item.toLowerCase() === "the" ? "the Declarations" : `Item ${item.toUpperCase()} of the Declarations`;
-    agent_questions.push(
-      `The policy requires immediate telephone notice to the entity listed in ${itemLabel}. Please provide the missing Declarations so that contact can be confirmed.`
-    );
-  } else if (requirements.length) {
-    agent_questions.push("Please confirm the notice window and euthanasia/remains instructions that apply in an emergency.");
-  }
-  const missingForms = formInventory.filter((f) => f.status !== "PRESENT");
-  if (missingForms.length) {
-    agent_questions.push(
-      `The declarations list ${missingForms.map((f) => f.printed_identifier).join(", ")} without separately sourced matching form text. Are those forms in force and missing from this upload?`
-    );
-  } else {
-    agent_questions.push("Are any forms listed on the declarations missing from this upload?");
-  }
 
   const educational_notes = [
     "The uploaded policy is the authority. Educational notes below do not add coverage.",
