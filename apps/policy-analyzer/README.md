@@ -15,6 +15,7 @@ cd apps/policy-analyzer
 npm ci
 npm test
 npm run test:semantic
+npm run test:identification
 npm run test:final-report
 npm run test:agent-questions
 npm run test:native-report-parity

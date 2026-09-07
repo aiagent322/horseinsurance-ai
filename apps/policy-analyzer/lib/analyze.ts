@@ -26,22 +26,27 @@ import {
   exclusionCategories,
   explainExclusion,
   explainCoverage,
+  extractInsuranceCompanyNameFromText,
   extractPolicyFormValue,
   genericExclusionTitle,
   hasExclusionExceptionCue,
   isCoverageConditionNotGrant,
   isCoverageGrantLanguage,
   isExclusionQualificationLanguage,
+  isIdentityFieldLabel,
   isInsurerPerformanceLanguage,
   isUmbrellaExclusionOpener,
   isExternalReferenceValue,
   isOptionalCoverageMention,
+  isPolicyProductTitle,
   isScheduleDependentGrant,
+  isUnfilledDeclarationsTemplate,
   KNOWN_EXCLUSION_TITLES,
   looksLikeDeclarationsPage,
   normalizeIdentificationValue,
   packageHasUnfilledIssuedFacts,
   personalizedFactsMissing,
+  takePopulatedIdentityValue,
   splitExclusionSatellites,
   summarizeExclusionSatellite,
   walkPolicyClauses
@@ -180,15 +185,40 @@ function sourcedFromHit(h: Hit, value: string, confidence: "HIGH" | "MEDIUM" = "
   };
 }
 
+function parseLabeledIdentityValue(h: Hit, label: string): string | undefined {
+  const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*(.*)`, "i");
+  const lineMatch = h.line.match(textRe);
+  if (!lineMatch) return undefined;
+  return takePopulatedIdentityValue(lineMatch[1] || "");
+}
+
+function followingLineIdentityValue(hits: Hit[], index: number): string | undefined {
+  const current = hits[index];
+  const next = hits[index + 1];
+  if (!next || next.document_id !== current.document_id || next.page !== current.page) return undefined;
+  const compact = next.line.replace(/\s+/g, " ").trim();
+  if (!compact) return undefined;
+  if (/^item\s*\d+\b/i.test(compact)) return undefined;
+  if (isIdentityFieldLabel(compact)) return undefined;
+  if (isPolicyProductTitle(compact)) return undefined;
+  if (/^[A-Z][A-Z0-9 &/'()-]{2,60}:\s*$/.test(compact)) return undefined;
+  return takePopulatedIdentityValue(compact);
+}
+
 function labeledIdentification(hits: Hit[], labels: string[]): Sourced<string> | undefined {
   const candidates: Array<{ sourced: Sourced<string>; pageText: string }> = [];
-  for (const h of hits) {
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
     for (const label of labels) {
-      const parsed = parseLabeledValue(h, label);
-      if (!parsed) continue;
-      const value = normalizeIdentificationValue(parsed.value);
+      let value = parseLabeledIdentityValue(h, label);
+      if (!value) {
+        const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*$`, "i");
+        if (textRe.test(h.line)) value = followingLineIdentityValue(hits, i);
+      }
       if (!value) continue;
-      candidates.push({ sourced: sourcedFromHit(h, value), pageText: h.text });
+      const normalized = normalizeIdentificationValue(value);
+      if (!normalized) continue;
+      candidates.push({ sourced: sourcedFromHit(h, normalized), pageText: h.text });
       break;
     }
   }
@@ -209,6 +239,56 @@ function firstMatchIdentification(hits: Hit[], re: RegExp): Sourced<string> | un
   if (!candidates.length) return undefined;
   const fromDeclarations = candidates.filter((item) => looksLikeDeclarationsPage(item.pageText));
   return (fromDeclarations[0] || candidates[0]).sourced;
+}
+
+type IssuingCompanyCandidate = {
+  name: string;
+  sourced: Sourced<string>;
+  pageText: string;
+  explicit: boolean;
+};
+
+function companyIdentityKey(name: string): string {
+  return name.toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
+}
+
+function collectCarrierCandidates(hits: Hit[]): IssuingCompanyCandidate[] {
+  const out: IssuingCompanyCandidate[] = [];
+  const seen = new Set<string>();
+  const push = (name: string, h: Hit, explicit: boolean) => {
+    const key = companyIdentityKey(name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ name, sourced: sourcedFromHit(h, name), pageText: h.text, explicit });
+  };
+  for (const h of hits) {
+    for (const label of ["Company", "Insurer", "Carrier"]) {
+      const parsed = parseLabeledValue(h, label);
+      if (!parsed) continue;
+      const value = normalizeIdentificationValue(parsed.value);
+      if (!value || isPolicyProductTitle(value)) continue;
+      push(value, h, true);
+      break;
+    }
+    const issued = h.line.match(/^(?:issued|underwritten)\s+by\s*[:–—]?\s*(.+)$/i);
+    if (issued?.[1]) {
+      const name = extractInsuranceCompanyNameFromText(issued[1]);
+      if (name) push(name, h, true);
+    }
+    const masthead = extractInsuranceCompanyNameFromText(h.line);
+    if (masthead) push(masthead, h, false);
+  }
+  return out;
+}
+
+function resolveCarrierName(candidates: IssuingCompanyCandidate[]): Sourced<string> | undefined {
+  if (candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0].sourced;
+  const explicit = candidates.filter((item) => item.explicit);
+  if (explicit.length === 1) return explicit[0].sourced;
+  const issued = candidates.filter((item) => !isUnfilledDeclarationsTemplate(item.pageText));
+  if (issued.length === 1) return issued[0].sourced;
+  return undefined;
 }
 
 function moneyHits(
@@ -617,11 +697,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     .join("\n\n");
 
   const identification: PolicyIdentification = {
-    carrier_name:
-      labeledIdentification(hits, ["Company", "Insurer", "Carrier"]) ||
-      firstMatchIdentification(hits, /(?:issued by|underwritten by)\s+([^\n]+)/i) ||
-      firstMatchIdentification(hits, /^([A-Z][A-Z0-9 &.'-]{8,}INSURANCE[A-Z0-9 &.'-]*)$/) ||
-      firstMatchIdentification(hits, /((?:[A-Z][A-Za-z]+ ){1,6}(?:Equine )?(?:Specialty )?Insurance Company)/),
+    carrier_name: resolveCarrierName(collectCarrierCandidates(hits)),
     agency_name: labeledIdentification(hits, ["Agency"]),
     agent_name: labeledIdentification(hits, ["Agent"]),
     policy_number: labeledIdentification(hits, ["Policy Number", "Policy No", "Policy #"]) ||
@@ -643,20 +719,6 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     currency: labeledIdentification(hits, ["Currency"])
   };
 
-  if (!identification.carrier_name) {
-    const companyLine = hits.find((h) => {
-      if (!/insurance company/i.test(h.line)) return false;
-      return Boolean(normalizeIdentificationValue(h.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "")));
-    });
-    if (companyLine) {
-      const value = normalizeIdentificationValue(
-        companyLine.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "")
-      );
-      if (value) {
-        identification.carrier_name = sourcedFromHit(companyLine, value, "MEDIUM");
-      }
-    }
-  }
   for (const h of uniquePages(hits)) {
     const formId = extractPolicyFormValue(h.text);
     if (!formId) continue;

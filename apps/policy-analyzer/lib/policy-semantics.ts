@@ -33,8 +33,114 @@ export function stripLegalAliasSuffix(value: string): string {
     .trim();
 }
 
+const IDENTITY_FIELD_LABEL =
+  /^(?:item\s*\d+\.?\s*)?(?:policy\s+(?:number|no\.?|#)|renewal\s+(?:of\s+)?(?:number|no\.?|#)|named insured(?:\s*&\s*mailing address)?|mailing address|policy period|(?:policy\s+)?effective date|(?:policy\s+)?expiration date|from|to|premium|deductible|insured horse(?: name)?|name of horse(?:\/breed)?|insured value|full mortality|limit of insurance|coverage description|horse no\.?|municipal tax|issued to)\s*$/i;
+
+export function isIdentityFieldLabel(value: string): boolean {
+  const v = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[:.–—]+$/g, "")
+    .trim();
+  if (!v) return true;
+  return IDENTITY_FIELD_LABEL.test(v);
+}
+
+export function isPolicyProductTitle(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (!v) return false;
+  if (/\b(?:insurance|assurance|indemnity)\s+company\b/i.test(v)) return false;
+  if (/\binsurance policy\b/i.test(v)) return true;
+  if (/\bpolicy form\b/i.test(v)) return true;
+  if (/\bdeclarations page\b/i.test(v)) return true;
+  if (/\bendorsement\b/i.test(v)) return true;
+  return false;
+}
+
+const NEXT_IDENTITY_LABEL =
+  /\s+(?:item\s*\d+\.|renewal\s+(?:of\s+)?(?:number|no)|named insured|mailing address|policy period|policy\s+(?:number|no)|effective date|expiration date|from|to|premium|deductible|issued to)\s*:/i;
+
+export function takePopulatedIdentityValue(raw: string): string | undefined {
+  let rest = String(raw || "").replace(/\s+/g, " ").trim();
+  const cut = rest.search(NEXT_IDENTITY_LABEL);
+  if (cut >= 0) rest = rest.slice(0, cut).trim();
+  rest = rest.replace(/[:.–—]+$/g, "").trim();
+  if (!rest || /^[_.\-–—\s]+$/.test(rest)) return undefined;
+  if (/^item\s*\d+\b/i.test(rest)) return undefined;
+  if (isIdentityFieldLabel(rest)) return undefined;
+  return rest;
+}
+
+export function looksLikeInsuranceCompanyName(value: string): boolean {
+  const v = stripLegalAliasSuffix(String(value || "")).replace(/\s+/g, " ").trim();
+  if (!v || isPolicyProductTitle(v) || isIdentityFieldLabel(v)) return false;
+  return /\b(?:insurance|assurance|indemnity)\s+company\b/i.test(v);
+}
+
+function isCompanyNameToken(word: string): boolean {
+  const w = word.replace(/[,:"']+$/g, "");
+  if (!w) return false;
+  if (/^(?:the|of|and|&)$/i.test(w)) return true;
+  if (/^(?:company|insurer|carrier|issued|underwritten|by)$/i.test(w)) return false;
+  return /^[A-Z](?:[A-Za-z0-9&.'-]*)$/.test(w);
+}
+
+export function extractInsuranceCompanyNameFromText(text: string): string | undefined {
+  const compact = stripLegalAliasSuffix(String(text || "").replace(/\s+/g, " ").trim());
+  if (!compact || isPolicyProductTitle(compact)) return undefined;
+  const cue = /(?:insurance|assurance|indemnity)\s+company(?:\s+of(?:\s+the)?(?:\s+[A-Za-z]+)+)?/gi;
+  const match = cue.exec(compact);
+  if (!match) return undefined;
+  const before = compact.slice(0, match.index).trim();
+  const words = before.split(/\s+/).filter(Boolean);
+  const taken: string[] = [];
+  for (let i = words.length - 1; i >= 0; i--) {
+    if (!isCompanyNameToken(words[i])) break;
+    taken.unshift(words[i]);
+  }
+  const name = `${taken.join(" ")} ${compact.slice(match.index, match.index + match[0].length)}`
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!looksLikeInsuranceCompanyName(name)) return undefined;
+  return normalizeIdentificationValue(name);
+}
+
+function companyNameKey(name: string): string {
+  return name.toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
+}
+
+export function collectIssuingCompanyNames(pages: Array<{ text: string }>): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const page of pages) {
+    for (const line of String(page.text || "").split(/\n/)) {
+      const compact = line.replace(/\s+/g, " ").trim();
+      if (!compact) continue;
+      let name: string | undefined;
+      const labeled = compact.match(/^(?:company|insurer|carrier)\s*[:–—]\s*(.+)$/i);
+      if (labeled?.[1]) {
+        const taken = takePopulatedIdentityValue(labeled[1]);
+        const cleaned = taken ? normalizeIdentificationValue(taken) : undefined;
+        if (cleaned && !isPolicyProductTitle(cleaned)) name = cleaned;
+      }
+      if (!name) {
+        const issued = compact.match(/^(?:issued|underwritten)\s+by\s*[:–—]?\s*(.+)$/i);
+        if (issued?.[1]) name = extractInsuranceCompanyNameFromText(issued[1]);
+      }
+      if (!name) name = extractInsuranceCompanyNameFromText(compact);
+      if (!name) continue;
+      const key = companyNameKey(name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+  }
+  return names;
+}
+
 export function normalizeIdentificationValue(value: string): string | undefined {
-  const cleaned = stripLegalAliasSuffix(value);
+  const taken = takePopulatedIdentityValue(value);
+  const cleaned = taken ? stripLegalAliasSuffix(taken) : "";
   if (!cleaned) return undefined;
   if (isExternalReferenceValue(cleaned)) return undefined;
   if (!isFilledPolicySpecificValue(cleaned)) return undefined;
