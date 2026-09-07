@@ -602,7 +602,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       policy_id: policyId,
       coverage_type: type,
       coverage_status: status,
-      description: extras.description || excerpt(hit.text, type.split(" ")[0]),
+      description: extras.description || explainCoverage({ coverageType: type, status }),
       source_document_id: extras.source_document_id || hit.document_id,
       source_page: extras.source_page || hit.page,
       source_text: extras.source_text || excerpt(hit.text, type.split(" ")[0]),
