@@ -49,6 +49,8 @@ Remote destructive runs additionally require an exact `POLICY_ANALYZER_TEST_PROJ
 
 Sign in with a passwordless email link or one-time code. Then upload a policy package of up to 10 PDFs, or run the educational fixture as a stored analysis.
 
+Demo V1 can replace that email step with Supabase anonymous sign-in when `POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH=YES` and `POLICY_ANALYZER_ENV` is not `production`. The visitor still receives a normal authenticated session and isolated account. Analyzer APIs are not public. Production always keeps the email path. Enable **Anonymous Sign-Ins** on the Demo V1 Supabase project before using that flag.
+
 The HTTP upload path only reserves files and enqueues a durable job. It returns `202` and never runs OCR or analysis. A dedicated worker consumes that queue:
 
 ```bash
@@ -85,7 +87,7 @@ Native PDF text is used when it is good enough. Image-only or low-quality pages 
 ## Privacy and retention
 
 - Unauthenticated visitors cannot upload, read a report, download an original, or delete an analysis.
-- Authenticated users can access only their own account’s records and objects.
+- Authenticated users, including Demo V1 anonymous sessions, can access only their own account’s records and objects.
 - Unauthorized lookups return the same not-found response.
 - User-facing operations use a user-scoped Supabase client so RLS stays active.
 - Original PDFs are stored in a private bucket and streamed through authenticated routes.

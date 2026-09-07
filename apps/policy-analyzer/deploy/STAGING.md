@@ -106,6 +106,8 @@ Staging migration authorization (`POLICY_ANALYZER_ALLOW_STAGING_MIGRATIONS` plus
 
 Staging uploads stay disabled until Auth, database, and the private `policy-files` bucket pass readiness and an operator sets `POLICY_ANALYZER_UPLOADS_ENABLED=true`. Unauthenticated upload, status, report, and original-document routes continue to return the same not-found response.
 
+Demo V1 anonymous entry is a sign-in UX switch only. Set `POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH=YES` on the web process after enabling Anonymous Sign-Ins on the staging Auth project. Analyzer APIs still require an authenticated session and unchanged RLS. Leave the flag unset outside Demo V1.
+
 ## Health
 
 - `GET /api/health/live` — process liveness only

@@ -19,6 +19,7 @@ Fill these in the hosting platform's protected secret store only. Do not put val
 - [ ] Production migration flags unset in staging
 - [ ] Hosted staging uses a dedicated project URL — not production and not `127.0.0.1`
 - [ ] `ENABLE_FIXTURE_ANALYSIS` — `true` only if the educational fixture should enqueue in staging
+- [ ] `POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH=YES` — Demo V1 anonymous entry only; leave unset for email Auth. Never set in production.
 
 ## Worker-only
 

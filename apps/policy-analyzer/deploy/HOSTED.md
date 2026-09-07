@@ -27,6 +27,7 @@ Forbidden in this environment:
 - `POLICY_ANALYZER_ALLOW_PRODUCTION_MIGRATIONS=YES`
 - Memory store
 - Loopback password helper (it activates only when the public Auth URL host is `127.0.0.1`, `localhost`, or `::1`)
+- `POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH=YES` in production (`POLICY_ANALYZER_ENV=production` fails closed even if the flag is present)
 
 ## Migration gate
 
@@ -59,7 +60,7 @@ The apply script uses the same gate. It never prints the database URL.
 4. Start web and worker from the same image (`deploy/STAGING.md`).
 5. Keep uploads off until `/api/ops/ready` passes with the ops token.
 6. Then set `POLICY_ANALYZER_UPLOADS_ENABLED=true` on staging only.
-7. Sign in with hosted email (not the loopback password helper).
+7. Sign in with hosted email (not the loopback password helper), or set `POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH=YES` on the web process for Demo V1 anonymous entry. Anonymous Sign-Ins must be enabled on the staging Auth project. Production must leave the flag unset.
 8. Upload a synthetic educational PDF. Confirm queued → worker → bound report and that a second user cannot read it.
 
 ## Real-policy validation

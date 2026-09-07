@@ -1,6 +1,7 @@
+import { StartDemoButton } from "@/components/start-demo-button";
 import { UploadForm } from "@/components/upload-form";
 import { getSessionActor } from "@/lib/auth/session";
-import { analyzerUploadsEnabled, supabaseConfigured } from "@/lib/persistence/config";
+import { analyzerUploadsEnabled, demoAnonymousAuthEnabled, supabaseConfigured } from "@/lib/persistence/config";
 import Link from "next/link";
 
 export default async function HomePage({
@@ -12,6 +13,7 @@ export default async function HomePage({
   const actor = await getSessionActor();
   const configured = supabaseConfigured() || process.env.POLICY_ANALYZER_STORE === "memory";
   const uploadsEnabled = analyzerUploadsEnabled();
+  const demo = demoAnonymousAuthEnabled();
 
   return (
     <div className="space-y-8">
@@ -40,14 +42,28 @@ export default async function HomePage({
         </div>
       ) : !actor ? (
         <div className="space-y-3 rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#0b3c5d]">Sign in required</h2>
-          <p className="text-sm text-[#4a5568]">
-            Policy uploads, reports, original documents, and deletion are available only after you sign in. An
-            educational sample PDF can still be downloaded; running it as a stored analysis also requires an account.
-          </p>
-          <Link href="/sign-in" className="inline-block text-sm font-medium text-[#1d6fa5] underline">
-            Sign in to continue
-          </Link>
+          {demo ? (
+            <>
+              <h2 className="text-lg font-semibold text-[#0b3c5d]">Start Policy Analyzer</h2>
+              <p className="text-sm text-[#4a5568]">
+                No account or email required for this demonstration. This browser receives its own authenticated
+                session. Uploads, reports, original documents, and deletion stay private to that session.
+              </p>
+              <StartDemoButton enabled={true} label="Start Policy Analyzer" />
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-[#0b3c5d]">Sign in required</h2>
+              <p className="text-sm text-[#4a5568]">
+                Policy uploads, reports, original documents, and deletion are available only after you sign in. An
+                educational sample PDF can still be downloaded; running it as a stored analysis also requires an
+                account.
+              </p>
+              <Link href="/sign-in" className="inline-block text-sm font-medium text-[#1d6fa5] underline">
+                Sign in to continue
+              </Link>
+            </>
+          )}
           <p className="text-xs text-[#6b7280]">
             <a className="underline" href="/api/fixture">
               Download the educational sample PDF

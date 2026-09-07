@@ -3,7 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { POST as uploadPost } from "../app/api/upload/route";
 import { GET as statusGet } from "../app/api/policies/[id]/status/route";
-import { AuthRequiredError } from "../lib/persistence/config";
+import { GET as reportGet, DELETE as reportDelete } from "../app/api/policies/[id]/route";
+import { GET as originalGet } from "../app/api/policies/[id]/original/route";
+import { AnonymousSignInError, ensureAnonymousBrowserSession } from "../lib/auth/anonymous-start";
+import { AuthRequiredError, demoAnonymousAuthEnabled } from "../lib/persistence/config";
 import { ingestPolicyPackage } from "../lib/ingest";
 import { auditContainsSensitive, sanitizeAuditEvent } from "../lib/persistence/audit";
 import { MemoryPolicyStore } from "../lib/persistence/memory-store";
@@ -12,7 +15,7 @@ import { TEST_ACTOR_A, TEST_ACTOR_B, runWithActor } from "../lib/persistence/act
 import { resetMemoryStoreForTests } from "../lib/persistence/factory";
 import { sampleFiles, sampleReport, tinyPdf } from "./test-fixtures";
 import type { PolicyRecord } from "../lib/types";
-import type { ClaimedJob } from "../lib/persistence/types";
+import type { Actor, ClaimedJob } from "../lib/persistence/types";
 
 function scanClientFiles(): string[] {
   const roots = [path.join(process.cwd(), "components"), path.join(process.cwd(), "app")];
@@ -68,12 +71,257 @@ function boundReport(claimed: ClaimedJob): PolicyRecord {
 }
 
 async function readStatus(
-  actor: typeof TEST_ACTOR_A | typeof TEST_ACTOR_B | null,
+  actor: typeof TEST_ACTOR_A | typeof TEST_ACTOR_B | Actor | null,
   policyId: string
 ): Promise<Response> {
   const req = new Request(`http://127.0.0.1:43147/api/policies/${policyId}/status`);
   const call = () => statusGet(req, { params: Promise.resolve({ id: policyId }) });
   return actor ? runWithActor(actor, call) : call();
+}
+
+function withEnv(values: Record<string, string | undefined>, fn: () => void): void {
+  const previous: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(values)) {
+    previous[key] = process.env[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    fn();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+function assertDemoAnonymousAuthFlag(): void {
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: undefined,
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false, "demo auth fails closed when the flag is unset");
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "true",
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false, "demo auth fails closed unless the flag is exactly YES");
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "production",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false, "production never enables anonymous demo entry");
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), true, "staging Demo V1 enables anonymous entry");
+    }
+  );
+}
+
+async function assertAnonymousSessionHelper(): Promise<void> {
+  const existing = await ensureAnonymousBrowserSession({
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: "existing-user" } } } }),
+      signInAnonymously: async () => {
+        throw new Error("signInAnonymously must not run when a session exists");
+      }
+    }
+  });
+  assert.equal(existing.userId, "existing-user");
+  assert.equal(existing.created, false);
+
+  let signInCalls = 0;
+  const created = await ensureAnonymousBrowserSession({
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      signInAnonymously: async () => {
+        signInCalls += 1;
+        return { data: { session: { user: { id: "anon-user-a" } } }, error: null };
+      }
+    }
+  });
+  assert.equal(signInCalls, 1);
+  assert.equal(created.userId, "anon-user-a");
+  assert.equal(created.created, true);
+
+  await assert.rejects(
+    () =>
+      ensureAnonymousBrowserSession({
+        auth: {
+          getSession: async () => ({ data: { session: null } }),
+          signInAnonymously: async () => ({ data: { session: null }, error: { message: "disabled" } })
+        }
+      }),
+    (error: unknown) => error instanceof AnonymousSignInError
+  );
+
+  const userA = await ensureAnonymousBrowserSession({
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      signInAnonymously: async () => ({ data: { session: { user: { id: "anon-a" } } }, error: null })
+    }
+  });
+  const userB = await ensureAnonymousBrowserSession({
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      signInAnonymously: async () => ({ data: { session: { user: { id: "anon-b" } } }, error: null })
+    }
+  });
+  assert.notEqual(userA.userId, userB.userId, "each anonymous sign-in receives its own user id");
+}
+
+async function assertAnonymousUserIsolation(): Promise<void> {
+  const store = resetMemoryStoreForTests();
+  const accountA = await store.ensureAccount("aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa");
+  const accountB = await store.ensureAccount("bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb");
+  assert.ok(accountA.accountId);
+  assert.ok(accountB.accountId);
+  assert.notEqual(accountA.accountId, accountB.accountId, "anonymous users receive isolated account context");
+  assert.notEqual(accountA.userId, accountB.userId);
+
+  const actorA: Actor = { userId: accountA.userId, accountId: accountA.accountId, role: "owner" };
+  const actorB: Actor = { userId: accountB.userId, accountId: accountB.accountId, role: "owner" };
+  assert.equal(actorA.email, undefined);
+  assert.equal(actorB.email, undefined);
+
+  const form = new FormData();
+  form.append("files", new File([tinyPdf("anon-isolation")], "anon-a-policy.pdf", { type: "application/pdf" }));
+  const uploadReq = new Request("http://127.0.0.1:43147/api/upload", {
+    method: "POST",
+    headers: { origin: "http://127.0.0.1:43147", "sec-fetch-site": "same-origin" },
+    body: form
+  });
+  const uploaded = await runWithActor(actorA, () => uploadPost(uploadReq));
+  assert.equal(uploaded.status, 202, "anonymous User A can upload");
+  const queued = (await uploaded.json()) as { policy_id?: string; job_id?: string };
+  assert.ok(queued.policy_id);
+  const policyId = queued.policy_id;
+
+  const ownerStatus = await readStatus(actorA, policyId);
+  assert.equal(ownerStatus.status, 200, "anonymous User A can read own job status");
+
+  const crossStatus = await readStatus(actorB, policyId);
+  assert.equal(crossStatus.status, 404, "anonymous User B cannot read User A status");
+  const anonStatus = await readStatus(null, policyId);
+  assert.equal(anonStatus.status, 404, "unauthenticated callers cannot read status");
+  const unknownStatus = await readStatus(actorA, "00000000-0000-4000-8000-000000000000");
+  assert.equal(unknownStatus.status, 404, "unknown policy ids fail closed");
+
+  const claimed = await store.claimJobs("w-anon-isolation", 1);
+  const job = claimed.find((item) => item.policyId === policyId);
+  assert.ok(job);
+  await store.completeJob(job.jobId, "w-anon-isolation", boundReport(job));
+
+  const ownerReport = await runWithActor(actorA, () =>
+    reportGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}`), {
+      params: Promise.resolve({ id: policyId })
+    })
+  );
+  assert.equal(ownerReport.status, 200, "anonymous User A can read own report");
+
+  const crossReport = await runWithActor(actorB, () =>
+    reportGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}`), {
+      params: Promise.resolve({ id: policyId })
+    })
+  );
+  assert.equal(crossReport.status, 404, "anonymous User B cannot read User A report");
+  const anonReport = await reportGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}`), {
+    params: Promise.resolve({ id: policyId })
+  });
+  assert.equal(anonReport.status, 404, "unauthenticated callers cannot read reports");
+
+  const ownerOriginal = await runWithActor(actorA, () =>
+    originalGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}/original`), {
+      params: Promise.resolve({ id: policyId })
+    })
+  );
+  assert.equal(ownerOriginal.status, 200, "anonymous User A can access own original file");
+
+  const crossOriginal = await runWithActor(actorB, () =>
+    originalGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}/original`), {
+      params: Promise.resolve({ id: policyId })
+    })
+  );
+  assert.equal(crossOriginal.status, 404, "anonymous User B cannot access User A file");
+  const anonOriginal = await originalGet(new Request(`http://127.0.0.1:43147/api/policies/${policyId}/original`), {
+    params: Promise.resolve({ id: policyId })
+  });
+  assert.equal(anonOriginal.status, 404, "unauthenticated callers cannot access original files");
+
+  const crossDelete = await runWithActor(actorB, () =>
+    reportDelete(
+      new Request(`http://127.0.0.1:43147/api/policies/${policyId}`, {
+        method: "DELETE",
+        headers: { origin: "http://127.0.0.1:43147", "sec-fetch-site": "same-origin" }
+      }),
+      { params: Promise.resolve({ id: policyId }) }
+    )
+  );
+  assert.equal(crossDelete.status, 404, "anonymous User B cannot delete User A data");
+  const anonDelete = await reportDelete(
+    new Request(`http://127.0.0.1:43147/api/policies/${policyId}`, {
+      method: "DELETE",
+      headers: { origin: "http://127.0.0.1:43147", "sec-fetch-site": "same-origin" }
+    }),
+    { params: Promise.resolve({ id: policyId }) }
+  );
+  assert.equal(anonDelete.status, 404, "unauthenticated callers cannot delete analyses");
+
+  const ownerDelete = await runWithActor(actorA, () =>
+    reportDelete(
+      new Request(`http://127.0.0.1:43147/api/policies/${policyId}`, {
+        method: "DELETE",
+        headers: { origin: "http://127.0.0.1:43147", "sec-fetch-site": "same-origin" }
+      }),
+      { params: Promise.resolve({ id: policyId }) }
+    )
+  );
+  assert.equal(ownerDelete.status, 200, "anonymous User A can delete own analysis");
+}
+
+function assertAnonymousAuthSource(): void {
+  const startDemo = readFileSync(path.join(process.cwd(), "components/start-demo-button.tsx"), "utf8");
+  assert.match(startDemo, /ensureAnonymousBrowserSession/);
+  assert.match(startDemo, /createBrowserSupabase/);
+  assert.doesNotMatch(startDemo, /SERVICE_ROLE|createAdminClient|serviceRoleKey/);
+  const helper = readFileSync(path.join(process.cwd(), "lib/auth/anonymous-start.ts"), "utf8");
+  assert.match(helper, /signInAnonymously/);
+  assert.match(helper, /getSession/);
+  assert.doesNotMatch(helper, /SERVICE_ROLE|createAdminClient|serviceRoleKey/);
+  const browser = readFileSync(path.join(process.cwd(), "lib/auth/browser.ts"), "utf8");
+  assert.match(browser, /NEXT_PUBLIC_SUPABASE_ANON_KEY|NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.doesNotMatch(browser, /SERVICE_ROLE/);
+  const landing = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
+  assert.match(landing, /demoAnonymousAuthEnabled/);
+  assert.match(landing, /Start Policy Analyzer/);
+  const signIn = readFileSync(path.join(process.cwd(), "app/sign-in/page.tsx"), "utf8");
+  assert.match(signIn, /demoAnonymousAuthEnabled/);
+  assert.match(signIn, /SignInForm/);
+  assert.match(signIn, /Start Demo/);
+  const accountBar = readFileSync(path.join(process.cwd(), "components/account-bar.tsx"), "utf8");
+  assert.match(accountBar, /if \(!actor\)/);
+  assert.doesNotMatch(accountBar, /actor\?\.email/);
 }
 
 async function assertUploadStatusIdentifierContract(): Promise<void> {
@@ -208,6 +456,10 @@ async function main() {
   assert.deepEqual(clientHits, [], "20: no service-role key or admin client in client components");
 
   await assertUploadStatusIdentifierContract();
+  assertDemoAnonymousAuthFlag();
+  await assertAnonymousSessionHelper();
+  await assertAnonymousUserIsolation();
+  assertAnonymousAuthSource();
 
   console.log("SECURITY OK");
   console.log("LIVE LOCAL RLS: PENDING (no local Supabase runtime verified in this task)");

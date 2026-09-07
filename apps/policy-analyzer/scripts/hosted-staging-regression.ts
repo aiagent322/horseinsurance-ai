@@ -17,7 +17,7 @@ import {
   evaluateHostedMigrationHistory,
   parseAnalyzerMigrationFilename
 } from "../lib/deploy/migration-target";
-import { analyzerUploadsEnabled } from "../lib/persistence/config";
+import { analyzerUploadsEnabled, demoAnonymousAuthEnabled } from "../lib/persistence/config";
 
 const STAGING_REF = "stagingsupabaseproj1";
 const PRODUCTION_REF = "productionsupabasepr";
@@ -234,8 +234,52 @@ function main(): void {
 
   const signIn = readFileSync(path.join(APP_ROOT, "components/sign-in-form.tsx"), "utf8");
   assert.match(signIn, /isLocalDisposableAuthUrl/);
+  assert.match(signIn, /signInWithOtp/);
   assert.doesNotMatch(signIn, /window\.location\.hostname/);
   assert.doesNotMatch(signIn, /headers\.get\(["']host["']\)/i);
+  const startDemo = readFileSync(path.join(APP_ROOT, "components/start-demo-button.tsx"), "utf8");
+  assert.match(startDemo, /ensureAnonymousBrowserSession/);
+  assert.match(startDemo, /createBrowserSupabase/);
+  assert.doesNotMatch(startDemo, /SERVICE_ROLE|createAdminClient|serviceRoleKey/);
+  const anonymousStart = readFileSync(path.join(APP_ROOT, "lib/auth/anonymous-start.ts"), "utf8");
+  assert.match(anonymousStart, /signInAnonymously\(\)/);
+  assert.doesNotMatch(anonymousStart, /SERVICE_ROLE/);
+  const signInPage = readFileSync(path.join(APP_ROOT, "app/sign-in/page.tsx"), "utf8");
+  assert.match(signInPage, /demoAnonymousAuthEnabled/);
+  assert.match(signInPage, /SignInForm/);
+  const landing = readFileSync(path.join(APP_ROOT, "app/page.tsx"), "utf8");
+  assert.match(landing, /demoAnonymousAuthEnabled/);
+  assert.match(landing, /Start Policy Analyzer/);
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), true);
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "production",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false);
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: undefined,
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false);
+    }
+  );
 
   withEnv(
     {

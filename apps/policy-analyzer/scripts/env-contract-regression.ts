@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { loadWebEnv, loadWorkerEnv } from "../lib/deploy/env-contract";
 import { evaluateMigrationTarget } from "../lib/deploy/migration-target";
-import { analyzerUploadsEnabled, ConfigurationError } from "../lib/persistence/config";
+import { analyzerUploadsEnabled, ConfigurationError, demoAnonymousAuthEnabled } from "../lib/persistence/config";
 import { createWorkerPersistence } from "../lib/persistence/worker-factory";
 import { loadWorkerConfig } from "../lib/worker/config";
 
@@ -132,6 +132,36 @@ function main(): void {
     );
   });
   assert.equal(evaluateMigrationTarget({}).reason, "missing_input");
+
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "staging",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), true);
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "YES",
+      POLICY_ANALYZER_ENV: "production",
+      NODE_ENV: "production"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false);
+    }
+  );
+  withEnv(
+    {
+      POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH: "true",
+      POLICY_ANALYZER_ENV: "staging"
+    },
+    () => {
+      assert.equal(demoAnonymousAuthEnabled(), false);
+    }
+  );
 
   console.log("ENV CONTRACT OK");
 }

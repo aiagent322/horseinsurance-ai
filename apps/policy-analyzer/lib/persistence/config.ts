@@ -41,6 +41,16 @@ export function analyzerUploadsEnabled(): boolean {
   return true;
 }
 
+/**
+ * Demo V1 anonymous entry. Fail closed unless the exact staging/demo flag is set.
+ * Production never enables this path even if the flag is present.
+ * The flag only switches the sign-in UX; APIs still require an authenticated session.
+ */
+export function demoAnonymousAuthEnabled(): boolean {
+  if (process.env.POLICY_ANALYZER_DEMO_ANONYMOUS_AUTH !== "YES") return false;
+  return deployTier() !== "production";
+}
+
 export function isFixtureAnalysisEnabled(): boolean {
   if (isProtectedDeploy() || isProduction()) return process.env.ENABLE_FIXTURE_ANALYSIS === "true";
   return process.env.ENABLE_FIXTURE_ANALYSIS !== "false";
