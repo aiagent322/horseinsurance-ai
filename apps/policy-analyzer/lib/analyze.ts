@@ -1086,7 +1086,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     coverage_gaps.push("Loss of Use is not established in the uploaded documents.");
   }
   if (exclusions.length) {
-    coverage_gaps.push("Named exclusions appear in the package. Confirm with the agent that they match the horse you believe is insured.");
+    coverage_gaps.push("Named exclusions appear in the uploaded policy form. Confirm with the agent whether any endorsement modifies those provisions.");
   }
   if (conflicts.length) {
     coverage_gaps.push("Conflicting medical limits appear in the package. Ask which page controls after endorsements.");

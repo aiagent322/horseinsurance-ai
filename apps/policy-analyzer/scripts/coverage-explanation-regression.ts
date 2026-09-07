@@ -78,8 +78,11 @@ function main() {
   ]);
   const louEx = coverage(excluded, "Loss of Use");
   assert.equal(louEx.coverage_status, "EXCLUDED", "TEST D status");
-  assert.match(louEx.description, /not provided/i, "TEST D exclusion explained");
+  assert.match(louEx.description, /exclud/i, "TEST D exclusion explained");
   assert.match(louEx.description, /exception/i, "TEST D exception preserved");
+  assert.doesNotMatch(louEx.description, /do not establish/i, "TEST D distinguishable from NOT FOUND");
+  assert.doesNotMatch(lou.description, /exclud/i, "TEST C/D: NOT FOUND must not use excluded wording");
+  assert.notEqual(lou.description, louEx.description, "TEST D: EXCLUDED wording != NOT FOUND wording");
   assertCleanExplanation(louEx.description, "TEST D");
 
   const leakPages = [

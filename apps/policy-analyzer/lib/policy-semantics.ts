@@ -591,8 +591,8 @@ export function explainCoverage(facts: CoverageExplanationFacts): string {
   if (status === "EXCLUDED") {
     const exception = facts.denialClause && /\bexcept\b/i.test(facts.denialClause);
     return exception
-      ? `The uploaded documents state that ${type} is not provided, subject to a stated exception in the same provision.`
-      : `The uploaded documents state that ${type} is not provided.`;
+      ? `The policy excludes ${type} coverage, subject to a stated exception in the same provision.`
+      : `The policy excludes ${type} coverage.`;
   }
   if (status === "POSSIBLE CONFLICT") {
     return `${type} is granted in one provision and excluded in another. The analyzer does not choose which provision controls.`;
