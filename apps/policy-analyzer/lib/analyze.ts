@@ -24,6 +24,7 @@ import {
   isScheduleDependentGrant,
   isStandaloneExclusionClause,
   looksLikeDeclarationsPage,
+  normalizeIdentificationValue,
   personalizedFactsMissing
 } from "./policy-semantics";
 import type {
@@ -119,32 +120,73 @@ function labeled(
 ): Sourced<string> | undefined {
   for (const h of hits) {
     for (const label of labels) {
-      const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*([^\\n]+)`, "i");
-      const moneyRe = new RegExp(
-        `${escapeRe(label)}\\s*[:–—]?\\s*(\\$[\\d,]+(?:\\.\\d{2})?)`,
-        "i"
-      );
-      const money = h.line.match(moneyRe) || h.text.match(moneyRe);
-      const text = h.line.match(textRe) || h.text.match(textRe);
-      let value = "";
-      if (money?.[1]) value = money[1];
-      else if (text?.[1]) {
-        value = text[1].replace(/\s+/g, " ").trim();
-        const inline = value.match(/\$[\d,]+(?:\.\d{2})?/);
-        if (inline) value = inline[0];
-      }
-      if (!value) continue;
-      if (isExternalReferenceValue(value)) continue;
-      return {
-        value,
-        source_document_id: h.document_id,
-        source_page: h.page,
-        source_text: excerpt(h.text, value),
-        confidence_status: "HIGH"
-      };
+      const parsed = parseLabeledValue(h, label);
+      if (!parsed) continue;
+      if (isExternalReferenceValue(parsed.value)) continue;
+      return sourcedFromHit(h, parsed.value);
     }
   }
   return undefined;
+}
+
+function parseLabeledValue(h: Hit, label: string): { value: string } | undefined {
+  const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*([^\\n]+)`, "i");
+  const moneyRe = new RegExp(
+    `${escapeRe(label)}\\s*[:–—]?\\s*(\\$[\\d,]+(?:\\.\\d{2})?)`,
+    "i"
+  );
+  const money = h.line.match(moneyRe) || h.text.match(moneyRe);
+  const text = h.line.match(textRe) || h.text.match(textRe);
+  let value = "";
+  if (money?.[1]) value = money[1];
+  else if (text?.[1]) {
+    value = text[1].replace(/\s+/g, " ").trim();
+    const inline = value.match(/\$[\d,]+(?:\.\d{2})?/);
+    if (inline) value = inline[0];
+  }
+  if (!value) return undefined;
+  return { value };
+}
+
+function sourcedFromHit(h: Hit, value: string, confidence: "HIGH" | "MEDIUM" = "HIGH"): Sourced<string> {
+  return {
+    value,
+    source_document_id: h.document_id,
+    source_page: h.page,
+    source_text: excerpt(h.text, value),
+    confidence_status: confidence
+  };
+}
+
+function labeledIdentification(hits: Hit[], labels: string[]): Sourced<string> | undefined {
+  const candidates: Array<{ sourced: Sourced<string>; pageText: string }> = [];
+  for (const h of hits) {
+    for (const label of labels) {
+      const parsed = parseLabeledValue(h, label);
+      if (!parsed) continue;
+      const value = normalizeIdentificationValue(parsed.value);
+      if (!value) continue;
+      candidates.push({ sourced: sourcedFromHit(h, value), pageText: h.text });
+      break;
+    }
+  }
+  if (!candidates.length) return undefined;
+  const fromDeclarations = candidates.filter((item) => looksLikeDeclarationsPage(item.pageText));
+  return (fromDeclarations[0] || candidates[0]).sourced;
+}
+
+function firstMatchIdentification(hits: Hit[], re: RegExp): Sourced<string> | undefined {
+  const candidates: Array<{ sourced: Sourced<string>; pageText: string }> = [];
+  for (const h of hits) {
+    const m = h.line.match(re) || h.text.match(re);
+    if (!m?.[1]) continue;
+    const value = normalizeIdentificationValue(m[1].replace(/\s+/g, " ").trim());
+    if (!value) continue;
+    candidates.push({ sourced: sourcedFromHit(h, value), pageText: h.text });
+  }
+  if (!candidates.length) return undefined;
+  const fromDeclarations = candidates.filter((item) => looksLikeDeclarationsPage(item.pageText));
+  return (fromDeclarations[0] || candidates[0]).sourced;
 }
 
 function moneyHits(
@@ -460,41 +502,43 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const identification: PolicyIdentification = {
     carrier_name:
-      labeled(hits, ["Company", "Insurer", "Carrier"]) ||
-      firstMatch(hits, /(?:issued by|underwritten by)\s+([^\n]+)/i) ||
-      firstMatch(hits, /^([A-Z][A-Z0-9 &.'-]{8,}INSURANCE[A-Z0-9 &.'-]*)$/) ||
-      firstMatch(hits, /((?:[A-Z][A-Za-z]+ ){1,6}(?:Equine )?(?:Specialty )?Insurance Company)/),
-    agency_name: labeled(hits, ["Agency"]),
-    agent_name: labeled(hits, ["Agent"]),
-    policy_number: labeled(hits, ["Policy Number", "Policy No", "Policy #"]) ||
-      firstMatch(hits, /policy\s*(?:number|no\.?|#)\s*[:.]?\s*([A-Z0-9][-A-Z0-9]*\d[-A-Z0-9]*)/i),
-    named_insured: labeled(hits, ["Named Insured"]),
-    policy_effective_date: labeled(hits, ["Policy Effective Date", "Effective Date"]),
-    policy_expiration_date: labeled(hits, ["Policy Expiration Date", "Expiration Date"]),
-    policy_type: labeled(hits, ["Policy Type"]),
+      labeledIdentification(hits, ["Company", "Insurer", "Carrier"]) ||
+      firstMatchIdentification(hits, /(?:issued by|underwritten by)\s+([^\n]+)/i) ||
+      firstMatchIdentification(hits, /^([A-Z][A-Z0-9 &.'-]{8,}INSURANCE[A-Z0-9 &.'-]*)$/) ||
+      firstMatchIdentification(hits, /((?:[A-Z][A-Za-z]+ ){1,6}(?:Equine )?(?:Specialty )?Insurance Company)/),
+    agency_name: labeledIdentification(hits, ["Agency"]),
+    agent_name: labeledIdentification(hits, ["Agent"]),
+    policy_number: labeledIdentification(hits, ["Policy Number", "Policy No", "Policy #"]) ||
+      firstMatchIdentification(hits, /policy\s*(?:number|no\.?|#)\s*[:.]?\s*([A-Z0-9][-A-Z0-9]*\d[-A-Z0-9]*)/i),
+    named_insured: labeledIdentification(hits, ["Named Insured"]),
+    policy_effective_date: labeledIdentification(hits, ["Policy Effective Date", "Effective Date"]),
+    policy_expiration_date: labeledIdentification(hits, ["Policy Expiration Date", "Expiration Date"]),
+    policy_type: labeledIdentification(hits, ["Policy Type"]),
     policy_form: undefined,
-    deductible: labeled(hits, ["Deductible"]),
-    insured_horse_name: labeled(hits, ["Insured Horse Name", "Horse Name"]),
-    registered_name: labeled(hits, ["Registered Name"]),
-    breed: labeled(hits, ["Breed"]),
-    age: labeled(hits, ["Age"]),
-    sex: labeled(hits, ["Sex"]),
-    registration_number: labeled(hits, ["Registration Number"]),
-    stated_use: labeled(hits, ["Stated Use"]),
-    insured_value: labeled(hits, ["Insured Value", "Full Mortality"]),
-    currency: labeled(hits, ["Currency"])
+    deductible: labeledIdentification(hits, ["Deductible"]),
+    insured_horse_name: labeledIdentification(hits, ["Insured Horse Name", "Horse Name"]),
+    registered_name: labeledIdentification(hits, ["Registered Name"]),
+    breed: labeledIdentification(hits, ["Breed"]),
+    age: labeledIdentification(hits, ["Age"]),
+    sex: labeledIdentification(hits, ["Sex"]),
+    registration_number: labeledIdentification(hits, ["Registration Number"]),
+    stated_use: labeledIdentification(hits, ["Stated Use"]),
+    insured_value: labeledIdentification(hits, ["Insured Value", "Full Mortality"]),
+    currency: labeledIdentification(hits, ["Currency"])
   };
 
   if (!identification.carrier_name) {
-    const companyLine = hits.find((h) => /insurance company/i.test(h.line) && !isExternalReferenceValue(h.line));
+    const companyLine = hits.find((h) => {
+      if (!/insurance company/i.test(h.line)) return false;
+      return Boolean(normalizeIdentificationValue(h.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "")));
+    });
     if (companyLine) {
-      identification.carrier_name = {
-        value: companyLine.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "").replace(/\s+/g, " ").trim(),
-        source_document_id: companyLine.document_id,
-        source_page: companyLine.page,
-        source_text: excerpt(companyLine.text, companyLine.line),
-        confidence_status: "MEDIUM"
-      };
+      const value = normalizeIdentificationValue(
+        companyLine.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "")
+      );
+      if (value) {
+        identification.carrier_name = sourcedFromHit(companyLine, value, "MEDIUM");
+      }
     }
   }
   for (const h of uniquePages(hits)) {

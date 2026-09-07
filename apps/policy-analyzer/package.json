@@ -11,6 +11,7 @@
     "test:semantic": "POLICY_ANALYZER_STORE=memory tsx scripts/semantic-regression.ts",
     "test:real-policy-semantic": "POLICY_ANALYZER_STORE=memory tsx scripts/real-policy-semantic-regression.ts",
     "test:classification": "POLICY_ANALYZER_STORE=memory tsx scripts/classification-regression.ts",
+    "test:identification": "POLICY_ANALYZER_STORE=memory tsx scripts/identification-regression.ts",
     "test:completeness": "POLICY_ANALYZER_STORE=memory tsx scripts/completeness-regression.ts",
     "test:ingestion": "POLICY_ANALYZER_STORE=memory tsx scripts/ingestion-regression.ts",
     "test:persistence": "POLICY_ANALYZER_STORE=memory tsx scripts/persistence.ts",

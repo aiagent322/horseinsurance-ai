@@ -14,6 +14,26 @@ export function isExternalReferenceValue(value: string): boolean {
   return false;
 }
 
+const LEGAL_ALIAS_SUFFIX =
+  /[,;]?\s*(?:hereinafter\s+(?:called|referred to as)|referred to herein as|herein(?:after)?\s+called)\b.*$/i;
+
+export function stripLegalAliasSuffix(value: string): string {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(LEGAL_ALIAS_SUFFIX, "")
+    .replace(/[.,;:\s]+$/g, "")
+    .trim();
+}
+
+export function normalizeIdentificationValue(value: string): string | undefined {
+  const cleaned = stripLegalAliasSuffix(value);
+  if (!cleaned) return undefined;
+  if (isExternalReferenceValue(cleaned)) return undefined;
+  if (!isFilledPolicySpecificValue(cleaned)) return undefined;
+  return cleaned;
+}
+
 function firstContentLines(text: string, count = 8): string {
   return String(text || "")
     .split(/\n/)
@@ -217,7 +237,7 @@ export function extractPolicyFormValue(text: string): string | undefined {
   const match =
     text.match(/\bpolicy form\s+([A-Z]{2,8}\s+\d{2,4}(?:\s*\(\d{1,2}\/\d{2,4}\))?)/i) ||
     text.match(/\bform\s+([A-Z]{2,8}\s+\d{2,4}\s*\(\d{1,2}\/\d{2,4}\))/i);
-  const value = match?.[1]?.replace(/\s+/g, " ").trim();
+  const value = stripLegalAliasSuffix(match?.[1] || "");
   return value || undefined;
 }
 

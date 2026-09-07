@@ -40,7 +40,11 @@ function main() {
   assert.ok(report.completeness.warnings.some((warning) => /no page was classified as declarations/i.test(warning)));
 
   assert.match(report.identification.carrier_name?.value || "", /Diamond State Insurance Company/i);
+  assert.equal(report.identification.carrier_name?.value, "Diamond State Insurance Company");
+  assert.doesNotMatch(report.identification.carrier_name?.value || "", /hereinafter/i);
+  assert.equal(report.identification.carrier_name?.source_page, 1);
   assert.match(report.identification.policy_form?.value || "", /AEM 200\s*\(08\/07\)/i);
+  assert.doesNotMatch(report.identification.policy_form?.value || "", /hereinafter/i);
   assert.equal(report.completeness.status, "DOCUMENT PACKAGE MAY BE INCOMPLETE");
   assert.equal(report.identification.named_insured, undefined);
   assert.equal(report.identification.policy_number, undefined);
@@ -49,6 +53,30 @@ function main() {
   assert.equal(report.identification.policy_expiration_date, undefined);
   assert.equal(report.identification.deductible, undefined);
   assert.equal(report.identification.insured_value, undefined);
+  assert.equal(report.identification.agency_name, undefined);
+  assert.equal(report.identification.agent_name, undefined);
+  assert.equal(report.identification.registered_name, undefined);
+  assert.equal(report.identification.stated_use, undefined);
+  assert.equal(report.identification.breed, undefined);
+  const identificationValues = [
+    report.identification.carrier_name?.value,
+    report.identification.policy_form?.value,
+    report.identification.named_insured?.value,
+    report.identification.policy_number?.value,
+    report.identification.insured_horse_name?.value,
+    report.identification.policy_effective_date?.value,
+    report.identification.policy_expiration_date?.value,
+    report.identification.deductible?.value,
+    report.identification.insured_value?.value,
+    report.identification.agency_name?.value,
+    report.identification.agent_name?.value,
+    report.identification.registered_name?.value,
+    report.identification.stated_use?.value,
+    report.identification.breed?.value
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  assert.doesNotMatch(identificationValues, /hereinafter/i);
 
   const mortality = coverage(report, "Full Mortality");
   assert.notEqual(mortality.coverage_status, "NOT FOUND");

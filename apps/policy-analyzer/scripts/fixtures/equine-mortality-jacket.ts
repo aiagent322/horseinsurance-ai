@@ -1,17 +1,17 @@
 export const EQUINE_MORTALITY_JACKET_PAGES = [
   {
     page: 1,
-    text: `COMPANY: Diamond State Insurance Company
+    text: `COMPANY: Diamond State Insurance Company, hereinafter called the Company.
 
 DEFINITIONS
-DECLARATIONS: Equine Mortality Policy Declarations Form AEM 100
-POLICY: Equine Mortality Policy Form AEM 200 (08/07)
+DECLARATIONS: Equine Mortality Policy Declarations Form AEM 100, hereinafter called the Declarations.
+POLICY: Equine Mortality Policy Form AEM 200 (08/07), hereinafter called the Policy.
 ADDRESS: as stated in the Declarations
-NAMED INSURED: The individual, partnership, corporation, or entity as stated in Item B of the Declarations.
-DEDUCTIBLE: as stated in the Declarations
-POLICY PERIOD: as stated in the Declarations
-PREMIUM: as stated in the Declarations
-SCHEDULE: as stated in the Declarations
+NAMED INSURED: The individual, partnership, corporation, or entity as stated in Item B of the Declarations, hereinafter called the Insured.
+DEDUCTIBLE: As stated in Item F of the Declarations, hereinafter called the Deductible.
+POLICY PERIOD: As stated in Item C of the Declarations, hereinafter called the Policy Period.
+PREMIUM: As stated in Item D of the Declarations, hereinafter called the Premium.
+SCHEDULE: As stated in Item J of the Declarations, hereinafter called the Schedule.
 
 PART II. COVERAGE
 The Company will indemnify the Insured upon the death of an insured horse resulting from accident or injury occurring during the Policy Period, or illness or disease first manifesting during the Policy Period, subject to immediate notice, the insured horse being listed in the Schedule, the limit in the Schedule, and the deductible.
