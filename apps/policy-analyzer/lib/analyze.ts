@@ -26,6 +26,7 @@ import {
   hasExclusionExceptionCue,
   isCoverageGrantLanguage,
   isExclusionQualificationLanguage,
+  isUmbrellaExclusionOpener,
   isExternalReferenceValue,
   isOptionalCoverageMention,
   isScheduleDependentGrant,
@@ -880,30 +881,31 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (!parents.length) return;
     const compact = sourceText.replace(/\s+/g, " ").trim();
     const stripped = compact
-      .replace(/^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:however(?:\s*,)?|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply(?:\s+to)?)\s*/i, "")
+      .replace(/^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*)?(?:however(?:\s*,)?|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply(?:\s+to)?)\s*/i, "")
       .replace(/[:.;\s]+$/g, "")
       .trim();
     if (stripped.length < 8 && !/post-?mortem|necropsy|supplement|approved|humane|theft/i.test(compact)) return;
     const explanation = summarizeExclusionSatellite(kind, compact);
     if (!explanation.trim()) return;
-    for (const parent of parents) {
-      parent.attachments = parent.attachments || [];
-      if (parent.attachments.some((item) => item.kind === kind && item.source_text === sourceText)) continue;
-      parent.attachments.push({
-        kind,
-        explanation,
-        source_page: sourcePage,
-        source_text: sourceText
-      });
-      mergeExclusionPage(parent, sourcePage);
-      refreshExclusionExplanation(parent);
-    }
+    const nearest = parents[parents.length - 1];
+    if (!nearest) return;
+    nearest.attachments = nearest.attachments || [];
+    if (nearest.attachments.some((item) => item.kind === kind && item.source_text === sourceText)) return;
+    nearest.attachments.push({
+      kind,
+      explanation,
+      source_page: sourcePage,
+      source_text: sourceText
+    });
+    mergeExclusionPage(nearest, sourcePage);
+    refreshExclusionExplanation(nearest);
   }
 
   function addExclusion(h: Hit, clause: string, type: string, condition?: string): ExclusionRecord | null {
     const trimmed = clause.replace(/\s+/g, " ").trim();
-    if (trimmed.length < 12) return null;
     const known = KNOWN_EXCLUSION_TITLES.has(type);
+    if (trimmed.length < 5) return null;
+    if (trimmed.length < 12 && !known) return null;
     const existingByType = exclusions.find((row) => row.source_document_id === h.document_id && row.exclusion_type === type);
     if (existingByType && known) {
       mergeExclusionPage(existingByType, h.page);
@@ -951,6 +953,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   let parentGroup: ExclusionRecord[] = [];
   let parentNumbered: number | null = null;
+  let parentLettered: string | null = null;
   let parentDoc: string | undefined;
 
   for (const walked of walkedClauses) {
@@ -970,17 +973,23 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (walked.document_id !== parentDoc) {
       parentGroup = [];
       parentNumbered = null;
+      parentLettered = null;
       parentDoc = walked.document_id;
     }
 
-    const relation = classifyExclusionClauseRelation(
-      walked,
-      parentGroup.length ? { numberedItem: parentNumbered, types: parentGroup.map((row) => row.exclusion_type) } : null
-    );
+    const parentScope =
+      parentGroup.length || parentNumbered != null
+        ? {
+            numberedItem: parentNumbered,
+            letteredItem: parentLettered,
+            types: parentGroup.map((row) => row.exclusion_type)
+          }
+        : null;
+    const relation = classifyExclusionClauseRelation(walked, parentScope);
     if (relation !== "parent") {
       if (!parentGroup.length) continue;
       if (relation === "continuation") {
-        for (const parent of parentGroup) mergeExclusionPage(parent, walked.page);
+        mergeExclusionPage(parentGroup[parentGroup.length - 1], walked.page);
         if (!isExclusionQualificationLanguage(walked.clause) && !hasExclusionExceptionCue(walked.clause)) continue;
       }
       const kind = relation === "continuation" ? "qualification" : relation;
@@ -989,16 +998,22 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     }
 
     const satellites = splitExclusionSatellites(walked.clause);
-    const cats = exclusionCategories(satellites.core) ;
-    const types = cats.length
+    const cats = exclusionCategories(satellites.core);
+    const derived = cats.length
       ? cats
-      : [genericExclusionTitle(satellites.core) || genericExclusionTitle(walked.clause) || "Stated exclusion"];
+      : ([genericExclusionTitle(satellites.core) || genericExclusionTitle(walked.clause)].filter(Boolean) as string[]);
+    parentNumbered = walked.numberedItem ?? parentNumbered;
+    parentLettered = walked.letteredItem ?? null;
+    if (isUmbrellaExclusionOpener(walked.clause)) {
+      parentGroup = [];
+      continue;
+    }
     parentGroup = [];
+    const types = derived.length ? derived : ["Stated exclusion"];
     for (const type of types) {
       const rec = addExclusion(h, walked.clause, type);
       if (rec && !parentGroup.includes(rec)) parentGroup.push(rec);
     }
-    parentNumbered = walked.numberedItem ?? parentNumbered;
     for (const exceptionText of satellites.exceptions) {
       attachExclusionSatellite(parentGroup, "exception", walked.page, exceptionText);
     }

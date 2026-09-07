@@ -15,7 +15,7 @@ No coverage is afforded for an embryo or foal unless separately insured.`
   {
     page: 3,
     text: `PART IV. EXCLUSIONS
-1. This insurance does not cover intentional destruction of an insured horse, except:
+(1) This insurance does not cover intentional destruction of an insured horse, except:
 (a) destruction approved by the Company;
 (b) destruction while the horse is aboard an aircraft and becomes berserk;
 (c) humane destruction based on a veterinary determination that destruction is required to terminate incurable and excessive suffering.
@@ -26,22 +26,20 @@ The Company must be given an opportunity`
     page: 4,
     text: `for postmortem or necropsy examination before the remains are disposed of.
 
-2. This insurance does not cover destruction of an insured horse because of a contagious or communicable disease.
+(2) This insurance does not cover destruction of an insured horse because of a contagious or communicable disease.
 
-3. This insurance does not cover surgical operations, except surgical operations performed by a licensed veterinarian in an attempt to save the life of the horse.
+(3) We do not cover loss caused by:
+(a) surgical operations, except surgical operations performed by a licensed veterinarian in an attempt to save the life of the horse;
+(b) the administration of any medication, drug, or chemical substance. As used herein, "chemical substance" means any substance introduced into the body of the horse other than food or water. However, this exclusion shall not apply to commonly available nutritional supplements used according to product directions.
 
-4. This insurance does not cover the administration of any medication, drug, or chemical substance, except that this exclusion shall not apply to commonly available nutritional supplements used according to product directions.
+(4) This insurance does not cover malicious, willful, or intentional acts or omissions of the Insured.
 
-As used herein, "chemical substance" means any substance introduced into the body of the horse other than food or water.
+(5) This insurance does not cover failure to provide proper care.
 
-5. This insurance does not cover malicious, willful, or intentional acts or omissions of the Insured.
+(6) This insurance does not cover loss caused by confiscation, war, civil war, or nuclear reaction or nuclear radiation.
 
-6. This insurance does not cover failure to provide proper care.
+(7) This insurance does not cover mysterious disappearance or escape, or fraudulent voluntary parting with possession or title.
 
-7. This insurance does not cover loss caused by confiscation, war, civil war, or nuclear reaction or nuclear radiation.
-
-8. This insurance does not cover mysterious disappearance or escape, or fraudulent voluntary parting with possession or title.
-
-9. This insurance does not cover consequential loss, except death following theft.`
+(8) This insurance does not cover consequential loss, except death following theft.`
   }
 ];

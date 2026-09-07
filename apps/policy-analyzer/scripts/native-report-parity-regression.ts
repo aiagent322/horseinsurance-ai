@@ -247,6 +247,28 @@ function main() {
   const medication = report.exclusions.filter((row) => /medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type));
   assert.equal(medication.length, 1);
   assert.ok(/supplement/i.test(`${medication[0].description} ${attachedBlob(report, /medication|substance/i, "exception")}`));
+  const contagious = report.exclusions.find((row) => /contagious|communicable disease/i.test(row.exclusion_type));
+  assert.ok(contagious);
+  assert.doesNotMatch(
+    `${contagious.description} ${attachedBlob(report, /contagious|communicable disease/i)}`,
+    /surgical operation|nutritional supplement|chemical substance|licensed veterinarian/i
+  );
+  const surgicalExclusion = report.exclusions.find((row) => /surgical operation/i.test(row.exclusion_type));
+  assert.ok(surgicalExclusion);
+  assert.ok(/veterinar|stated exception/i.test(`${surgicalExclusion.description} ${attachedBlob(report, /surgical operation/i)}`));
+  assert.doesNotMatch(`${surgicalExclusion.description} ${attachedBlob(report, /surgical operation/i)}`, /nutritional supplement/i);
+  assert.doesNotMatch(
+    `${medication[0].description} ${attachedBlob(report, /medication|substance/i)}`,
+    /surgical operations performed/i
+  );
+  for (const row of report.exclusions) {
+    if (/medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type)) continue;
+    assert.doesNotMatch(
+      `${row.description} ${(row.attachments || []).map((item) => `${item.explanation} ${item.source_text}`).join(" ")}`,
+      /nutritional supplement/i,
+      `${row.exclusion_type} inherited the supplement exception`
+    );
+  }
   const consequential = report.exclusions.find((row) => /consequential loss/i.test(row.exclusion_type));
   assert.ok(consequential);
   assert.ok(/theft/i.test(`${consequential.description} ${attachedBlob(report, /consequential loss/i, "exception")}`));

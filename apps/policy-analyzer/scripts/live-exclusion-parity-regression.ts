@@ -91,6 +91,18 @@ function main() {
     /supplement/i.test(`${medication[0].description} ${attachedBlob(medication[0], "exception")}`),
     "nutritional supplement carve-back must attach as an exception"
   );
+  const contagious = findExclusion(rows, /contagious|communicable/i);
+  assert.doesNotMatch(
+    `${contagious.description} ${attachedBlob(contagious)}`,
+    /surgical operation|nutritional supplement|chemical substance|licensed veterinarian/i
+  );
+  const surgical = findExclusion(rows, /surgical operation/i);
+  assert.ok(/veterinar|stated exception/i.test(`${surgical.description} ${attachedBlob(surgical)}`));
+  assert.doesNotMatch(`${surgical.description} ${attachedBlob(surgical)}`, /nutritional supplement/i);
+  for (const row of rows) {
+    if (/medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type)) continue;
+    assert.doesNotMatch(`${row.description} ${attachedBlob(row)}`, /nutritional supplement/i, `${row.exclusion_type} inherited supplement`);
+  }
   assert.equal(
     rows.filter((row) => /supplement/i.test(row.exclusion_type)).length,
     0,
