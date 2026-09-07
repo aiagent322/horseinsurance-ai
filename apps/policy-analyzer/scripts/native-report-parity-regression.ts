@@ -357,6 +357,11 @@ function main() {
   assert.ok(report.exclusions.every((row) => row.source_page > 0));
   assert.doesNotMatch(facing, /this insurance does not cover[\s\S]{80,}/i);
   assert.equal(report.exclusions.length, 12, `expected 12 exclusions, got ${report.exclusions.map((row) => row.exclusion_type).join(" | ")}`);
+  assert.equal(
+    report.exclusions.filter((row) => /loss directly/i.test(row.exclusion_type)).length,
+    0,
+    "parent exclusion lead-ins must not be titled Loss Directly"
+  );
   const exclusionsFacingStart = facing.indexOf("\nExclusions\n");
   const exclusionsFacingEnd = facing.indexOf("\nEmergency / Claim Requirements\n");
   const exclusionsFacing =

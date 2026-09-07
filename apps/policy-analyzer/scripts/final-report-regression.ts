@@ -151,6 +151,10 @@ function main() {
   assert.ok(embryoLimit.kind === "limitation" || embryoLimit.kind === "condition");
   assert.notEqual(theftWaiting.kind, "exclusion");
   assert.equal(report.exclusions.length, 12);
+  assert.equal(
+    report.exclusions.filter((item) => /loss directly/i.test(item.exclusion_type)).length,
+    0
+  );
   assert.ok(report.exclusions.every((item) => item.source_page === 3 || item.source_page === 4));
   assert.equal(report.exclusions.filter((item) => /thirty|30\s+days|not been recovered/i.test(item.description)).length, 0);
   assert.equal(report.exclusions.filter((item) => /embryo|foal/i.test(item.description)).length, 0);

@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { analyzeDocuments } from "../lib/analyze";
 import { classifyPackage } from "../lib/classify";
-import { buildSourceReferenceIndex, looksLikeRawExclusionExplanation } from "../lib/policy-semantics";
+import {
+  buildSourceReferenceIndex,
+  genericExclusionTitle,
+  isUmbrellaExclusionOpener,
+  looksLikeRawExclusionExplanation
+} from "../lib/policy-semantics";
 import { newId } from "../lib/store";
 import type { DocumentRecord, ExclusionRecord } from "../lib/types";
-import { LIVE_NATIVE_EXCLUSION_PAGES } from "./fixtures/live-native-exclusion-pages";
+import { LIVE_NATIVE_EXCLUSION_PAGES, DIAMOND_STATE_HIERARCHICAL_EXCLUSION_PAGES } from "./fixtures/live-native-exclusion-pages";
 
 const REQUIRED_CATEGORIES = [
   { needle: /intentional destruction/i, label: "Intentional Destruction" },
@@ -162,9 +167,63 @@ function main() {
     `Exclusions locator should span 3-4, got ${exclusionsRef.page_label}`
   );
 
+  assert.equal(rows.length, 12, `expected 12 exclusions, got ${rows.map((row) => row.exclusion_type).join(" | ")}`);
+  assert.equal(
+    rows.filter((row) => /loss directly/i.test(row.exclusion_type)).length,
+    0,
+    `false lead-in titles: ${rows.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  assert.equal(
+    rows.filter((row) => /medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type)).length,
+    1,
+    "Medication / Substance must remain a separate exclusion"
+  );
+
   const categoryCount = REQUIRED_CATEGORIES.filter((category) =>
     rows.some((row) => category.needle.test(`${row.exclusion_type} ${row.description}`))
   ).length;
+  assert.equal(categoryCount, 12, "all 12 expected Diamond State exclusion categories must be present");
+
+  const leadIn =
+    "(3) This insurance does not cover any loss directly or indirectly caused by, happening through, or in consequence of:";
+  assert.equal(isUmbrellaExclusionOpener(leadIn), true, "parent colon lead-in is an umbrella opener");
+  assert.equal(genericExclusionTitle(leadIn), null, "parent lead-in must not become Loss Directly");
+
+  const hierarchicalDoc = docFromPages(DIAMOND_STATE_HIERARCHICAL_EXCLUSION_PAGES, "diamond-state-hierarchical.pdf");
+  const hierarchical = analyzeDocuments(newId(), hierarchicalDoc.session_id, [hierarchicalDoc]);
+  const hierarchicalRows = hierarchical.exclusions;
+  assert.equal(
+    hierarchicalRows.filter((row) => /loss directly/i.test(row.exclusion_type)).length,
+    0,
+    `hierarchical false lead-ins: ${hierarchicalRows.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  assert.equal(
+    hierarchicalRows.length,
+    12,
+    `hierarchical expected 12, got ${hierarchicalRows.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  for (const category of REQUIRED_CATEGORIES) {
+    assert.ok(
+      hierarchicalRows.some((row) => category.needle.test(`${row.exclusion_type} ${row.description}`)),
+      `hierarchical missing ${category.label}`
+    );
+  }
+  const hierarchicalSurgical = findExclusion(hierarchicalRows, /surgical operation/i);
+  const hierarchicalMedication = hierarchicalRows.filter(
+    (row) => /medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type)
+  );
+  assert.equal(hierarchicalMedication.length, 1, "hierarchical Medication / Substance must not merge into Surgical Operations");
+  assert.doesNotMatch(
+    `${hierarchicalSurgical.exclusion_type} ${hierarchicalSurgical.description} ${attachedBlob(hierarchicalSurgical)}`,
+    /nutritional supplement|any medication or substance/i
+  );
+  assert.equal(findExclusion(hierarchicalRows, /surgical operation/i).source_page, 4);
+  assert.equal(hierarchicalMedication[0].source_page, 4);
+  assert.equal(findExclusion(hierarchicalRows, /malicious|willful/i).source_page, 4);
+  assert.equal(findExclusion(hierarchicalRows, /proper care/i).source_page, 4);
+  assert.equal(findExclusion(hierarchicalRows, /nuclear/i).source_page, 4);
+  assert.equal(findExclusion(hierarchicalRows, /confiscation/i).source_page, 4);
+  assert.equal(findExclusion(hierarchicalRows, /war|military force/i).source_page, 4);
 
   console.log("LIVE EXCLUSION PARITY REGRESSION OK", {
     category_count: categoryCount,

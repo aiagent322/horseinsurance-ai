@@ -247,6 +247,11 @@ ${unknownSource}`
   const stated = testG.exclusions.filter((row) => /^stated exclusion$/i.test(row.exclusion_type));
   assert.equal(stated.length, 0);
   assert.equal(testG.exclusions.length, 12, `expected 12 exclusions, got ${testG.exclusions.map((row) => row.exclusion_type).join(" | ")}`);
+  assert.equal(
+    testG.exclusions.filter((row) => /loss directly/i.test(row.exclusion_type)).length,
+    0,
+    "parent lead-ins must not become Loss Directly"
+  );
   for (const category of REQUIRED_CATEGORIES) {
     const row = findExclusion(testG, category.needle);
     assertExclusionPresentation(row);

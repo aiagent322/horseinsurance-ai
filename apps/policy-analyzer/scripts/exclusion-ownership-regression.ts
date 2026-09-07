@@ -157,9 +157,9 @@ The Company must be given an opportunity`
 
 (2) This insurance does not cover destruction of an insured horse because of a contagious or communicable disease.
 
-(3) We do not cover loss caused by:
-(a) surgical operations, except surgical operations performed by a licensed veterinarian in an attempt to save the life of the horse;
-(b) the administration of any medication, drug, or chemical substance. As used herein, "chemical substance" means any substance introduced into the body of the horse other than food or water. However, this exclusion shall not apply to commonly available nutritional supplements used according to product directions.
+(3) This insurance does not cover any loss directly or indirectly caused by, happening through, or in consequence of:
+(a) surgical operations, except surgical operations performed by a licensed veterinarian in an attempt to save the life of the horse
+(b) Any Medication or Substance. As used herein, "chemical substance" means any substance introduced into the body of the horse other than food or water. However, this exclusion shall not apply to commonly available nutritional supplements used according to product directions.
 
 (4) This insurance does not cover malicious, willful, or intentional acts or omissions of the Insured.
 
@@ -194,6 +194,17 @@ The Company must be given an opportunity`
   assert.equal(
     live.exclusions.filter((row) => /necropsy|post-?mortem|supplement/i.test(row.exclusion_type)).length,
     0
+  );
+  assert.equal(
+    live.exclusions.filter((row) => /loss directly/i.test(row.exclusion_type)).length,
+    0,
+    `TEST LIVE false lead-in titles: ${live.exclusions.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  assert.equal(
+    live.exclusions.filter((row) => /medication|substance/i.test(row.exclusion_type) && !/malicious/i.test(row.exclusion_type))
+      .length,
+    1,
+    "TEST LIVE: Medication / Substance must not merge into Surgical Operations"
   );
   console.log("TEST LIVE OK");
 

@@ -422,14 +422,29 @@ export function splitPolicyClauses(text: string): string[] {
   return out;
 }
 
+function isSequentialLetteredMarker(
+  letter: string,
+  lastLetter: string | null
+): boolean {
+  if (!lastLetter || letter.length !== 1 || lastLetter.length !== 1) return false;
+  return letter.charCodeAt(0) === lastLetter.charCodeAt(0) + 1;
+}
+
 export function splitLetteredSubparagraphs(text: string): string[] {
   const raw = String(text || "").replace(/\s+/g, " ").trim();
   if (!raw) return [];
-  const marker = /(?:^|(?<=[.;:]\s))(\(\s*[a-z]+\s*\))/gi;
+  const marker = /(\(\s*[a-z]+\s*\))/gi;
   const starts: number[] = [];
+  let lastLetter: string | null = null;
   let match: RegExpExecArray | null;
   while ((match = marker.exec(raw))) {
+    const letter = match[1].replace(/[()\s]/g, "").toLowerCase();
+    const before = raw.slice(0, match.index);
+    const atBoundary = match.index === 0 || /[.;:]\s+$/.test(before);
+    const sequential = isSequentialLetteredMarker(letter, lastLetter) && /\s$/.test(before);
+    if (!atBoundary && !sequential) continue;
     starts.push(match.index);
+    lastLetter = letter;
   }
   if (starts.length === 0) return [raw];
   const intro = starts[0] > 0 ? raw.slice(0, starts[0]).trim() : "";
@@ -602,6 +617,9 @@ export function walkPolicyClauses(
         if (parsed.rest) buffer = parsed.rest;
         continue;
       }
+      if (CLAUSE_LIST_PREFIX.test(line) && buffer.trim()) {
+        flush();
+      }
       buffer = buffer ? `${buffer} ${line}` : line;
     }
 
@@ -706,10 +724,25 @@ export type ExclusionParentScope = {
 export function isUmbrellaExclusionOpener(clause: string): boolean {
   const core = splitExclusionSatellites(clause).core;
   if (exclusionCategories(core).length > 0) return false;
-  const stripped = stripClauseListPrefix(core);
-  return /(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage)?)\s*(?:loss caused by)?\s*:?\s*$/i.test(
-    stripped
-  );
+  const stripped = stripClauseListPrefix(core).replace(/\s+/g, " ").trim();
+  if (!/(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage)?)/i.test(stripped)) {
+    return false;
+  }
+  const remainder = stripped
+    .replace(
+      /^(?:this insurance|this policy|this endorsement|we|the company|the insurer|the policy)\s+/i,
+      ""
+    )
+    .replace(
+      /^(?:does not cover|do not cover|will not cover|shall not be liable(?:\s+for)?|will not pay(?:\s+for)?|excludes(?:\s+coverage(?:\s+for)?)?)\s*/i,
+      ""
+    )
+    .replace(/^(?:any\s+)?loss(?:\s+directly(?:\s+or\s+indirectly)?)?\s*/i, "")
+    .replace(/\b(?:caused by|happening through|in consequence of)\b/gi, " ")
+    .replace(/\b(?:and|or)\b/gi, " ")
+    .replace(/[:.;,\s]+/g, " ")
+    .trim();
+  return remainder.length === 0;
 }
 
 function isNewExclusionSubject(clause: WalkedPolicyClause, parent: ExclusionParentScope | null, cats: string[]): boolean {
@@ -815,7 +848,9 @@ export function genericExclusionTitle(clause: string): string | null {
   if (!raw) return null;
   const first = raw.split(/\s*,\s*|\s+or\s+/i)[0]?.trim() || "";
   if (first.length < 3 || first.length > 70) return null;
-  if (/^loss$/i.test(first)) return null;
+  if (/^(?:any\s+)?loss(?:\s+directly(?:\s+or\s+indirectly)?)?$/i.test(first)) return null;
+  if (/\bloss\b/i.test(first) && /(?:directly|indirectly|caused by)$/i.test(first)) return null;
+  if (/^(?:caused by|happening through|in consequence of)$/i.test(first)) return null;
   return titleCaseCause(first);
 }
 
