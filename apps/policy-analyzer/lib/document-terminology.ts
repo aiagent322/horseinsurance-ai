@@ -1,3 +1,4 @@
+import { looksLikeDeclarationsPage } from "./policy-semantics";
 import type { CompletenessResult, DocumentRecord, PolicyFormRecord, PolicyRecord } from "./types";
 
 export type DocumentPackageState = {
@@ -22,12 +23,17 @@ function isEndorsementClassification(classification: string): boolean {
   return /endorsement/i.test(classification);
 }
 
+function pageLooksLikeDeclarations(doc: DocumentRecord): boolean {
+  return (doc.pages || []).some((page) => looksLikeDeclarationsPage(page.text || ""));
+}
+
 export function inspectDocumentPackageState(record: PackageFacts): DocumentPackageState {
   const documents = record.documents || [];
   const listedForms = record.form_inventory || [];
   const warnings = record.completeness?.warnings || [];
   return {
-    declarationsPresent: documents.some((doc) => doc.classification === "Declarations"),
+    declarationsPresent:
+      documents.some((doc) => doc.classification === "Declarations") || documents.some(pageLooksLikeDeclarations),
     declarationsMissingWarning: warnings.some((warning) => /no page was classified as declarations/i.test(warning)),
     schedulePresent: documents.some((doc) => doc.classification === "Schedule"),
     listedForms,
@@ -60,17 +66,47 @@ function noDeclarationsSummary(state: DocumentPackageState): string {
   return parts.join(" ");
 }
 
+function isDiscoveredForm(form: PolicyFormRecord): boolean {
+  return form.inventory_source === "DISCOVERED_IN_DOCUMENT";
+}
+
 export function describeFormsAndEndorsements(record: PackageFacts): FormsEndorsementsPresentation {
   const state = inspectDocumentPackageState(record);
   const declarationsAnalyzed = state.declarationsPresent && !state.declarationsMissingWarning;
+  const listedOnDeclarations = state.listedForms.filter((form) => !isDiscoveredForm(form));
+  const discoveredForms = state.listedForms.filter(isDiscoveredForm);
 
-  if (state.listedForms.length > 0 && declarationsAnalyzed) {
+  if (listedOnDeclarations.length > 0 && declarationsAnalyzed) {
     return {
       heading: "Forms / Endorsements Listed on the Declarations",
       summary:
         "The uploaded Declarations list the following forms and endorsements. A listed identifier is not treated as uploaded unless matching form text was found in the package.",
       listedMissingNote:
         "Listed on the uploaded Declarations, but no separately sourced form text was found in the uploaded package. A listed form number is not proof the form was uploaded."
+    };
+  }
+
+  if (discoveredForms.length > 0) {
+    const endorsementCount = discoveredForms.filter((form) =>
+      /endorsement|optional coverage/i.test(form.form_role || "")
+    ).length;
+    const parts = [
+      discoveredForms.length === 1
+        ? "1 distinct contractual form was identified inside the uploaded document."
+        : `${discoveredForms.length} distinct contractual forms were identified inside the uploaded document.`
+    ];
+    if (endorsementCount) {
+      parts.push(
+        endorsementCount === 1
+          ? "1 of those forms is an endorsement or optional coverage form."
+          : `${endorsementCount} of those forms are endorsements or optional coverage forms.`
+      );
+    }
+    return {
+      heading: "Forms & Endorsements",
+      summary: parts.join(" "),
+      listedMissingNote:
+        "A listed form number is not proof the form was uploaded unless matching form text was found in the package."
     };
   }
 

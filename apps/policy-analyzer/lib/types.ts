@@ -160,6 +160,14 @@ export type CompletenessResult = {
 
 export type FormInventoryStatus = "PRESENT" | "MISSING" | "EDITION MISMATCH";
 
+export type FormInventorySource = "LISTED_ON_DECLARATIONS" | "DISCOVERED_IN_DOCUMENT";
+
+export type LogicalFormRole =
+  | "Specimen Declarations / Schedule"
+  | "Base Policy Form"
+  | "Endorsement / Optional Coverage Form"
+  | "Other Form";
+
 export type PolicyFormRecord = {
   id: string;
   printed_identifier: string;
@@ -174,6 +182,10 @@ export type PolicyFormRecord = {
   match_page?: number;
   match_source_text?: string;
   match_edition?: string;
+  form_role?: LogicalFormRole | string;
+  page_start?: number;
+  page_end?: number;
+  inventory_source?: FormInventorySource;
 };
 
 export type PolicyIdentification = {

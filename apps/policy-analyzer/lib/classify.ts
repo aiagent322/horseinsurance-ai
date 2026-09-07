@@ -1,4 +1,8 @@
 import {
+  isDeclarationsOrScheduleRole,
+  segmentLogicalForms
+} from "./form-segmentation";
+import {
   looksLikeDeclarationsPage,
   policyFormSignalCount
 } from "./policy-semantics";
@@ -10,8 +14,19 @@ export function classifyPackage(pages: PageText[]): DocumentClass {
   const joined = texts.join("\n");
   const declarationPages = texts.filter((text) => looksLikeDeclarationsPage(text)).length;
   const formScore = policyFormSignalCount(joined);
+  const segments = segmentLogicalForms(pages);
+  const uniqueFormIds = new Set(segments.map((seg) => seg.normalized_identifier));
+  const mixedLogicalForms =
+    uniqueFormIds.size >= 2 && segments.some((seg) => !isDeclarationsOrScheduleRole(seg.role));
+  const hasBasePolicySegment = segments.some((seg) => seg.role === "Base Policy Form");
 
-  if (declarationPages > 0) return "Declarations";
+  if (declarationPages > 0) {
+    if (mixedLogicalForms) {
+      if (hasBasePolicySegment) return "Base Policy Form";
+    } else {
+      return "Declarations";
+    }
+  }
 
   const specificHits: Array<[DocumentClass, number]> = [
     ["Exclusion Endorsement", count(hay, ["exclusion endorsement", "this endorsement excludes"])],

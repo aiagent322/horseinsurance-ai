@@ -9,6 +9,7 @@ import {
   normalizeFormId,
   parseListedForms
 } from "./form-schedule";
+import { segmentLogicalForms } from "./form-segmentation";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
   clauseConcernsMortality,
@@ -1136,7 +1137,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   }
 
   const declarationPages = pageHits.filter((h) => looksLikeDeclarationsPage(h.text));
-  const formInventory = buildFormInventory(pageHits, declarationPages);
+  const formInventory = buildFormInventory(pageHits, declarationPages, documents);
   const warnings: string[] = [];
   if (documents.some((d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending")) {
     warnings.push(
@@ -1251,9 +1252,46 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   };
 }
 
+function discoverEmbeddedFormInventory(documents: DocumentRecord[]): PolicyFormRecord[] {
+  const out: PolicyFormRecord[] = [];
+  const seen = new Set<string>();
+  for (const doc of documents) {
+    const segments = segmentLogicalForms(doc.pages || []);
+    const unique = new Set(segments.map((seg) => seg.normalized_identifier));
+    if (unique.size < 2) continue;
+    for (const seg of segments) {
+      if (!seg.normalized_identifier || seen.has(seg.normalized_identifier)) continue;
+      seen.add(seg.normalized_identifier);
+      const startPage = (doc.pages || []).find((page) => page.page === seg.page_start);
+      const startText = startPage?.text || seg.start_text;
+      out.push({
+        id: newId(),
+        printed_identifier: seg.printed_identifier,
+        normalized_identifier: seg.normalized_identifier,
+        form_title: seg.title,
+        edition: seg.edition,
+        listing_document_id: doc.document_id,
+        listing_page: seg.page_start,
+        listing_source_text: excerpt(startText, seg.printed_identifier),
+        status: "PRESENT",
+        match_document_id: doc.document_id,
+        match_page: seg.page_start,
+        match_source_text: excerpt(startText, seg.printed_identifier),
+        match_edition: seg.edition,
+        form_role: seg.role,
+        page_start: seg.page_start,
+        page_end: seg.page_end,
+        inventory_source: "DISCOVERED_IN_DOCUMENT"
+      });
+    }
+  }
+  return out;
+}
+
 function buildFormInventory(
   hits: Hit[],
-  declarationPages: Hit[]
+  declarationPages: Hit[],
+  documents: DocumentRecord[]
 ): PolicyFormRecord[] {
   const listed: PolicyFormRecord[] = [];
   const seen = new Set<string>();
@@ -1273,7 +1311,8 @@ function buildFormInventory(
         listing_document_id: h.document_id,
         listing_page: h.page,
         listing_source_text: excerpt(h.text, item.printed),
-        status: "MISSING"
+        status: "MISSING",
+        inventory_source: "LISTED_ON_DECLARATIONS"
       });
     }
   }
@@ -1321,7 +1360,8 @@ function buildFormInventory(
       form.status = "PRESENT";
     }
   }
-  return listed;
+  if (listed.length) return listed;
+  return discoverEmbeddedFormInventory(documents);
 }
 
 function dedupeLimits(items: FinancialLimit[]): FinancialLimit[] {
