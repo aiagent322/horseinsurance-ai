@@ -9,6 +9,7 @@ import {
   describeFormsAndEndorsements,
   formsSectionContradictsPackageWarning
 } from "../lib/document-terminology";
+import { customerDocumentInventoryLines } from "../lib/document-inventory-presentation";
 import {
   UNRESOLVED_COVERAGE_SECTION_TITLE,
   unresolvedCoverageItemsFromReport
@@ -90,7 +91,6 @@ function assembleCustomerFacingReport(report: PolicyRecord): string {
     "Policy report",
     report.completeness.status,
     ...report.completeness.warnings,
-    `Classified as ${report.documents[0].classification}`,
     "Policy Identification",
     `Carrier ${cite(id.carrier_name)}`,
     `Policy form ${cite(id.policy_form)}`,
@@ -102,7 +102,7 @@ function assembleCustomerFacingReport(report: PolicyRecord): string {
     `Deductible ${cite(id.deductible)}`,
     `Insured value ${cite(id.insured_value)}`,
     "Policy Document Inventory",
-    ...report.documents.map((doc) => `Classified as ${doc.classification}`),
+    ...report.documents.flatMap((doc) => customerDocumentInventoryLines(doc)),
     forms.heading,
     forms.summary,
     ...report.form_inventory.flatMap((form) => [
@@ -168,6 +168,12 @@ function assertReportViewConsumesAnalysisFields(): void {
   assert.match(source, /describeReportActionControls/, "Report chrome must use the shared action helper");
   assert.doesNotMatch(source, /First original PDF/, "Report chrome must not use internal first-PDF wording");
   assert.doesNotMatch(source, /\/auth\/sign-out/, "Completed report must not duplicate Sign out");
+  assert.match(source, /describeDocumentInventory/, "Inventory UI must use the shared presentation helper");
+  assert.doesNotMatch(source, /extraction extracted/, "Inventory must not concatenate extraction status");
+  assert.doesNotMatch(source, /native text on/, "Inventory must not expose native-text counts");
+  assert.doesNotMatch(source, /OCR selected/, "Inventory must not expose OCR selection counts");
+  assert.doesNotMatch(source, /SHA-256/, "Inventory must not display SHA-256");
+  assert.doesNotMatch(source, /no low-quality pages/, "Inventory must not display operational quality metadata");
 }
 
 function main() {
@@ -195,6 +201,22 @@ function main() {
   assert.doesNotMatch(forms.summary, /endorsements are missing|no endorsements were uploaded/i);
   assert.equal(formsSectionContradictsPackageWarning(report.completeness, forms), false);
   assert.match(facing, /Forms & Endorsements/);
+
+  const inventoryStart = facing.indexOf("Policy Document Inventory");
+  const inventoryEnd = facing.indexOf("Forms & Endorsements");
+  assert.ok(inventoryStart >= 0 && inventoryEnd > inventoryStart, "inventory section must be present");
+  const inventoryFacing = facing.slice(inventoryStart, inventoryEnd);
+  assert.match(inventoryFacing, /native-extracted-policy\.pdf/);
+  assert.match(inventoryFacing, /Base Policy Form/);
+  assert.match(inventoryFacing, /4 pages/);
+  assert.match(inventoryFacing, /All pages were readable/);
+  assert.match(inventoryFacing, /Original file/);
+  assert.doesNotMatch(inventoryFacing, /extraction extracted/);
+  assert.doesNotMatch(inventoryFacing, /native text on/);
+  assert.doesNotMatch(inventoryFacing, /OCR selected/);
+  assert.doesNotMatch(inventoryFacing, /SHA-256/);
+  assert.doesNotMatch(inventoryFacing, /no low-quality pages/);
+  assert.ok(report.documents[0].file_hash, "internal hash remains on the document record");
 
   const id = report.identification;
   assert.equal(id.carrier_name?.value, "Diamond State Insurance Company");

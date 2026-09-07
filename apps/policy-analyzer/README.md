@@ -27,6 +27,7 @@ npm run test:exclusion-presentation
 npm run test:document-terminology
 npm run test:coverage-gap-presentation
 npm run test:report-actions
+npm run test:document-inventory-presentation
 npm run test:completeness
 npm run test:ingestion
 npm run test:persistence

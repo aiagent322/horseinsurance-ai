@@ -46,7 +46,7 @@ function main() {
   assert.equal(multi.showDeleteAnalysis, true);
   assert.equal(multi.showReportSignOut, false);
   assert.deepEqual(visibleReportActionLabels(multi), ["Delete analysis"]);
-  assert.match(reportViewSource, /Original file/, "per-document original links remain in inventory");
+  assert.match(reportViewSource, /originalFileLabel/, "per-document original links remain in inventory");
   assert.match(
     reportViewSource,
     /\/api\/policies\/\$\{record\.policy_id\}\/documents\/\$\{d\.document_id\}\/original/,

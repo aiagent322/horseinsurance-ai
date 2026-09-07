@@ -28,6 +28,7 @@
     "test:document-terminology": "POLICY_ANALYZER_STORE=memory tsx scripts/document-terminology-regression.ts",
     "test:coverage-gap-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/coverage-gap-presentation-regression.ts",
     "test:report-actions": "POLICY_ANALYZER_STORE=memory tsx scripts/report-actions-regression.ts",
+    "test:document-inventory-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/document-inventory-presentation-regression.ts",
     "test:compound-duty": "POLICY_ANALYZER_STORE=memory tsx scripts/live-duty-parity-regression.ts",
     "test:completeness": "POLICY_ANALYZER_STORE=memory tsx scripts/completeness-regression.ts",
     "test:ingestion": "POLICY_ANALYZER_STORE=memory tsx scripts/ingestion-regression.ts",

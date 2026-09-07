@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { describeDocumentInventory } from "@/lib/document-inventory-presentation";
 import { describeFormsAndEndorsements } from "@/lib/document-terminology";
-import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
 import { buildSourceReferenceIndex, formatPageLocator } from "@/lib/policy-semantics";
 import { describeReportActionControls } from "@/lib/report-actions";
 import {
@@ -179,30 +179,21 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
       <Section title="Policy Document Inventory">
         <ul className="space-y-3 text-sm">
           {record.documents.map((d) => {
-            const counts = pageMethodCounts(d.pages);
-            const weakPages = d.pages
-              .map(hydratePageDiagnostics)
-              .filter((p) => p.quality_status !== "GOOD")
-              .map((p) => p.page);
+            const item = describeDocumentInventory(d);
             return (
               <li key={d.document_id} className="rounded-md border border-[#f0f1f3] p-3">
-                <p className="font-medium">{d.original_filename}</p>
-                <p className="text-[#4a5568]">
-                  Classified as {d.classification}; {d.page_count} page{d.page_count === 1 ? "" : "s"}; extraction{" "}
-                  {d.extraction_status}; native text on {counts.native} page{counts.native === 1 ? "" : "s"}; OCR selected
-                  on {counts.ocr} page{counts.ocr === 1 ? "" : "s"}
-                  {weakPages.length
-                    ? `; low-quality or unreadable pages: ${weakPages.join(", ")}`
-                    : "; no low-quality pages"}
-                  ; SHA-256 {d.file_hash.slice(0, 12)}…
-                </p>
+                <p className="font-medium">{item.filename}</p>
+                <p className="text-[#4a5568]">{item.classificationAndPages}</p>
+                {item.showReadabilityMessage ? (
+                  <p className="text-[#4a5568]">{item.readabilityMessage}</p>
+                ) : null}
                 <a
                   className="mt-1 inline-block text-xs font-medium text-[#1d6fa5] underline"
                   href={`/api/policies/${record.policy_id}/documents/${d.document_id}/original`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Original file
+                  {item.originalFileLabel}
                 </a>
               </li>
             );

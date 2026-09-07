@@ -9,6 +9,10 @@ import {
   walkPolicyClauses
 } from "../lib/policy-semantics";
 import { looksLikeQuotedPolicyLanguage } from "../lib/agent-questions";
+import {
+  customerDocumentInventoryText,
+  describeDocumentInventory
+} from "../lib/document-inventory-presentation";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
@@ -73,6 +77,16 @@ function main() {
   assert.equal(doc.classification, "Base Policy Form");
   assert.equal(report.documents[0].classification, "Base Policy Form");
   assert.equal(report.completeness.status, "DOCUMENT PACKAGE MAY BE INCOMPLETE");
+  const inventory = describeDocumentInventory(report.documents[0]);
+  const inventoryText = customerDocumentInventoryText(report.documents[0]);
+  assert.equal(inventory.filename, "Mortality_Policy_Jacket.pdf");
+  assert.equal(inventory.displayClassification, "Base Policy Form");
+  assert.equal(inventory.pageLabel, "4 pages");
+  assert.equal(inventory.readabilityMessage, "All pages were readable.");
+  assert.equal(inventory.originalFileLabel, "Original file");
+  assert.doesNotMatch(inventoryText, /extraction extracted|native text|OCR selected|SHA-256|no low-quality pages/);
+  assert.ok(report.documents[0].file_hash, "internal hash remains on the document record");
+  assert.ok(!inventoryText.includes(report.documents[0].file_hash));
   assert.ok(report.completeness.warnings.some((warning) => /no page was classified as declarations/i.test(warning)));
   assert.doesNotMatch(report.completeness.status, /appears complete/i);
 
