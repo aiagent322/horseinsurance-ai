@@ -108,7 +108,9 @@ export function toPersistPayload(input: {
       description: exclusion.description,
       excerpt: exclusion.exact_source_excerpt,
       source_page: exclusion.source_page,
-      source_document_id: exclusion.source_document_id
+      source_pages: exclusion.source_pages,
+      source_document_id: exclusion.source_document_id,
+      attachments: exclusion.attachments
     })),
     requirements: report.requirements.map((requirement) => ({
       trigger: requirement.trigger,

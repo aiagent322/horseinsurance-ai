@@ -92,6 +92,15 @@ export type CoverageRecord = {
   confidence_status: Confidence;
 };
 
+export type ExclusionAttachmentKind = "exception" | "qualification" | "definition" | "continuation";
+
+export type ExclusionAttachment = {
+  kind: ExclusionAttachmentKind;
+  explanation: string;
+  source_page: number;
+  source_text: string;
+};
+
 export type ExclusionRecord = {
   exclusion_id: string;
   policy_id: string;
@@ -102,7 +111,9 @@ export type ExclusionRecord = {
   description: string;
   source_document_id: string;
   source_page: number;
+  source_pages?: number[];
   exact_source_excerpt: string;
+  attachments?: ExclusionAttachment[];
   confidence_status: Confidence;
 };
 

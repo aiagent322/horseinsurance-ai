@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
-import { buildSourceReferenceIndex } from "@/lib/policy-semantics";
+import { buildSourceReferenceIndex, formatPageLocator } from "@/lib/policy-semantics";
 import { cn } from "@/lib/utils";
 import type { AnalysisStatus, PolicyRecord, Sourced } from "@/lib/types";
 
@@ -310,16 +310,40 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
         {record.exclusions.length === 0 ? (
           <p className="text-sm text-[#6b7280]">NOT FOUND IN DOCUMENTS PROVIDED</p>
         ) : (
-          <ul className="space-y-3 text-sm">
-            {record.exclusions.map((e) => (
-              <li key={e.exclusion_id}>
-                <p className="font-medium">{e.exclusion_type}</p>
-                <p>{e.description}</p>
-                <p className="text-xs text-[#1d6fa5]">
-                  p. {e.source_page} — “{e.exact_source_excerpt}”
-                </p>
-              </li>
-            ))}
+          <ul className="space-y-4 text-sm">
+            {record.exclusions.map((e) => {
+              const exceptions = e.attachments?.filter((item) => item.kind === "exception") ?? [];
+              const qualifications = e.attachments?.filter((item) => item.kind === "qualification") ?? [];
+              const pages = e.source_pages?.length ? e.source_pages : e.source_page > 0 ? [e.source_page] : [];
+              return (
+                <li key={e.exclusion_id} className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Status value="EXCLUDED" />
+                    <p className="font-medium">{e.exclusion_type}</p>
+                  </div>
+                  <p className="text-[#4a5568]">{e.description}</p>
+                  {exceptions.length > 0 ? (
+                    <div className="text-[#4a5568]">
+                      <p className="font-medium text-[#0b3c5d]">Exceptions</p>
+                      {exceptions.map((item, index) => (
+                        <p key={`${e.exclusion_id}-ex-${index}`}>{item.explanation}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {qualifications.length > 0 ? (
+                    <div className="text-[#4a5568]">
+                      <p className="font-medium text-[#0b3c5d]">Qualifications</p>
+                      {qualifications.map((item, index) => (
+                        <p key={`${e.exclusion_id}-q-${index}`}>{item.explanation}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {pages.length > 0 ? (
+                    <p className="text-xs text-[#1d6fa5]">Source: {formatPageLocator(pages)}</p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Section>

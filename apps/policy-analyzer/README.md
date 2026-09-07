@@ -15,6 +15,9 @@ cd apps/policy-analyzer
 npm ci
 npm test
 npm run test:semantic
+npm run test:live-duty-parity
+npm run test:live-exclusion-parity
+npm run test:exclusion-structure
 npm run test:completeness
 npm run test:ingestion
 npm run test:persistence

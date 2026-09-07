@@ -6,6 +6,7 @@ import {
   collectSourceReferences,
   formatCustomerSourceReference,
   looksLikeRawPolicyFragment,
+  looksLikeRawExclusionExplanation,
   walkPolicyClauses
 } from "../lib/policy-semantics";
 import { newId } from "../lib/store";
@@ -160,13 +161,24 @@ function main() {
   ]) {
     assert.ok(exclusionBlob.includes(needle), `missing exclusion category ${needle}`);
   }
-  assert.ok(
-    report.exclusions.some((item) => item.source_page === 3 || item.source_page === 4),
-    "exclusion citation must include page 3 or 4"
+  assert.equal(
+    report.exclusions.filter((item) => /^stated exclusion$/i.test(item.exclusion_type)).length,
+    0,
+    "customer-facing exclusions must have meaningful titles"
   );
   assert.ok(
     report.exclusions.every((item) => item.source_page === 3 || item.source_page === 4),
     "true exclusions should be cited from the exclusion section pages"
+  );
+  assert.ok(
+    report.exclusions.every(
+      (item) => !looksLikeRawExclusionExplanation(item.description, item.condition || item.exact_source_excerpt)
+    ),
+    "exclusion explanations must not be raw source paragraphs"
+  );
+  assert.ok(
+    report.exclusions.every((item) => /the policy excludes/i.test(item.description)),
+    "customer-facing exclusions must use exclusion wording"
   );
   assert.equal(
     report.exclusions.filter((item) => /thirty|30\s+days|not been recovered/i.test(item.description)).length,

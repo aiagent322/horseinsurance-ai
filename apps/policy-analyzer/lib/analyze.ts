@@ -18,17 +18,25 @@ import {
   describeClaimDuty,
   allDutyFamilies,
   dutyFamily,
-  exclusionCategory,
+  classifyExclusionClauseRelation,
+  exclusionCategories,
+  explainExclusion,
   explainCoverage,
   extractPolicyFormValue,
+  genericExclusionTitle,
+  hasExclusionExceptionCue,
   isCoverageGrantLanguage,
   isCoverageLimitationLanguage,
+  isExclusionQualificationLanguage,
   isExternalReferenceValue,
   isOptionalCoverageMention,
   isScheduleDependentGrant,
+  KNOWN_EXCLUSION_TITLES,
   looksLikeDeclarationsPage,
   normalizeIdentificationValue,
   personalizedFactsMissing,
+  splitExclusionSatellites,
+  summarizeExclusionSatellite,
   walkPolicyClauses
 } from "./policy-semantics";
 import type {
@@ -38,6 +46,7 @@ import type {
   CoverageRecord,
   DocumentRecord,
   EndorsementEffect,
+  ExclusionAttachment,
   ExclusionRecord,
   FinancialLimit,
   PageText,
@@ -847,27 +856,75 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const exclusions: ExclusionRecord[] = [];
   const seenExclusion = new Set<string>();
+  const exclusionsByClauseBody = new Map<string, ExclusionRecord[]>();
 
-  function addExclusion(h: Hit, clause: string, type: string, condition?: string): void {
+  function clauseBodyKey(documentId: string, clause: string): string {
+    return `${documentId}|${clause.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 120)}`;
+  }
+
+  function refreshExclusionExplanation(record: ExclusionRecord): void {
+    record.description = explainExclusion(record.exclusion_type, record.attachments, record.condition);
+  }
+
+  function mergeExclusionPage(record: ExclusionRecord, page: number): void {
+    const pages = new Set([...(record.source_pages || [record.source_page]), page].filter((item) => item > 0));
+    record.source_pages = [...pages].sort((a, b) => a - b);
+    record.source_page = record.source_pages[0] || page;
+  }
+
+  function attachExclusionSatellite(
+    parents: ExclusionRecord[],
+    kind: ExclusionAttachment["kind"],
+    sourcePage: number,
+    sourceText: string
+  ): void {
+    if (!parents.length) return;
+    const explanation = summarizeExclusionSatellite(kind, sourceText);
+    for (const parent of parents) {
+      parent.attachments = parent.attachments || [];
+      if (parent.attachments.some((item) => item.kind === kind && item.source_text === sourceText)) continue;
+      parent.attachments.push({
+        kind,
+        explanation,
+        source_page: sourcePage,
+        source_text: sourceText
+      });
+      mergeExclusionPage(parent, sourcePage);
+      refreshExclusionExplanation(parent);
+    }
+  }
+
+  function addExclusion(h: Hit, clause: string, type: string, condition?: string): ExclusionRecord | null {
     const trimmed = clause.replace(/\s+/g, " ").trim();
-    if (trimmed.length < 12) return;
-    const bodyKey = `${h.document_id}:${h.page}|${trimmed.toLowerCase().slice(0, 80)}`;
-    if (seenExclusion.has(bodyKey)) return;
-    const key = `${type}|${bodyKey}`;
-    if (seenExclusion.has(key)) return;
-    seenExclusion.add(bodyKey);
-    seenExclusion.add(key);
-    exclusions.push({
+    if (trimmed.length < 12) return null;
+    const known = KNOWN_EXCLUSION_TITLES.has(type);
+    const existingByType = exclusions.find((row) => row.source_document_id === h.document_id && row.exclusion_type === type);
+    if (existingByType && known) {
+      mergeExclusionPage(existingByType, h.page);
+      return existingByType;
+    }
+    const bodyKey = clauseBodyKey(h.document_id, trimmed);
+    const sameBody = exclusionsByClauseBody.get(bodyKey) || [];
+    if (!known && sameBody.length) return sameBody[0];
+    const typeKey = `${h.document_id}|${type}|${known ? "known" : bodyKey}`;
+    if (seenExclusion.has(typeKey)) return existingByType || sameBody[0] || null;
+    seenExclusion.add(typeKey);
+    const record: ExclusionRecord = {
       exclusion_id: newId(),
       policy_id: policyId,
       exclusion_type: type,
       condition: condition || trimmed,
-      description: trimmed,
+      description: explainExclusion(type, undefined, condition || trimmed),
       source_document_id: h.document_id,
       source_page: h.page,
+      source_pages: [h.page],
       exact_source_excerpt: excerpt(h.text, trimmed.slice(0, 80)),
+      attachments: [],
       confidence_status: "HIGH"
-    });
+    };
+    exclusions.push(record);
+    exclusionsByClauseBody.set(bodyKey, [...sameBody, record]);
+    return record;
   }
 
   const hitByPage = new Map<string, Hit>();
@@ -879,13 +936,16 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   for (const h of pageHits) {
     const excl = /(?:this endorsement )?excludes coverage for the ([^.]+)\./i.exec(h.text);
     if (excl) {
-      addExclusion(h, excl[0].trim(), "Named anatomical / condition exclusion", excl[1].trim());
-      const last = exclusions[exclusions.length - 1];
-      if (last) last.anatomical_area = /fetlock|hock|navicular|tendon/i.exec(excl[1])?.[0];
+      const added = addExclusion(h, excl[0].trim(), "Named anatomical / condition exclusion", excl[1].trim());
+      if (added) added.anatomical_area = /fetlock|hock|navicular|tendon/i.exec(excl[1])?.[0];
     }
     const pre = /pre-existing condition:\s*([^\n.]+)/i.exec(h.text);
     if (pre) addExclusion(h, pre[0].trim(), "Pre-existing condition", pre[1].trim());
   }
+
+  let parentGroup: ExclusionRecord[] = [];
+  let parentNumbered: number | null = null;
+  let parentDoc: string | undefined;
 
   for (const walked of walkedClauses) {
     if (walked.kind !== "exclusion") continue;
@@ -901,7 +961,44 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (productDenial) continue;
     const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
     if (!h) continue;
-    addExclusion(h, walked.clause, exclusionCategory(walked.clause));
+    if (walked.document_id !== parentDoc) {
+      parentGroup = [];
+      parentNumbered = null;
+      parentDoc = walked.document_id;
+    }
+
+    const relation = classifyExclusionClauseRelation(
+      walked,
+      parentGroup.length ? { numberedItem: parentNumbered, types: parentGroup.map((row) => row.exclusion_type) } : null
+    );
+    if (relation !== "parent") {
+      if (!parentGroup.length) continue;
+      if (relation === "continuation") {
+        for (const parent of parentGroup) mergeExclusionPage(parent, walked.page);
+        if (!isExclusionQualificationLanguage(walked.clause) && !hasExclusionExceptionCue(walked.clause)) continue;
+      }
+      const kind = relation === "continuation" ? "qualification" : relation;
+      attachExclusionSatellite(parentGroup, kind, walked.page, walked.clause);
+      continue;
+    }
+
+    const satellites = splitExclusionSatellites(walked.clause);
+    const cats = exclusionCategories(satellites.core) ;
+    const types = cats.length
+      ? cats
+      : [genericExclusionTitle(satellites.core) || genericExclusionTitle(walked.clause) || "Stated exclusion"];
+    parentGroup = [];
+    for (const type of types) {
+      const rec = addExclusion(h, walked.clause, type);
+      if (rec && !parentGroup.includes(rec)) parentGroup.push(rec);
+    }
+    parentNumbered = walked.numberedItem ?? parentNumbered;
+    for (const exceptionText of satellites.exceptions) {
+      attachExclusionSatellite(parentGroup, "exception", walked.page, exceptionText);
+    }
+    for (const qualificationText of satellites.qualifications) {
+      attachExclusionSatellite(parentGroup, "qualification", walked.page, qualificationText);
+    }
   }
 
   const endorsements: EndorsementEffect[] = [];

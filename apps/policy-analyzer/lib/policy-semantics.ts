@@ -263,8 +263,11 @@ export function isExclusionOperativeLanguage(clause: string): boolean {
     /\bthis endorsement excludes coverage for\b/i.test(clause) ||
     /\bno coverage is afforded\b/i.test(clause) ||
     /\bno liability arises\b/i.test(clause) ||
+    /\bwe (?:do not|will not) cover\b/i.test(clause) ||
     /\bwe will not pay for\b/i.test(clause) ||
     /\bwill not pay for (?:any )?loss\b/i.test(clause) ||
+    /\bthe policy excludes\b/i.test(clause) ||
+    /\bthe (?:company|insurer) (?:does not cover|shall not be liable)\b/i.test(clause) ||
     /\bexcluded loss\b/i.test(clause)
   );
 }
@@ -482,7 +485,19 @@ export type WalkedPolicyClause = {
   document_id?: string;
   section: PolicySection | null;
   kind: PolicyTermKind | null;
+  numberedItem?: number | null;
+  letteredItem?: string | null;
 };
+
+function parseClauseListMarkers(clause: string): { numbered: number | null; lettered: string | null } {
+  const text = String(clause || "").trim();
+  const numbered = text.match(/^(\d+)\.(?=\s|$)/);
+  const lettered = text.match(/^(?:\d+\.\s*)?\(\s*([a-z]{1,3})\s*\)/i);
+  return {
+    numbered: numbered ? Number(numbered[1]) : null,
+    lettered: lettered ? lettered[1].toLowerCase() : null
+  };
+}
 
 export function walkPolicyClauses(
   pages: Array<{ page: number; text: string; document_id?: string }>
@@ -491,18 +506,23 @@ export function walkPolicyClauses(
   let lastDocumentId: string | undefined;
   let leftover = "";
   let leftoverPage = 0;
+  let currentNumbered: number | null = null;
   const out: WalkedPolicyClause[] = [];
 
   const emit = (chunk: string, page: number, document_id: string | undefined, active: PolicySection | null) => {
     for (const unit of splitLetteredSubparagraphs(chunk)) {
       for (const clause of splitPolicyClauses(unit)) {
         if (clause.length < 12) continue;
+        const markers = parseClauseListMarkers(clause);
+        if (markers.numbered != null) currentNumbered = markers.numbered;
         out.push({
           clause,
           page,
           document_id,
           section: active,
-          kind: classifyPolicyTerm(clause, active)
+          kind: classifyPolicyTerm(clause, active),
+          numberedItem: currentNumbered,
+          letteredItem: markers.lettered
         });
       }
     }
@@ -517,6 +537,7 @@ export function walkPolicyClauses(
     if (page.document_id !== undefined && lastDocumentId !== undefined && page.document_id !== lastDocumentId) {
       flushLeftover(lastDocumentId);
       section = null;
+      currentNumbered = null;
     }
     if (page.document_id !== undefined) lastDocumentId = page.document_id;
 
@@ -535,6 +556,7 @@ export function walkPolicyClauses(
       if (parsed) {
         flush();
         section = parsed.section;
+        currentNumbered = null;
         if (parsed.rest) buffer = parsed.rest;
         continue;
       }
@@ -551,21 +573,287 @@ export function walkPolicyClauses(
   return out;
 }
 
+export const KNOWN_EXCLUSION_CATEGORIES: { title: string; test: (text: string) => boolean }[] = [
+  { title: "Intentional Destruction", test: (t) => /intentional destruction|humane destruction/.test(t) },
+  { title: "Contagious / Communicable Disease", test: (t) => /contagious|communicable disease/.test(t) },
+  { title: "Surgical Operations", test: (t) => /surgical operation/.test(t) },
+  { title: "Medication / Substance", test: (t) => /medication|narcotic|\bdrug\b|chemical substance|\bsubstance\b/.test(t) },
+  { title: "Malicious / Willful / Intentional Acts", test: (t) => /malicious|willful|intentional act/.test(t) },
+  { title: "Failure to Provide Proper Care", test: (t) => /failure to provide proper care/.test(t) },
+  { title: "Nuclear Risk", test: (t) => /nuclear/.test(t) },
+  { title: "Confiscation", test: (t) => /confiscation/.test(t) },
+  { title: "War / Military Force", test: (t) => /\bwar\b|civil war|military force/.test(t) },
+  { title: "Mysterious Disappearance / Escape", test: (t) => /mysterious disappearance|\bescape\b/.test(t) },
+  { title: "Fraudulent Voluntary Parting", test: (t) => /voluntary parting/.test(t) },
+  { title: "Consequential Loss", test: (t) => /consequential loss/.test(t) }
+];
+
+export const KNOWN_EXCLUSION_TITLES = new Set(KNOWN_EXCLUSION_CATEGORIES.map((item) => item.title));
+
+export function exclusionCategories(clause: string): string[] {
+  const t = String(clause || "").toLowerCase();
+  return KNOWN_EXCLUSION_CATEGORIES.filter((item) => item.test(t)).map((item) => item.title);
+}
+
 export function exclusionCategory(clause: string): string {
-  const t = clause.toLowerCase();
-  if (/intentional destruction|humane destruction/.test(t)) return "Intentional destruction";
-  if (/contagious|communicable disease/.test(t)) return "Contagious or communicable disease";
-  if (/surgical operation/.test(t)) return "Surgical operations";
-  if (/medication|narcotic|\bdrug\b|substance/.test(t)) return "Medication or substance";
-  if (/malicious|willful|intentional act/.test(t)) return "Malicious or intentional acts";
-  if (/failure to provide proper care/.test(t)) return "Failure to provide proper care";
-  if (/nuclear/.test(t)) return "Nuclear risk";
-  if (/confiscation/.test(t)) return "Confiscation";
-  if (/\bwar\b|civil war|military force/.test(t)) return "War or military force";
-  if (/mysterious disappearance|\bescape\b/.test(t)) return "Mysterious disappearance or escape";
-  if (/voluntary parting/.test(t)) return "Fraudulent voluntary parting";
-  if (/consequential loss/.test(t)) return "Consequential loss";
-  return "Stated exclusion";
+  return exclusionCategories(clause)[0] || genericExclusionTitle(clause) || "Stated exclusion";
+}
+
+const EXCEPTION_CUE =
+  /\bexcept(?:\s+that)?\b|\bhowever\b|\bprovided(?:\s*,?\s*however)?(?:\s+that)?\b|this exclusion (?:shall|does|will) not apply|\bunless\b|\bsubject to\b|\bnotwithstanding\b|carve-?back/i;
+
+export function hasExclusionExceptionCue(clause: string): boolean {
+  return EXCEPTION_CUE.test(String(clause || ""));
+}
+
+export function isExclusionDefinitionLanguage(clause: string): boolean {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  if (startsAsNewExclusionLanguage(text) && !/\bas used herein\b|\bshall mean\b|\bmeans\s+["“']/i.test(text)) {
+    return false;
+  }
+  return (
+    /\bas used herein\b/i.test(text) ||
+    /\bshall mean\b/i.test(text) ||
+    /\bmeans\s+["“']/i.test(text) ||
+    /\bfor (?:the )?purposes of this (?:exclusion|section|endorsement)\b/i.test(text)
+  );
+}
+
+export function isExclusionQualificationLanguage(clause: string): boolean {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  if (
+    /(post-?mortem|necropsy).{0,120}(opportunit|examin)/i.test(text) ||
+    /(opportunit).{0,80}(post-?mortem|necropsy|examin)/i.test(text)
+  ) {
+    return true;
+  }
+  if (/\bthe (?:company|insurer) must be given\b/i.test(text) && /(post-?mortem|necropsy|examin)/i.test(text)) {
+    return true;
+  }
+  if (/\bprovided(?:\s*,?\s*however)?(?:\s+that)\b/i.test(text) && !startsAsNewExclusionLanguage(text)) {
+    return true;
+  }
+  return false;
+}
+
+export function startsAsExceptionLanguage(clause: string): boolean {
+  return /^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:however|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply|unless|notwithstanding|subject to)\b/i.test(
+    String(clause || "").trim()
+  );
+}
+
+export function startsAsNewExclusionLanguage(clause: string): boolean {
+  return (
+    /^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:this insurance|this policy|this endorsement|we|the company|the insurer|the policy)\s+(?:does not cover|do not cover|shall not be liable|will not pay|excludes|excludes coverage)\b/i.test(
+      String(clause || "").trim()
+    ) || /^(?:\d+\.\s*)?(?:we (?:do not|will not) cover|the policy excludes|loss caused by)\b/i.test(String(clause || "").trim())
+  );
+}
+
+export type ExclusionClauseRelation = "parent" | "exception" | "qualification" | "definition" | "continuation";
+
+export function classifyExclusionClauseRelation(
+  clause: WalkedPolicyClause,
+  parent: { numberedItem?: number | null; types: string[] } | null
+): ExclusionClauseRelation {
+  const text = String(clause.clause || "").replace(/\s+/g, " ").trim();
+  if (isExclusionDefinitionLanguage(text)) return "definition";
+  if (startsAsExceptionLanguage(text)) return "exception";
+  if (
+    parent &&
+    clause.letteredItem &&
+    (parent.numberedItem == null || clause.numberedItem == null || clause.numberedItem === parent.numberedItem)
+  ) {
+    return "exception";
+  }
+  if (isExclusionQualificationLanguage(text) && !startsAsNewExclusionLanguage(text)) return "qualification";
+
+  const cats = exclusionCategories(text);
+  if (parent && clause.numberedItem != null && parent.numberedItem != null && clause.numberedItem === parent.numberedItem) {
+    if (cats.length > 0 && cats.every((title) => parent.types.includes(title))) return "continuation";
+    if (!startsAsNewExclusionLanguage(text) && cats.length === 0) {
+      return hasExclusionExceptionCue(text) ? "exception" : "continuation";
+    }
+  }
+  if (startsAsNewExclusionLanguage(text) || cats.length > 0) return "parent";
+  if (parent) {
+    if (hasExclusionExceptionCue(text)) return "exception";
+    if (isExclusionQualificationLanguage(text)) return "qualification";
+    return "continuation";
+  }
+  return "parent";
+}
+
+export function splitExclusionSatellites(text: string): {
+  core: string;
+  exceptions: string[];
+  qualifications: string[];
+} {
+  let core = String(text || "").replace(/\s+/g, " ").trim();
+  const exceptions: string[] = [];
+  const qualifications: string[] = [];
+  const provided = core.match(/\bprovided(?:\s*,?\s*however)?(?:\s+that)\b[\s\S]*/i);
+  if (provided && provided.index != null && provided.index > 12) {
+    qualifications.push(provided[0].trim());
+    core = core.slice(0, provided.index).replace(/[,;:\s]+$/, "").trim();
+  }
+  const excepted = core.match(
+    /\b(?:except(?:\s+that)?|however(?:\s*,)?(?:\s+this exclusion (?:shall|does|will) not apply)?|this exclusion (?:shall|does|will) not apply)[\s\S]*/i
+  );
+  if (excepted && excepted.index != null && excepted.index > 12) {
+    exceptions.push(excepted[0].trim());
+    core = core.slice(0, excepted.index).replace(/[,;:\s]+$/, "").trim();
+  }
+  return { core, exceptions, qualifications };
+}
+
+function titleCaseCause(raw: string): string {
+  return raw
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:any|the|a)\s+/i, "")
+    .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+}
+
+export function genericExclusionTitle(clause: string): string | null {
+  const core = splitExclusionSatellites(clause).core;
+  const caused = core.match(/\bloss caused by\s+([^.;]+)/i);
+  const covered = core.match(
+    /(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage for)?)\s+(?:loss\s+(?:of|from|caused by)\s+)?([^.;]+)/i
+  );
+  const raw = (caused?.[1] || covered?.[1] || "").replace(/\s+/g, " ").trim();
+  if (!raw) return null;
+  const first = raw.split(/\s*,\s*|\s+or\s+/i)[0]?.trim() || "";
+  if (first.length < 3 || first.length > 70) return null;
+  if (/^loss$/i.test(first)) return null;
+  return titleCaseCause(first);
+}
+
+export function summarizeExclusionSatellite(
+  kind: ExclusionClauseRelation | "exception" | "qualification" | "definition" | "continuation",
+  clause: string
+): string {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  const body = text
+    .replace(
+      /^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:however(?:\s*,)?|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply(?:\s+to)?)\s*/i,
+      ""
+    )
+    .replace(/[.]+$/, "")
+    .trim();
+
+  if (kind === "exception") {
+    if (/fire/.test(text) && /flood/.test(text)) return "fire following flood";
+    if (/supplement/.test(text) && /direction|label|product/.test(text)) {
+      return "commonly available nutritional supplements used according to stated product directions";
+    }
+    if (/supplement/.test(text)) return "qualifying nutritional supplements meeting the stated policy conditions";
+    if (/death/.test(text) && /theft/.test(text)) return "death following theft";
+    if (/approved/.test(text) && /humane/.test(text)) {
+      return "Company-approved destruction and certain humane-destruction circumstances subject to the policy's veterinary requirements";
+    }
+    if (/humane/.test(text)) return "certain humane-destruction circumstances subject to the policy's veterinary requirements";
+    if (/approved/.test(text)) return "Company-approved circumstances";
+    if (/licensed/.test(text) && /veterinar/.test(text) && /surgical|operation/.test(text)) {
+      return "surgical operations performed by a licensed veterinarian in the stated circumstances";
+    }
+    if (/licensed/.test(text) && /veterinar|professional/.test(text)) {
+      return "circumstances involving a licensed professional determination";
+    }
+    if (body.length > 0 && body.length <= 160) return body;
+    return "a stated exception in the same provision";
+  }
+  if (kind === "qualification") {
+    if (/post-?mortem|necropsy/.test(text)) {
+      return "the Company must be given an opportunity for postmortem or necropsy examination";
+    }
+    if (/certif/.test(text) && /licensed|professional|veterinar/.test(text)) {
+      return "a licensed professional must certify the necessity";
+    }
+    if (body.length > 0 && body.length <= 160) return body;
+    return "a stated qualification in the same provision";
+  }
+  if (kind === "definition") return "the provision includes a definition of a stated term";
+  return "additional language in the same exclusion provision";
+}
+
+const EXCLUSION_CAUSE_PHRASE: Record<string, string> = {
+  "Intentional Destruction": "intentional destruction of an insured horse",
+  "Contagious / Communicable Disease": "destruction or loss due to contagious or communicable disease",
+  "Surgical Operations": "certain surgical operations",
+  "Medication / Substance": "loss related to prohibited medication or chemical-substance circumstances",
+  "Malicious / Willful / Intentional Acts": "loss caused by malicious, willful, or intentional acts or omissions",
+  "Failure to Provide Proper Care": "loss caused by failure to provide proper care",
+  "Nuclear Risk": "loss caused by nuclear risk",
+  Confiscation: "loss caused by confiscation",
+  "War / Military Force": "loss caused by war or military force",
+  "Mysterious Disappearance / Escape": "mysterious disappearance or escape",
+  "Fraudulent Voluntary Parting": "fraudulent voluntary parting",
+  "Consequential Loss": "consequential loss",
+  "Named anatomical / condition exclusion": "coverage for the named anatomical area or condition",
+  "Pre-existing condition": "pre-existing conditions as stated in the documents"
+};
+
+function joinExclusionPhrases(parts: string[]): string {
+  const unique = [...new Set(parts.filter(Boolean))];
+  if (unique.length === 0) return "";
+  if (unique.length === 1) return unique[0];
+  if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;
+  return `${unique.slice(0, -1).join(", ")}, and ${unique[unique.length - 1]}`;
+}
+
+export function explainExclusion(
+  type: string,
+  attachments?: Array<{ kind: string; explanation: string; source_text?: string }>,
+  sourceText?: string
+): string {
+  const source = `${sourceText || ""} ${attachments?.map((item) => `${item.explanation} ${item.source_text || ""}`).join(" ") || ""}`;
+  const exceptions = (attachments || []).filter((item) => item.kind === "exception");
+  const qualifications = (attachments || []).filter((item) => item.kind === "qualification");
+  const cause = EXCLUSION_CAUSE_PHRASE[type] || `loss caused by ${type.replace(/\s*\/\s*/g, " ").toLowerCase()}`;
+  const parts: string[] = [];
+
+  if (type === "Surgical Operations" && exceptions.length > 0) {
+    parts.push("The policy excludes certain surgical operations, subject to stated exceptions.");
+  } else {
+    parts.push(`The policy excludes ${cause}.`);
+  }
+
+  if (type === "Consequential Loss" && /death/.test(source) && /theft/.test(source)) {
+    parts.push("This exclusion contains an exception for death following theft.");
+  } else if (type === "Intentional Destruction" && exceptions.length > 0) {
+    const bits: string[] = [];
+    if (/approved/.test(source)) bits.push("Company-approved destruction");
+    if (/humane/.test(source)) {
+      bits.push("certain humane-destruction circumstances subject to the policy's veterinary requirements");
+    }
+    if (bits.length) {
+      parts.push(
+        `The exclusion contains specified circumstances in which destruction may not be barred, including ${joinExclusionPhrases(bits)}.`
+      );
+    } else {
+      parts.push(`This exclusion contains an exception for ${joinExclusionPhrases(exceptions.map((item) => item.explanation))}.`);
+    }
+  } else if (exceptions.length > 0) {
+    parts.push(`This exclusion contains an exception for ${joinExclusionPhrases(exceptions.map((item) => item.explanation))}.`);
+  }
+
+  if (qualifications.length > 0) {
+    parts.push(`The exclusion is subject to ${qualifications[0].explanation}.`);
+  }
+  return parts.join(" ");
+}
+
+export function looksLikeRawExclusionExplanation(description: string, sourceText?: string): boolean {
+  const desc = String(description || "").replace(/\s+/g, " ").trim();
+  const src = String(sourceText || "").replace(/\s+/g, " ").trim();
+  if (!desc) return false;
+  if (src && desc === src && desc.length > 80) return true;
+  if (src && desc.length >= 160 && src.toLowerCase().includes(desc.slice(0, 80).toLowerCase())) return true;
+  if (/this insurance does not cover/i.test(desc) && desc.length > 140) return true;
+  return false;
 }
 
 export type DutyRule = { trigger: string; pattern: RegExp };
@@ -841,14 +1129,17 @@ export function collectSourceReferences(record: PolicyRecord): SourceReference[]
     pushRef(out, seen, limit.label, limit.source_page, limit.source_text, limit.source_document_id);
   }
   for (const exclusion of record.exclusions) {
-    pushRef(
-      out,
-      seen,
-      `Exclusion: ${exclusion.exclusion_type}`,
-      exclusion.source_page,
-      exclusion.exact_source_excerpt,
-      exclusion.source_document_id
-    );
+    const pages = exclusion.source_pages?.length ? exclusion.source_pages : [exclusion.source_page];
+    for (const page of pages) {
+      pushRef(
+        out,
+        seen,
+        `Exclusion: ${exclusion.exclusion_type}`,
+        page,
+        exclusion.exact_source_excerpt,
+        exclusion.source_document_id
+      );
+    }
   }
   for (const requirement of record.requirements) {
     pushRef(
@@ -1326,20 +1617,23 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
       document_id: documentId
     });
     for (const exclusion of list) {
+      const pages = exclusion.source_pages?.length ? exclusion.source_pages : [exclusion.source_page];
       const walkedHit = walked.find(
         (item) =>
           item.document_id === documentId &&
           item.page === exclusion.source_page &&
           (item.kind === "exclusion" || item.section === "exclusions")
       );
-      pushEvidence(bucket, {
-        document_id: documentId,
-        page: exclusion.source_page,
-        finding_type: "exclusion",
-        finding_key: exclusion.exclusion_type,
-        source_text: exclusion.exact_source_excerpt,
-        section: walkedHit?.section || "exclusions"
-      });
+      for (const page of pages) {
+        pushEvidence(bucket, {
+          document_id: documentId,
+          page,
+          finding_type: "exclusion",
+          finding_key: exclusion.exclusion_type,
+          source_text: exclusion.exact_source_excerpt,
+          section: walkedHit?.section || "exclusions"
+        });
+      }
     }
   }
 
