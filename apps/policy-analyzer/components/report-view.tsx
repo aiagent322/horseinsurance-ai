@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
+import { collectSourceReferences } from "@/lib/policy-semantics";
 import { cn } from "@/lib/utils";
 import type { AnalysisStatus, PolicyRecord, Sourced } from "@/lib/types";
 
@@ -117,12 +118,15 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
       <Section title="Policy Identification">
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div><dt className="text-[#6b7280]">Carrier</dt><dd><Cite s={id.carrier_name} /></dd></div>
+          <div><dt className="text-[#6b7280]">Policy form</dt><dd><Cite s={id.policy_form} /></dd></div>
           <div><dt className="text-[#6b7280]">Policy number</dt><dd><Cite s={id.policy_number} /></dd></div>
           <div><dt className="text-[#6b7280]">Named insured</dt><dd><Cite s={id.named_insured} /></dd></div>
           <div><dt className="text-[#6b7280]">Horse</dt><dd><Cite s={id.insured_horse_name} /></dd></div>
           <div><dt className="text-[#6b7280]">Registered name</dt><dd><Cite s={id.registered_name} /></dd></div>
           <div><dt className="text-[#6b7280]">Effective</dt><dd><Cite s={id.policy_effective_date} /></dd></div>
           <div><dt className="text-[#6b7280]">Expiration</dt><dd><Cite s={id.policy_expiration_date} /></dd></div>
+          <div><dt className="text-[#6b7280]">Deductible</dt><dd><Cite s={id.deductible} /></dd></div>
+          <div><dt className="text-[#6b7280]">Insured value</dt><dd><Cite s={id.insured_value} /></dd></div>
           <div><dt className="text-[#6b7280]">Agency / agent</dt><dd><Cite s={id.agency_name} /> {id.agent_name ? <>/ <Cite s={id.agent_name} /></> : null}</dd></div>
           <div><dt className="text-[#6b7280]">Breed / age / sex</dt><dd>
             <Cite s={id.breed} />
@@ -377,18 +381,21 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
       </Section>
 
       <Section title="Source References">
-        <ul className="space-y-2 text-xs text-[#4a5568]">
-          {record.financial_limits.map((f) => (
-            <li key={f.id}>
-              {f.label} {f.amount} — p. {f.source_page} — “{f.source_text}”
-            </li>
-          ))}
-          {record.exclusions.map((e) => (
-            <li key={e.exclusion_id}>
-              Exclusion — p. {e.source_page} — “{e.exact_source_excerpt}”
-            </li>
-          ))}
-        </ul>
+        {(() => {
+          const refs = collectSourceReferences(record);
+          if (!refs.length) {
+            return <p className="text-sm text-[#6b7280]">No source references were collected from the uploaded pages.</p>;
+          }
+          return (
+            <ul className="space-y-2 text-xs text-[#4a5568]">
+              {refs.map((ref) => (
+                <li key={`${ref.label}-${ref.page}-${ref.text.slice(0, 24)}`}>
+                  {ref.label} — p. {ref.page} — “{ref.text}”
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
       </Section>
 
       <Section title="Educational notes (not policy terms)">

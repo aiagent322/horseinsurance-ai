@@ -90,6 +90,23 @@ function main() {
   const conflictStatus = coverage(conflict, "Full Mortality").coverage_status;
   assert.equal(conflictStatus, "POSSIBLE CONFLICT", "affirmative plus denial must conflict, never COVERED");
 
+  const indemnity = analyzeText(
+    "The Company will indemnify the Insured upon the death of an insured horse resulting from accident, subject to the horse being listed in the Schedule and the limit in the Schedule."
+  );
+  assert.notEqual(coverage(indemnity, "Full Mortality").coverage_status, "NOT FOUND", "death indemnity is mortality evidence");
+
+  const optional = analyzeText(
+    "Additional coverages such as Equine Major Medical and Surgical may be fully earned as stated in the Schedule or endorsements to the Policy."
+  );
+  assert.notEqual(coverage(optional, "Major Medical").coverage_status, "COVERED", "optional additional coverage is not a grant");
+  assert.notEqual(coverage(optional, "Surgical").coverage_status, "COVERED");
+
+  const definition = analyzeText(
+    "NAMED INSURED: The individual, partnership, corporation, or entity as stated in Item B of the Declarations.\nPolicy Number: as stated in the Declarations."
+  );
+  assert.equal(definition.identification.named_insured, undefined, "a definition is not the named insured");
+  assert.equal(definition.identification.policy_number, undefined);
+
   console.log("SEMANTIC REGRESSION OK", {
     denials: denials.map(([type]) => type + ":EXCLUDED"),
     mortality: mortRec.coverage_status,

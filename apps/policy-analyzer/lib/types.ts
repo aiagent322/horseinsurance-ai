@@ -174,6 +174,8 @@ export type PolicyIdentification = {
   policy_effective_date?: Sourced<string>;
   policy_expiration_date?: Sourced<string>;
   policy_type?: Sourced<string>;
+  policy_form?: Sourced<string>;
+  deductible?: Sourced<string>;
   insured_horse_name?: Sourced<string>;
   registered_name?: Sourced<string>;
   breed?: Sourced<string>;

@@ -10,6 +10,22 @@ import {
   parseListedForms
 } from "./form-schedule";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
+import {
+  CLAIM_DUTY_RULES,
+  clauseConcernsMortality,
+  clauseConcernsSurgicalCoverage,
+  clauseConcernsTheft,
+  exclusionCategory,
+  extractPolicyFormValue,
+  isCoverageGrantLanguage,
+  isExclusionSectionHeading,
+  isExternalReferenceValue,
+  isOptionalCoverageMention,
+  isScheduleDependentGrant,
+  isStandaloneExclusionClause,
+  looksLikeDeclarationsPage,
+  personalizedFactsMissing
+} from "./policy-semantics";
 import type {
   AnalysisStatus,
   CompletenessResult,
@@ -60,6 +76,7 @@ function firstMatch(
     if (m && m[1]) {
       const value = m[1].replace(/\s+/g, " ").trim();
       if (!value) continue;
+      if (isExternalReferenceValue(value)) continue;
       return {
         value,
         source_document_id: h.document_id,
@@ -73,11 +90,23 @@ function firstMatch(
 }
 
 function excerpt(pageText: string, needle: string, pad = 90): string {
-  const idx = pageText.toLowerCase().indexOf(needle.toLowerCase());
-  if (idx < 0) return pageText.slice(0, 180).trim();
-  const start = Math.max(0, idx - pad);
-  const end = Math.min(pageText.length, idx + needle.length + pad);
-  return pageText.slice(start, end).replace(/\s+/g, " ").trim();
+  const page = pageText.replace(/\s+/g, " ").trim();
+  const n = String(needle || "").replace(/\s+/g, " ").trim();
+  if (!page) return "";
+  const idx = n ? page.toLowerCase().indexOf(n.toLowerCase()) : -1;
+  if (idx >= 0) {
+    const start = Math.max(0, idx - pad);
+    const end = Math.min(page.length, idx + n.length + pad);
+    return page.slice(start, end).trim();
+  }
+  const token = n.split(" ").slice(0, 8).join(" ");
+  const tidx = token ? page.toLowerCase().indexOf(token.toLowerCase()) : -1;
+  if (tidx >= 0) {
+    const start = Math.max(0, tidx - pad);
+    const end = Math.min(page.length, tidx + token.length + pad);
+    return page.slice(start, end).trim();
+  }
+  return page.slice(0, 180).trim();
 }
 
 function escapeRe(s: string): string {
@@ -105,6 +134,7 @@ function labeled(
         if (inline) value = inline[0];
       }
       if (!value) continue;
+      if (isExternalReferenceValue(value)) continue;
       return {
         value,
         source_document_id: h.document_id,
@@ -182,6 +212,16 @@ function coverageMentioned(clause: string, names: string[]): boolean {
   return names.some((n) => lower.includes(n.toLowerCase()));
 }
 
+type CoverageQuery = {
+  names: string[];
+  concerns?: (clause: string) => boolean;
+};
+
+function clauseMatchesCoverage(clause: string, query: CoverageQuery): boolean {
+  if (query.concerns?.(clause)) return true;
+  return coverageMentioned(clause, query.names);
+}
+
 function clauseIsDenial(clause: string, names: string[]): boolean {
   const sorted = [...names].sort((a, b) => b.length - a.length);
   for (const name of sorted) {
@@ -208,18 +248,11 @@ function clauseIsDenial(clause: string, names: string[]): boolean {
   return false;
 }
 
-function clauseIsAffirmative(clause: string, names: string[]): boolean {
-  if (!coverageMentioned(clause, names)) return false;
-  if (clauseIsDenial(clause, names)) return false;
-  return (
-    /\bprovides\b/i.test(clause) ||
-    /\bis provided\b/i.test(clause) ||
-    /\bis added\b/i.test(clause) ||
-    /\bis covered\b/i.test(clause) ||
-    /coverage with a limit/i.test(clause) ||
-    /limit of\s*\$/i.test(clause) ||
-    /amended to\s*\$/i.test(clause)
-  );
+function clauseIsAffirmative(clause: string, query: CoverageQuery): boolean {
+  if (!clauseMatchesCoverage(clause, query)) return false;
+  if (clauseIsDenial(clause, query.names)) return false;
+  if (isOptionalCoverageMention(clause)) return false;
+  return isCoverageGrantLanguage(clause);
 }
 
 type CoverageEvidence = {
@@ -229,6 +262,7 @@ type CoverageEvidence = {
   page: number;
   clause: string;
   pageText: string;
+  optional?: boolean;
   contradiction?: { grant: CoverageEvidence; denial: CoverageEvidence };
 };
 
@@ -241,12 +275,16 @@ function laterEvidence(a: CoverageEvidence, b: CoverageEvidence): boolean {
   return a.page > b.page;
 }
 
-function classifyCoverageEvidence(hits: Hit[], names: string[]): CoverageEvidence | null {
+function classifyCoverageEvidence(
+  hits: Hit[],
+  query: CoverageQuery,
+  options: { limitedIfScheduleBound?: boolean } = {}
+): CoverageEvidence | null {
   const seen = new Set<string>();
   const units: CoverageEvidence[] = [];
   for (const h of uniquePages(hits)) {
     for (const clause of splitClauses(h.text)) {
-      if (!coverageMentioned(clause, names)) continue;
+      if (!clauseMatchesCoverage(clause, query)) continue;
       const key = `${h.document_index}:${h.document_id}:${h.page}:${clause.toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -256,7 +294,8 @@ function classifyCoverageEvidence(hits: Hit[], names: string[]): CoverageEvidenc
         document_index: h.document_index,
         page: h.page,
         clause,
-        pageText: h.text
+        pageText: h.text,
+        optional: isOptionalCoverageMention(clause)
       });
     }
   }
@@ -266,12 +305,14 @@ function classifyCoverageEvidence(hits: Hit[], names: string[]): CoverageEvidenc
   let mention: CoverageEvidence | undefined;
   for (const u of units) {
     mention = mention || u;
-    if (clauseIsDenial(u.clause, names)) {
-      denial = denial || { ...u, status: "EXCLUDED" };
+    if (clauseIsDenial(u.clause, query.names)) {
+      denial = denial || { ...u, status: "EXCLUDED", optional: false };
       continue;
     }
-    if (clauseIsAffirmative(u.clause, names)) {
-      affirmation = affirmation || { ...u, status: "COVERED" };
+    if (clauseIsAffirmative(u.clause, query)) {
+      const limited = Boolean(options.limitedIfScheduleBound && isScheduleDependentGrant(u.clause));
+      affirmation =
+        affirmation || { ...u, status: limited ? "LIMITED" : "COVERED", optional: false };
     }
   }
 
@@ -392,6 +433,24 @@ function coverageContradictionRecord(
   };
 }
 
+function coverageNarrative(type: string, status: AnalysisStatus, evidence: CoverageEvidence | null): string {
+  if (status === "EXCLUDED") return `The uploaded documents state that ${type} is not provided.`;
+  if (status === "NOT FOUND") return "NOT FOUND IN DOCUMENTS PROVIDED";
+  if (status === "LIMITED") {
+    return `The policy form grants ${type}, but the uploaded documents do not establish the applicable horse, policy period, limit, or deductible because those values are stated to appear in missing Declarations or a Schedule.`;
+  }
+  if (status === "NEEDS CLARIFICATION" && evidence?.optional) {
+    return `${type} is mentioned only as a possible additional coverage that would need to appear in a Schedule or endorsement. The uploaded document does not establish that this coverage is in force.`;
+  }
+  if (status === "NEEDS CLARIFICATION") {
+    return `${type} is mentioned. Effect needs clarification.`;
+  }
+  if (status === "POSSIBLE CONFLICT") {
+    return `${type} is granted in one provision and excluded in another.`;
+  }
+  return `${type} is stated in the uploaded documents.`;
+}
+
 export function analyzeDocuments(policyId: string, sessionId: string, documents: DocumentRecord[]): PolicyRecord {
   const now = new Date().toISOString();
   const hits = pagesOf(documents);
@@ -401,17 +460,20 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const identification: PolicyIdentification = {
     carrier_name:
+      labeled(hits, ["Company", "Insurer", "Carrier"]) ||
       firstMatch(hits, /(?:issued by|underwritten by)\s+([^\n]+)/i) ||
       firstMatch(hits, /^([A-Z][A-Z0-9 &.'-]{8,}INSURANCE[A-Z0-9 &.'-]*)$/) ||
       firstMatch(hits, /((?:[A-Z][A-Za-z]+ ){1,6}(?:Equine )?(?:Specialty )?Insurance Company)/),
     agency_name: labeled(hits, ["Agency"]),
     agent_name: labeled(hits, ["Agent"]),
     policy_number: labeled(hits, ["Policy Number", "Policy No", "Policy #"]) ||
-      firstMatch(hits, /policy\s*(?:number|no\.?|#)\s*[:.]?\s*([A-Z0-9][-A-Z0-9]+)/i),
+      firstMatch(hits, /policy\s*(?:number|no\.?|#)\s*[:.]?\s*([A-Z0-9][-A-Z0-9]*\d[-A-Z0-9]*)/i),
     named_insured: labeled(hits, ["Named Insured"]),
     policy_effective_date: labeled(hits, ["Policy Effective Date", "Effective Date"]),
     policy_expiration_date: labeled(hits, ["Policy Expiration Date", "Expiration Date"]),
     policy_type: labeled(hits, ["Policy Type"]),
+    policy_form: undefined,
+    deductible: labeled(hits, ["Deductible"]),
     insured_horse_name: labeled(hits, ["Insured Horse Name", "Horse Name"]),
     registered_name: labeled(hits, ["Registered Name"]),
     breed: labeled(hits, ["Breed"]),
@@ -424,10 +486,10 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   };
 
   if (!identification.carrier_name) {
-    const companyLine = hits.find((h) => /insurance company/i.test(h.line));
+    const companyLine = hits.find((h) => /insurance company/i.test(h.line) && !isExternalReferenceValue(h.line));
     if (companyLine) {
       identification.carrier_name = {
-        value: companyLine.line.replace(/\s+/g, " ").trim(),
+        value: companyLine.line.replace(/^(?:company|insurer|carrier)\s*[:–—]\s*/i, "").replace(/\s+/g, " ").trim(),
         source_document_id: companyLine.document_id,
         source_page: companyLine.page,
         source_text: excerpt(companyLine.text, companyLine.line),
@@ -435,6 +497,20 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       };
     }
   }
+  for (const h of uniquePages(hits)) {
+    const formId = extractPolicyFormValue(h.text);
+    if (!formId) continue;
+    identification.policy_form = {
+      value: formId,
+      source_document_id: h.document_id,
+      source_page: h.page,
+      source_text: excerpt(h.text, formId),
+      confidence_status: "HIGH"
+    };
+    break;
+  }
+
+  const factsMissing = personalizedFactsMissing(identification);
 
   const coverages: CoverageRecord[] = [];
   const financial_limits: FinancialLimit[] = [];
@@ -500,11 +576,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   }
   const uniqueMortality = uniqueLimitAmounts(mortalityLimits);
   const mortalityController = controllingLimit(uniqueMortality, hits, pageControlsMortality);
-  const mortalityEv = classifyCoverageEvidence(hits, [
-    "full mortality coverage",
-    "full mortality",
-    "mortality coverage"
-  ]);
+  const mortalityEv = classifyCoverageEvidence(
+    hits,
+    {
+      names: ["full mortality coverage", "full mortality", "mortality coverage"],
+      concerns: clauseConcernsMortality
+    },
+    { limitedIfScheduleBound: factsMissing }
+  );
   let mortalityStatus: AnalysisStatus = mortalityEv?.status || "NOT FOUND";
   if (
     mortalityStatus !== "EXCLUDED" &&
@@ -528,12 +607,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     mortalityStatus,
     {
       coverage_limit: mortalityLimit,
-      description:
-        mortalityStatus === "EXCLUDED"
-          ? "The uploaded documents state that Full Mortality is not provided."
-          : mortalityStatus === "NOT FOUND"
-            ? "NOT FOUND IN DOCUMENTS PROVIDED"
-            : "Full Mortality is stated in the uploaded documents.",
+      description: coverageNarrative("Full Mortality", mortalityStatus, mortalityEv),
       source_document_id: mortalityController?.source_document_id || mortalityEv?.document_id,
       source_page: mortalityController?.source_page || mortalityEv?.page,
       source_text: mortalityController
@@ -555,7 +629,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const medicalDeductible = labeled(hits, ["Major Medical Deductible", "deductible of"]);
   const reimbursement = firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i);
   const diagnostic = firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i);
-  const medicalEv = classifyCoverageEvidence(hits, ["major medical coverage", "major medical"]);
+  const medicalEv = classifyCoverageEvidence(hits, { names: ["major medical coverage", "major medical"] });
   const medicalAmended = Boolean(medicalController) || hasPhrase(allText, ["medical limit is amended", "supersedes the medical limit"]);
   let medicalStatus: AnalysisStatus = medicalEv?.status || "NOT FOUND";
   if (
@@ -584,12 +658,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     conditions: medicalAmended && medicalStatus !== "EXCLUDED" && medicalStatus !== "POSSIBLE CONFLICT"
       ? "An endorsement modifies the medical limit."
       : undefined,
-    description:
-      medicalStatus === "EXCLUDED"
-        ? "The uploaded documents state that Major Medical is not provided."
-        : medicalStatus === "NOT FOUND"
-          ? "NOT FOUND IN DOCUMENTS PROVIDED"
-          : undefined,
+    description: coverageNarrative("Major Medical", medicalStatus, medicalEv),
     source_document_id: medicalController?.source_document_id || medicalEv?.document_id,
     source_page: medicalController?.source_page || medicalEv?.page,
     source_text: medicalController
@@ -636,7 +705,11 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   ];
   const uniqueSurgical = uniqueLimitAmounts(surgicalLimits);
   const surgicalController = controllingLimit(uniqueSurgical, hits, pageControlsSurgical);
-  const surgicalEv = classifyCoverageEvidence(hits, ["surgical coverage", "surgical"]);
+  const surgicalEv = classifyCoverageEvidence(
+    hits,
+    { names: ["surgical coverage"], concerns: clauseConcernsSurgicalCoverage },
+    { limitedIfScheduleBound: factsMissing }
+  );
   let surgicalStatus: AnalysisStatus = surgicalEv?.status || "NOT FOUND";
   if (
     surgicalStatus !== "EXCLUDED" &&
@@ -657,10 +730,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   addCoverage("Surgical", surgicalStatus !== "NOT FOUND", surgicalStatus, {
     occurrence_limit: surgical,
     coverage_limit: surgical,
-    description:
-      surgicalStatus === "EXCLUDED"
-        ? "The uploaded documents state that Surgical coverage is not provided."
-        : undefined,
+    description: coverageNarrative("Surgical", surgicalStatus, surgicalEv),
     source_document_id: surgicalController?.source_document_id || surgicalEv?.document_id,
     source_page: surgicalController?.source_page || surgicalEv?.page,
     source_text: surgicalController
@@ -671,7 +741,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   });
   financial_limits.push(...surgicalLimits);
 
-  const colicEv = classifyCoverageEvidence(hits, ["colic surgery"]);
+  const colicEv = classifyCoverageEvidence(hits, { names: ["colic surgery"] });
   let colicStatus: AnalysisStatus = colicEv?.status || "NOT FOUND";
   if (colicStatus === "COVERED" && hasPhrase(allText, ["subject to the surgical"])) {
     colicStatus = "COVERED WITH LIMITATIONS";
@@ -683,41 +753,34 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     source_text: colicEv ? excerpt(colicEv.pageText, colicEv.clause) : undefined
   });
 
-  const louEv = classifyCoverageEvidence(hits, ["loss of use coverage", "loss of use"]);
+  const louEv = classifyCoverageEvidence(hits, { names: ["loss of use coverage", "loss of use"] });
   const louStatus: AnalysisStatus = louEv?.status || "NOT FOUND";
   addCoverage("Loss of Use", louStatus !== "NOT FOUND", louStatus, {
-    description:
-      louStatus === "EXCLUDED"
-        ? "The uploaded documents state that Loss of Use coverage is not provided."
-        : louStatus === "NEEDS CLARIFICATION"
-          ? "Loss of Use is mentioned. Effect needs clarification."
-          : "NOT FOUND IN DOCUMENTS PROVIDED",
+    description: coverageNarrative("Loss of Use", louStatus, louEv),
     source_document_id: louEv?.document_id,
     source_page: louEv?.page,
     source_text: louEv ? excerpt(louEv.pageText, louEv.clause) : undefined
   });
 
-  const stallionEv = classifyCoverageEvidence(hits, ["stallion infertility coverage", "stallion infertility"]);
+  const stallionEv = classifyCoverageEvidence(hits, {
+    names: ["stallion infertility coverage", "stallion infertility"]
+  });
   const stallionStatus: AnalysisStatus = stallionEv?.status || "NOT FOUND";
   addCoverage("Stallion Infertility", stallionStatus !== "NOT FOUND", stallionStatus, {
-    description:
-      stallionStatus === "EXCLUDED"
-        ? "The uploaded documents state that Stallion Infertility coverage is not provided."
-        : stallionStatus === "NEEDS CLARIFICATION"
-          ? "Stallion Infertility is mentioned. Effect needs clarification."
-          : "NOT FOUND IN DOCUMENTS PROVIDED",
+    description: coverageNarrative("Stallion Infertility", stallionStatus, stallionEv),
     source_document_id: stallionEv?.document_id,
     source_page: stallionEv?.page,
     source_text: stallionEv ? excerpt(stallionEv.pageText, stallionEv.clause) : undefined
   });
 
-  const theftEv = classifyCoverageEvidence(hits, ["theft coverage", "coverage for theft"]);
+  const theftEv = classifyCoverageEvidence(
+    hits,
+    { names: ["theft coverage", "coverage for theft"], concerns: clauseConcernsTheft },
+    { limitedIfScheduleBound: factsMissing }
+  );
   const theftStatus: AnalysisStatus = theftEv?.status || "NOT FOUND";
   addCoverage("Theft", theftStatus !== "NOT FOUND", theftStatus, {
-    description:
-      theftStatus === "EXCLUDED"
-        ? "The uploaded documents state that Theft coverage is not provided."
-        : undefined,
+    description: coverageNarrative("Theft", theftStatus, theftEv),
     source_document_id: theftEv?.document_id,
     source_page: theftEv?.page,
     source_text: theftEv ? excerpt(theftEv.pageText, theftEv.clause) : undefined
@@ -726,42 +789,60 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const pageHits = uniquePages(hits);
   const exclusions: ExclusionRecord[] = [];
   const seenExclusion = new Set<string>();
+
+  function addExclusion(h: Hit, clause: string, type: string, condition?: string): void {
+    const trimmed = clause.replace(/\s+/g, " ").trim();
+    if (trimmed.length < 12) return;
+    const key = `${type}|${h.page}|${trimmed.toLowerCase().slice(0, 80)}`;
+    if (seenExclusion.has(key)) return;
+    seenExclusion.add(key);
+    exclusions.push({
+      exclusion_id: newId(),
+      policy_id: policyId,
+      exclusion_type: type,
+      condition: condition || trimmed,
+      description: trimmed,
+      source_document_id: h.document_id,
+      source_page: h.page,
+      exact_source_excerpt: excerpt(h.text, trimmed.slice(0, 80)),
+      confidence_status: "HIGH"
+    });
+  }
+
+  let inExclusionSection = false;
   for (const h of pageHits) {
     const excl = /(?:this endorsement )?excludes coverage for the ([^.]+)\./i.exec(h.text);
     if (excl) {
-      const key = `excl|${h.page}|${excl[1].trim().toLowerCase()}`;
-      if (!seenExclusion.has(key)) {
-        seenExclusion.add(key);
-        exclusions.push({
-          exclusion_id: newId(),
-          policy_id: policyId,
-          exclusion_type: "Named anatomical / condition exclusion",
-          anatomical_area: /fetlock|hock|navicular|tendon/i.exec(excl[1])?.[0],
-          condition: excl[1].trim(),
-          description: excl[0].trim(),
-          source_document_id: h.document_id,
-          source_page: h.page,
-          exact_source_excerpt: excerpt(h.text, excl[0]),
-          confidence_status: "HIGH"
-        });
-      }
+      addExclusion(h, excl[0].trim(), "Named anatomical / condition exclusion", excl[1].trim());
+      const last = exclusions[exclusions.length - 1];
+      if (last) last.anatomical_area = /fetlock|hock|navicular|tendon/i.exec(excl[1])?.[0];
     }
     const pre = /pre-existing condition:\s*([^\n.]+)/i.exec(h.text);
-    if (pre) {
-      const key = `pre|${h.page}|${pre[1].trim().toLowerCase()}`;
-      if (!seenExclusion.has(key)) {
-        seenExclusion.add(key);
-        exclusions.push({
-          exclusion_id: newId(),
-          policy_id: policyId,
-          exclusion_type: "Pre-existing condition",
-          condition: pre[1].trim(),
-          description: pre[0].trim(),
-          source_document_id: h.document_id,
-          source_page: h.page,
-          exact_source_excerpt: excerpt(h.text, pre[0]),
-          confidence_status: "HIGH"
-        });
+    if (pre) addExclusion(h, pre[0].trim(), "Pre-existing condition", pre[1].trim());
+    for (const clause of splitClauses(h.text)) {
+      if (isExclusionSectionHeading(clause) || /part\s+[ivxl]+\.?\s*exclusions\b/i.test(clause)) {
+        inExclusionSection = true;
+        continue;
+      }
+      if (/^part\s+[ivxl]+\./i.test(clause.trim()) && !/exclusions/i.test(clause)) {
+        inExclusionSection = false;
+      }
+      const productDenial = clauseIsDenial(clause, [
+        "full mortality",
+        "major medical",
+        "theft coverage",
+        "surgical coverage",
+        "loss of use",
+        "stallion infertility",
+        "colic surgery"
+      ]);
+      if (productDenial) continue;
+      if (inExclusionSection && clause.length > 24 && !isCoverageGrantLanguage(clause) && !isOptionalCoverageMention(clause)) {
+        addExclusion(h, clause, exclusionCategory(clause));
+        continue;
+      }
+      if (isStandaloneExclusionClause(clause)) {
+        addExclusion(h, clause, exclusionCategory(clause));
       }
     }
   }
@@ -832,12 +913,16 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   void datePairs;
 
   const requirements: RequirementRecord[] = [];
+  const seenRequirement = new Set<string>();
   const reqBlock = hits.find((h) => /emergency requirements/i.test(h.text));
   if (reqBlock) {
     const bullets = reqBlock.text.split(/\n|•|-/).map((s) => s.trim()).filter((s) => s.length > 12);
     const triggers = ["colic", "serious illness", "injury", "surgery", "euthanasia", "death", "theft"];
     for (const line of bullets) {
       if (!/notify|veterinar|preserv|file written|authorization|certif/i.test(line)) continue;
+      const key = line.toLowerCase().slice(0, 80);
+      if (seenRequirement.has(key)) continue;
+      seenRequirement.add(key);
       requirements.push({
         id: newId(),
         trigger: triggers.filter((t) => reqBlock.text.toLowerCase().includes(t)).join(", "),
@@ -848,8 +933,27 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       });
     }
   }
+  for (const h of pageHits) {
+    for (const clause of splitClauses(h.text)) {
+      for (const rule of CLAIM_DUTY_RULES) {
+        if (!rule.pattern.test(clause)) continue;
+        const key = clause.toLowerCase().slice(0, 80);
+        if (seenRequirement.has(key)) continue;
+        seenRequirement.add(key);
+        requirements.push({
+          id: newId(),
+          trigger: rule.trigger,
+          requirement: clause.replace(/\s+/g, " ").trim(),
+          source_document_id: h.document_id,
+          source_page: h.page,
+          source_text: excerpt(h.text, clause.slice(0, 40))
+        });
+        break;
+      }
+    }
+  }
 
-  const declarationPages = pageHits.filter((h) => isDeclarationsPage(h.text));
+  const declarationPages = pageHits.filter((h) => looksLikeDeclarationsPage(h.text));
   const formInventory = buildFormInventory(pageHits, declarationPages);
   const warnings: string[] = [];
   if (documents.some((d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending")) {
@@ -920,13 +1024,9 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const coverage_gaps: string[] = [];
   const louRec = coverages.find((c) => c.coverage_type === "Loss of Use");
   if (louRec?.coverage_status === "EXCLUDED") {
-    coverage_gaps.push(
-      "Loss of Use is excluded in the uploaded documents. Ask the agent whether a separate endorsement is available or intended."
-    );
+    coverage_gaps.push("Loss of Use is excluded in the uploaded documents.");
   } else if (louRec?.coverage_status === "NOT FOUND") {
-    coverage_gaps.push(
-      "Loss of Use is not found in the uploaded documents. Ask the agent whether a separate endorsement is available or intended."
-    );
+    coverage_gaps.push("Loss of Use is not established in the uploaded documents.");
   }
   if (exclusions.length) {
     coverage_gaps.push("Named exclusions appear in the package. Confirm with the agent that they match the horse you believe is insured.");
@@ -990,10 +1090,6 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     coverage_gaps,
     educational_notes
   };
-}
-
-function isDeclarationsPage(text: string): boolean {
-  return /\bdeclarations\b/i.test(text);
 }
 
 function buildFormInventory(
