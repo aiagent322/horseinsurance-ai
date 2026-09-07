@@ -139,7 +139,16 @@ This insurance does not cover loss caused by war.`
   assert.equal(testIKind, "duty", "TEST I classifier");
   const testI = analyzePages(testIPages);
   const cooperation = reqBlob(testI);
-  assert.match(cooperation, /examination under oath|produce records/i, "TEST I: cooperation duty is included");
+  assert.match(cooperation, /examination under oath/i, "TEST I: EUO duty is included");
+  assert.match(cooperation, /produce records|records/i, "TEST I: record-production duty is included");
+  assert.ok(
+    testI.requirements.some((row) => /examination under oath/i.test(`${row.trigger} ${row.requirement}`)),
+    "TEST I: EUO concept retained"
+  );
+  assert.ok(
+    testI.requirements.some((row) => /record/i.test(`${row.trigger} ${row.requirement}`)),
+    "TEST I: records concept retained"
+  );
 
   console.log("EMERGENCY REQUIREMENTS REGRESSION OK", {
     A: "grant excluded",

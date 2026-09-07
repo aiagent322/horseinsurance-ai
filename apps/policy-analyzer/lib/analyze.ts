@@ -16,6 +16,8 @@ import {
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
   describeClaimDuty,
+  allDutyFamilies,
+  dutyFamily,
   exclusionCategory,
   explainCoverage,
   extractPolicyFormValue,
@@ -976,38 +978,46 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (walked.kind !== "duty") continue;
     const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
     if (!h) continue;
-    const described = describeClaimDuty(walked.clause);
-    let requirement = described.summary;
-    if (declarationsMissing && described.declarationsItem && /notify|notice|telephone/i.test(requirement)) {
-      requirement = `Immediate telephone notice is required. Notify the entity identified in Item ${described.declarationsItem} of the missing Declarations.`;
-    }
-    const familyKey = described.family;
-    const existingIdx = requirementByFamily.get(familyKey);
-    if (existingIdx !== undefined) {
-      const existing = requirements[existingIdx];
-      const nextHasDeadline = /\bwithin \d+/i.test(requirement);
-      const existingHasDeadline = /\bwithin \d+/i.test(existing.requirement);
-      if (nextHasDeadline && !existingHasDeadline) {
-        existing.trigger = described.trigger;
-        existing.requirement = requirement;
-        existing.source_document_id = h.document_id;
-        existing.source_page = h.page;
-        existing.source_text = excerpt(h.text, walked.clause.slice(0, 40));
+    const families = allDutyFamilies(walked.clause);
+    const familyList = families.length > 0 ? families : [dutyFamily(walked.clause)];
+    for (const family of familyList) {
+      const described = describeClaimDuty(walked.clause, family);
+      let requirement = described.summary;
+      if (
+        family === "notice" &&
+        declarationsMissing &&
+        described.declarationsItem &&
+        /notify|notice|telephone/i.test(requirement)
+      ) {
+        requirement = `Immediate telephone notice is required. Notify the entity identified in Item ${described.declarationsItem} of the missing Declarations.`;
       }
-      continue;
+      const existingIdx = requirementByFamily.get(family);
+      if (existingIdx !== undefined) {
+        const existing = requirements[existingIdx];
+        const nextHasDeadline = /\bwithin\b.{0,24}\d+/i.test(requirement);
+        const existingHasDeadline = /\bwithin\b.{0,24}\d+/i.test(existing.requirement);
+        if (nextHasDeadline && !existingHasDeadline) {
+          existing.trigger = described.trigger;
+          existing.requirement = requirement;
+          existing.source_document_id = h.document_id;
+          existing.source_page = h.page;
+          existing.source_text = excerpt(h.text, walked.clause.slice(0, 40));
+        }
+        continue;
+      }
+      const key = `${family}|${requirement.toLowerCase().slice(0, 80)}`;
+      if (seenRequirement.has(key)) continue;
+      seenRequirement.add(key);
+      requirementByFamily.set(family, requirements.length);
+      requirements.push({
+        id: newId(),
+        trigger: described.trigger,
+        requirement,
+        source_document_id: h.document_id,
+        source_page: h.page,
+        source_text: excerpt(h.text, walked.clause.slice(0, 40))
+      });
     }
-    const key = requirement.toLowerCase().slice(0, 80);
-    if (seenRequirement.has(key)) continue;
-    seenRequirement.add(key);
-    requirementByFamily.set(familyKey, requirements.length);
-    requirements.push({
-      id: newId(),
-      trigger: described.trigger,
-      requirement,
-      source_document_id: h.document_id,
-      source_page: h.page,
-      source_text: excerpt(h.text, walked.clause.slice(0, 40))
-    });
   }
 
   const declarationPages = pageHits.filter((h) => looksLikeDeclarationsPage(h.text));

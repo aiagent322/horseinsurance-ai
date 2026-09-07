@@ -308,41 +308,46 @@ export function isPolicyConditionLanguage(clause: string): boolean {
 
 function hasDutyAction(clause: string): boolean {
   return (
-    /\b(?:notify|notice|report|file|submit|produce|obtain|employ|arrange|preserve|cooperat)\b/i.test(clause) ||
-    /\bexamination under oath\b/i.test(clause) ||
+    /\b(?:notify|notice|report|file|submit|produce|obtain|employ|arrange|preserve|protect|cooperat)\b/i.test(clause) ||
+    /\bexaminations?\s+under\s+oath\b/i.test(clause) ||
     /\bproof of loss\b/i.test(clause) ||
     /\bransom\b/i.test(clause) ||
     /\bqualified professional\b/i.test(clause) ||
     /\bprofessional (?:assistance|treatment)\b/i.test(clause) ||
     /\bpostmortem\b/i.test(clause) ||
+    /\bpost-mortem\b/i.test(clause) ||
     /\bnecropsy\b/i.test(clause) ||
-    /\bfollow .{0,60}recommend/i.test(clause)
+    /\bfollow .{0,80}recommend/i.test(clause)
   );
 }
 
 function hasEventOrClaimCue(clause: string): boolean {
   return (
     /\bin the event of\b/i.test(clause) ||
-    /\bupon (?:request|the request|illness|injury|death|theft|loss|damage|disappearance|accident)\b/i.test(clause) ||
+    /\bupon\b.{0,24}\b(?:request|illness|injury|death|theft|loss|damage|disappearance|accident)\b/i.test(clause) ||
     /\bfollowing (?:death|loss|theft|injury)\b/i.test(clause) ||
     /\bafter (?:an |the )?(?:insured )?loss\b/i.test(clause) ||
     /\bimmediate(?:ly)?\b/i.test(clause) ||
-    /\bwithin \d+\s*(?:hours?|days?)\b/i.test(clause) ||
+    /\bwithin\b.{0,24}\b(?:\d+|hours?|days?)\b/i.test(clause) ||
     /\b(?:if|when|as) requested\b/i.test(clause) ||
     /\bupon request\b/i.test(clause) ||
     /\bproof of loss\b/i.test(clause) ||
-    /\bexamination under oath\b/i.test(clause) ||
-    /\bproduce .{0,40}(?:records|documents|receipts)\b/i.test(clause) ||
+    /\bexaminations?\s+under\s+oath\b/i.test(clause) ||
+    /\b(?:produce|submit|provide|preserve|furnish)\b.{0,60}(?:records|documents|receipts|invoices|books)\b/i.test(clause) ||
     /\bransom\b/i.test(clause) ||
+    /\bfollow .{0,80}recommend/i.test(clause) ||
     /\b(?:police|law.?enforcement)\b/i.test(clause) ||
     /\bpostmortem\b/i.test(clause) ||
+    /\bpost-mortem\b/i.test(clause) ||
     /\bnecropsy\b/i.test(clause)
   );
 }
 
 function hasDutyObligation(clause: string): boolean {
   if (/\b(shall|must|required to)\b/i.test(clause)) return true;
-  return /^(?:[-•]\s*)?(?:immediately\s+)?(?:notify|report|file|submit|produce|obtain|employ|arrange|preserve)\b/i.test(
+  if (/\b(?:shall|must|do)\s+not\b/i.test(clause)) return true;
+  if (/^\(\s*[a-z]+\s*\)/.test(clause.trim()) && /\bimmediate(?:ly)?\b/i.test(clause)) return true;
+  return /^(?:[-•]\s*|\(\s*[a-z]+\s*\)\s*)?(?:immediately\s+)?(?:notify|report|file|submit|produce|obtain|employ|arrange|preserve|protect|follow|cooperate)\b/i.test(
     clause.trim()
   );
 }
@@ -412,6 +417,65 @@ export function splitPolicyClauses(text: string): string[] {
   return out;
 }
 
+export function splitLetteredSubparagraphs(text: string): string[] {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return [];
+  const marker = /(?:^|(?<=[.;:]\s))(\(\s*[a-z]+\s*\))/gi;
+  const starts: number[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = marker.exec(raw))) {
+    starts.push(match.index);
+  }
+  if (starts.length === 0) return [raw];
+  const intro = starts[0] > 0 ? raw.slice(0, starts[0]).trim() : "";
+  const obligationPrefix = /\b(shall|must)\b/i.test(intro) ? intro.replace(/[:]\s*$/, "").trim() : "";
+  const slices: string[] = [];
+  for (let i = 0; i < starts.length; i++) {
+    const end = i + 1 < starts.length ? starts[i + 1] : raw.length;
+    let piece = raw.slice(starts[i], end).trim();
+    if (obligationPrefix && !/\b(shall|must)\b/i.test(piece)) {
+      piece = `${obligationPrefix} ${piece}`;
+    }
+    if (piece.length >= 12) slices.push(piece);
+  }
+  if (
+    intro.length >= 12 &&
+    !/^(?:\d+\.?\s*)?(?:the\s+)?insured\s+shall:?$/i.test(intro) &&
+    starts[0] > 0
+  ) {
+    slices.unshift(intro);
+  }
+  return slices.length ? slices : [raw];
+}
+
+export function partitionCompleteClauses(text: string): { complete: string; remainder: string } {
+  const raw = String(text || "").trim();
+  if (!raw) return { complete: "", remainder: "" };
+  if (/[.!?;]$/.test(raw)) return { complete: raw, remainder: "" };
+  let lastBreak = -1;
+  const re = /[.!?;](?=\s)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(raw))) {
+    if (match[0] === "." && /\d$/.test(raw.slice(0, match.index))) continue;
+    lastBreak = match.index;
+  }
+  if (lastBreak < 0) return { complete: "", remainder: raw };
+  return {
+    complete: raw.slice(0, lastBreak + 1).trim(),
+    remainder: raw.slice(lastBreak + 1).trim()
+  };
+}
+
+export function splitCoordinatedDuties(clause: string): string[] {
+  const pieces = String(clause || "")
+    .split(
+      /\s*(?:;|,?\s+and\s+(?=(?:shall|must|immediately)?\s*(?:notify|report|produce|submit|preserve|protect|follow|file|employ|arrange|cooperate))|,\s+(?=(?:shall|must|immediately)?\s*(?:notify|report|produce|submit|preserve|protect|follow|file|employ|arrange)))\s*/i
+    )
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter((item) => item.length > 8);
+  return pieces.length > 1 ? pieces : [String(clause || "").replace(/\s+/g, " ").trim()].filter(Boolean);
+}
+
 export type WalkedPolicyClause = {
   clause: string;
   page: number;
@@ -425,28 +489,40 @@ export function walkPolicyClauses(
 ): WalkedPolicyClause[] {
   let section: PolicySection | null = null;
   let lastDocumentId: string | undefined;
+  let leftover = "";
+  let leftoverPage = 0;
   const out: WalkedPolicyClause[] = [];
 
   const emit = (chunk: string, page: number, document_id: string | undefined, active: PolicySection | null) => {
-    for (const clause of splitPolicyClauses(chunk)) {
-      if (clause.length < 12) continue;
-      out.push({
-        clause,
-        page,
-        document_id,
-        section: active,
-        kind: classifyPolicyTerm(clause, active)
-      });
+    for (const unit of splitLetteredSubparagraphs(chunk)) {
+      for (const clause of splitPolicyClauses(unit)) {
+        if (clause.length < 12) continue;
+        out.push({
+          clause,
+          page,
+          document_id,
+          section: active,
+          kind: classifyPolicyTerm(clause, active)
+        });
+      }
     }
+  };
+
+  const flushLeftover = (document_id: string | undefined) => {
+    if (leftover.trim()) emit(leftover, leftoverPage || 1, document_id, section);
+    leftover = "";
   };
 
   for (const page of pages) {
     if (page.document_id !== undefined && lastDocumentId !== undefined && page.document_id !== lastDocumentId) {
+      flushLeftover(lastDocumentId);
       section = null;
     }
     if (page.document_id !== undefined) lastDocumentId = page.document_id;
 
-    let buffer = "";
+    let buffer = leftover;
+    leftover = "";
+
     const flush = () => {
       if (buffer.trim()) emit(buffer, page.page, page.document_id, section);
       buffer = "";
@@ -464,9 +540,14 @@ export function walkPolicyClauses(
       }
       buffer = buffer ? `${buffer} ${line}` : line;
     }
+
+    const partitioned = partitionCompleteClauses(buffer);
+    leftover = partitioned.remainder;
+    leftoverPage = leftover ? page.page : 0;
+    buffer = partitioned.complete;
     flush();
   }
-
+  flushLeftover(lastDocumentId);
   return out;
 }
 
@@ -490,15 +571,69 @@ export function exclusionCategory(clause: string): string {
 export type DutyRule = { trigger: string; pattern: RegExp };
 
 export const CLAIM_DUTY_RULES: DutyRule[] = [
-  { trigger: "illness or injury", pattern: /licensed veterinary|immediate(?:ly)? .{0,60}veterinar|veterinary (?:care|treatment)/i },
-  { trigger: "death", pattern: /\b(postmortem|necropsy)\b/i },
-  { trigger: "claim notice", pattern: /immediate(?:ly)? .{0,50}(?:telephone )?notice|\bnotify\b.{0,40}(?:company|insurer|carrier)|telephone notice/i },
-  { trigger: "theft", pattern: /theft.{0,80}(?:notice|report)|disappearance.{0,50}notice/i },
-  { trigger: "theft", pattern: /\bpolice\b|law.?enforcement/i },
-  { trigger: "theft", pattern: /\bransom\b/i },
-  { trigger: "proof of loss", pattern: /proof of loss/i },
-  { trigger: "claim cooperation", pattern: /examination under oath|produce .{0,40}(?:records|documents|receipts)/i }
+  { trigger: "Immediate veterinary care", pattern: /(?:employ|obtain|seek)\b.{0,60}\b(?:licensed\s+)?veterinar|veterinar(?:y)?\s+(?:care|treatment)|qualified professional|professional (?:assistance|treatment)/i },
+  { trigger: "Postmortem / necropsy", pattern: /\b(postmortem|post-mortem|necropsy)\b/i },
+  { trigger: "Immediate notice", pattern: /immediate(?:ly)? .{0,50}(?:telephone )?notice|\bnotify\b.{0,40}(?:company|insurer|carrier)|telephone notice/i },
+  { trigger: "Theft / disappearance notice", pattern: /theft.{0,80}(?:notice|report)|disappearance.{0,50}notice/i },
+  { trigger: "Police / law-enforcement reporting", pattern: /\bpolice\b|law.?enforcement/i },
+  { trigger: "No ransom", pattern: /\bransom\b/i },
+  { trigger: "Proof of loss", pattern: /proof of loss/i },
+  { trigger: "Examination under oath", pattern: /examinations?\s+under\s+oath/i },
+  { trigger: "Record production", pattern: /(?:produce|submit|provide|preserve|furnish).{0,60}(?:records|documents|receipts|invoices|books)/i }
 ];
+
+const DUTY_TRIGGER_BY_FAMILY: Record<string, string> = {
+  professional_treatment: "Immediate veterinary care",
+  necropsy: "Postmortem / necropsy",
+  notice: "Immediate notice",
+  theft_notice: "Theft / disappearance notice",
+  police: "Police / law-enforcement reporting",
+  follow_law_enforcement: "Follow law-enforcement recommendations",
+  ransom: "No ransom",
+  proof_of_loss: "Proof of loss",
+  examination_under_oath: "Examination under oath",
+  records: "Record production",
+  property_protection: "Protect property",
+  cooperation: "Claim cooperation"
+};
+
+type DutyFamilyRule = { family: string; test: (text: string) => boolean };
+
+const DUTY_FAMILY_RULES: DutyFamilyRule[] = [
+  {
+    family: "professional_treatment",
+    test: (t) =>
+      /(?:employ|obtain|seek)\b.{0,60}\b(?:licensed\s+)?veterinar|veterinar(?:y)?\s+(?:care|treatment|surgeon)|qualified professional|professional (?:assistance|treatment)/.test(t)
+  },
+  { family: "necropsy", test: (t) => /postmortem|post-mortem|\bnecropsy\b/.test(t) },
+  { family: "examination_under_oath", test: (t) => /examinations?\s+under\s+oath/.test(t) },
+  { family: "proof_of_loss", test: (t) => /proof of loss/.test(t) },
+  {
+    family: "records",
+    test: (t) =>
+      /(?:produce|submit|provide|preserve|furnish|copy)\b.{0,60}\b(?:records|documents|receipts|invoices|books)\b/.test(t) ||
+      /(?:records|documents|receipts|invoices|books)\b.{0,40}\b(?:produc|examin|copy)/.test(t)
+  },
+  { family: "ransom", test: (t) => /\bransom\b/.test(t) },
+  { family: "follow_law_enforcement", test: (t) => /follow .{0,80}recommend/.test(t) },
+  { family: "police", test: (t) => /(?:police|law.?enforcement)/.test(t) },
+  {
+    family: "theft_notice",
+    test: (t) => /(?:theft|disappearance)/.test(t) && /notice|notify|report/.test(t)
+  },
+  { family: "notice", test: (t) => /notify|notice|report/.test(t) && !/(?:theft|disappearance)/.test(t) },
+  { family: "property_protection", test: (t) => /\bprotect\b.{0,40}\b(?:property|damage)\b/.test(t) },
+  { family: "cooperation", test: (t) => /cooperat/.test(t) }
+];
+
+export function allDutyFamilies(clause: string): string[] {
+  const t = String(clause || "").toLowerCase();
+  const found: string[] = [];
+  for (const rule of DUTY_FAMILY_RULES) {
+    if (rule.test(t) && !found.includes(rule.family)) found.push(rule.family);
+  }
+  return found;
+}
 
 export type ClaimDutyDescription = {
   family: string;
@@ -508,31 +643,30 @@ export type ClaimDutyDescription = {
 };
 
 export function dutyFamily(clause: string): string {
-  const t = clause.toLowerCase();
-  if (/\bransom\b/.test(t)) return "ransom";
-  if (/examination under oath/.test(t)) return "examination_under_oath";
-  if (/proof of loss/.test(t)) return "proof_of_loss";
-  if (/produce/.test(t) && /records|documents|receipts/.test(t)) return "records";
-  if (/(?:police|law.?enforcement)/.test(t) && /recommend/.test(t)) return "follow_law_enforcement";
-  if (/(?:police|law.?enforcement)/.test(t)) return "police";
-  if (/postmortem|necropsy/.test(t)) return "necropsy";
-  if (/qualified professional|professional (?:assistance|treatment)|veterinar/.test(t)) return "professional_treatment";
-  if (/(?:theft|disappearance)/.test(t) && /notice|notify|report/.test(t)) return "theft_notice";
-  if (/notify|notice|report/.test(t)) return "notice";
-  if (/cooperat/.test(t)) return "cooperation";
-  return "claim_duty";
+  return allDutyFamilies(clause)[0] || "claim_duty";
 }
 
-export function describeClaimDuty(clause: string): ClaimDutyDescription {
-  const summary = String(clause || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[-•]\s*/, "");
-  const family = dutyFamily(summary);
-  const trigger = CLAIM_DUTY_RULES.find((rule) => rule.pattern.test(summary))?.trigger || family.replace(/_/g, " ");
-  const item = summary.match(/\bitem\s+([a-z0-9]+)\s+of\s+(?:the\s+)?declarations\b/i)?.[1];
+export function clauseSpanForFamily(clause: string, family: string): string {
+  const full = String(clause || "").replace(/\s+/g, " ").trim();
+  const units = [
+    ...splitLetteredSubparagraphs(full),
+    ...splitCoordinatedDuties(full),
+    ...splitPolicyClauses(full)
+  ];
+  const hit = units.find((unit) => allDutyFamilies(unit).includes(family));
+  return (hit || full).replace(/\s+/g, " ").trim();
+}
+
+export function describeClaimDuty(clause: string, family?: string): ClaimDutyDescription {
+  const resolvedFamily = family || dutyFamily(clause);
+  const summary = clauseSpanForFamily(clause, resolvedFamily);
+  const trigger =
+    DUTY_TRIGGER_BY_FAMILY[resolvedFamily] ||
+    CLAIM_DUTY_RULES.find((rule) => rule.pattern.test(summary))?.trigger ||
+    resolvedFamily.replace(/_/g, " ");
+  const item = `${summary} ${clause}`.match(/\bitem\s+([a-z0-9]+)\s+of\s+(?:the\s+)?declarations\b/i)?.[1];
   return {
-    family,
+    family: resolvedFamily,
     trigger,
     summary,
     declarationsItem: item ? item.toUpperCase() : undefined
@@ -1121,17 +1255,25 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
 
   for (const requirement of record.requirements) {
     const blob = `${requirement.requirement} ${requirement.source_text}`;
-    addDutyEvidence(
-      requirement.source_document_id,
-      requirement.source_page,
-      requirement.source_text || requirement.requirement,
-      dutyFamily(blob),
-      requirement.trigger || "duty"
-    );
+    const families = allDutyFamilies(blob);
+    const list = families.length ? families : [dutyFamily(blob)];
+    for (const family of list) {
+      addDutyEvidence(
+        requirement.source_document_id,
+        requirement.source_page,
+        requirement.source_text || requirement.requirement,
+        family,
+        requirement.trigger || family
+      );
+    }
   }
   for (const clause of walked) {
     if (clause.kind !== "duty" || !clause.document_id) continue;
-    addDutyEvidence(clause.document_id, clause.page, clause.clause, dutyFamily(clause.clause), dutyFamily(clause.clause));
+    const families = allDutyFamilies(clause.clause);
+    const list = families.length ? families : [dutyFamily(clause.clause)];
+    for (const family of list) {
+      addDutyEvidence(clause.document_id, clause.page, clause.clause, family, family);
+    }
   }
 
   for (const clause of walked) {
