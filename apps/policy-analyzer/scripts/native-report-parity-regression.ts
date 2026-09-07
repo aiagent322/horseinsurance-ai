@@ -165,6 +165,9 @@ function assertReportViewConsumesAnalysisFields(): void {
   assert.doesNotMatch(source, /Forms listed on the declarations/, "Forms heading must not be hardcoded to Declarations");
   assert.match(source, /UNRESOLVED_COVERAGE_SECTION_TITLE/, "Unresolved coverage UI must use the shared heading");
   assert.doesNotMatch(source, /Potential Coverage Gaps/, "Gaps heading must not imply confirmed deficiency");
+  assert.match(source, /describeReportActionControls/, "Report chrome must use the shared action helper");
+  assert.doesNotMatch(source, /First original PDF/, "Report chrome must not use internal first-PDF wording");
+  assert.doesNotMatch(source, /\/auth\/sign-out/, "Completed report must not duplicate Sign out");
 }
 
 function main() {

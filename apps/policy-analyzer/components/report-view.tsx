@@ -6,6 +6,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { describeFormsAndEndorsements } from "@/lib/document-terminology";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
 import { buildSourceReferenceIndex, formatPageLocator } from "@/lib/policy-semantics";
+import { describeReportActionControls } from "@/lib/report-actions";
 import {
   parseUnresolvedCoverageItem,
   UNRESOLVED_COVERAGE_SECTION_TITLE
@@ -91,6 +92,10 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
   const extractionIncomplete = record.documents.some(
     (d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending"
   );
+  const actions = describeReportActionControls({
+    policyId: record.policy_id,
+    documentCount: record.documents.length
+  });
 
   async function onDelete() {
     if (!confirm("Delete this analysis and the uploaded PDF(s)?")) return;
@@ -101,7 +106,7 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#b8860b]">Policy report</p>
           <h1 className="mt-1 text-2xl font-semibold text-[#0b3c5d]">
             {id.insured_horse_name?.value || "Uploaded policy"}
@@ -113,23 +118,20 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
           </p>
           {accountEmail ? <p className="mt-1 text-xs text-[#6b7280]">Signed in as {accountEmail}</p> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            className={cn(buttonVariants({ variant: "outline" }))}
-            href={`/api/policies/${record.policy_id}/original`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            First original PDF
-          </a>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {actions.showOriginalPdfShortcut && actions.originalPdfHref ? (
+            <a
+              className={cn(buttonVariants({ variant: "outline" }))}
+              href={actions.originalPdfHref}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {actions.originalPdfAccessibleName}
+            </a>
+          ) : null}
           <Button variant="outline" onClick={onDelete}>
-            Delete analysis
+            {actions.deleteAnalysisLabel}
           </Button>
-          <form action="/auth/sign-out" method="post">
-            <button type="submit" className={cn(buttonVariants({ variant: "ghost" }))}>
-              Sign out
-            </button>
-          </form>
         </div>
       </div>
 
