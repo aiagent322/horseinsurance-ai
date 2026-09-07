@@ -39,6 +39,7 @@ import {
   walkPolicyClauses
 } from "./policy-semantics";
 import { buildAgentQuestions } from "./agent-questions";
+import { buildUnresolvedCoverageGapStrings } from "./unresolved-coverage";
 import type {
   AnalysisStatus,
   CompletenessResult,
@@ -1202,19 +1203,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     warnings
   };
 
-  const coverage_gaps: string[] = [];
-  const louRec = coverages.find((c) => c.coverage_type === "Loss of Use");
-  if (louRec?.coverage_status === "EXCLUDED") {
-    coverage_gaps.push("Loss of Use is excluded in the uploaded documents.");
-  } else if (louRec?.coverage_status === "NOT FOUND") {
-    coverage_gaps.push("Loss of Use is not established in the uploaded documents.");
-  }
-  if (exclusions.length) {
-    coverage_gaps.push("Named exclusions appear in the uploaded policy form. Confirm with the agent whether any endorsement modifies those provisions.");
-  }
-  if (conflicts.length) {
-    coverage_gaps.push("Conflicting medical limits appear in the package. Ask which page controls after endorsements.");
-  }
+  const coverage_gaps = buildUnresolvedCoverageGapStrings({
+    completeness,
+    documents,
+    coverages,
+    conflicts,
+    form_inventory: formInventory,
+    identification
+  });
 
   const agent_questions = buildAgentQuestions({
     completeness,

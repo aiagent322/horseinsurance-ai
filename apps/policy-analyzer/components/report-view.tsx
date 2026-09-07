@@ -6,6 +6,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { describeFormsAndEndorsements } from "@/lib/document-terminology";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
 import { buildSourceReferenceIndex, formatPageLocator } from "@/lib/policy-semantics";
+import {
+  parseUnresolvedCoverageItem,
+  UNRESOLVED_COVERAGE_SECTION_TITLE
+} from "@/lib/unresolved-coverage";
 import { cn } from "@/lib/utils";
 import type { AnalysisStatus, PolicyRecord, Sourced } from "@/lib/types";
 
@@ -418,14 +422,22 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
         </Section>
       ) : null}
 
-      <Section title="Potential Coverage Gaps">
+      <Section title={UNRESOLVED_COVERAGE_SECTION_TITLE}>
         {record.coverage_gaps.length === 0 ? (
-          <p className="text-sm text-[#6b7280]">No gap questions were generated from the uploaded pages.</p>
+          <p className="text-sm text-[#6b7280]">
+            No unresolved coverage items were identified from the uploaded documents.
+          </p>
         ) : (
-          <ul className="list-disc space-y-1 pl-5 text-sm">
-            {record.coverage_gaps.map((g) => (
-              <li key={g}>{g}</li>
-            ))}
+          <ul className="space-y-3 text-sm">
+            {record.coverage_gaps.map((g) => {
+              const item = parseUnresolvedCoverageItem(g);
+              return (
+                <li key={g} className="space-y-1">
+                  <p className="font-medium text-[#0b3c5d]">{item.category}</p>
+                  <p className="text-[#4a5568]">{item.explanation}</p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Section>

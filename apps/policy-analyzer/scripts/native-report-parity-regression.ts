@@ -10,6 +10,10 @@ import {
   formsSectionContradictsPackageWarning
 } from "../lib/document-terminology";
 import {
+  UNRESOLVED_COVERAGE_SECTION_TITLE,
+  unresolvedCoverageItemsFromReport
+} from "../lib/unresolved-coverage";
+import {
   buildSourceReferenceIndex,
   collectSourceReferences,
   formatCustomerSourceReference,
@@ -124,7 +128,7 @@ function assembleCustomerFacingReport(report: PolicyRecord): string {
   for (const row of report.requirements) {
     sections.push(`${row.trigger}. ${row.requirement}`);
   }
-  sections.push("Potential Coverage Gaps");
+  sections.push(UNRESOLVED_COVERAGE_SECTION_TITLE);
   sections.push(...report.coverage_gaps);
   sections.push("Questions for Your Agent");
   sections.push(...report.agent_questions);
@@ -159,6 +163,8 @@ function assertReportViewConsumesAnalysisFields(): void {
   assert.doesNotMatch(source, /evidence\.source_text/, "Source References UI must not display raw evidence as primary text");
   assert.match(source, /describeFormsAndEndorsements/, "Forms UI must consume document-state presentation");
   assert.doesNotMatch(source, /Forms listed on the declarations/, "Forms heading must not be hardcoded to Declarations");
+  assert.match(source, /UNRESOLVED_COVERAGE_SECTION_TITLE/, "Unresolved coverage UI must use the shared heading");
+  assert.doesNotMatch(source, /Potential Coverage Gaps/, "Gaps heading must not imply confirmed deficiency");
 }
 
 function main() {
@@ -262,7 +268,7 @@ function main() {
   }
   const emergency = facing.slice(
     facing.indexOf("Emergency / Claim Requirements"),
-    facing.indexOf("Potential Coverage Gaps")
+    facing.indexOf(UNRESOLVED_COVERAGE_SECTION_TITLE)
   );
   assert.doesNotMatch(
     emergency,
@@ -407,7 +413,16 @@ function main() {
 
   assert.match(report.coverage_gaps.join(" "), /not established/i);
   assert.doesNotMatch(report.coverage_gaps.join(" "), /should necessarily|match the horse/i);
-  assert.ok(report.coverage_gaps.some((gap) => /named exclusions/i.test(gap)));
+  assert.doesNotMatch(report.coverage_gaps.join("\n"), /named exclusions appear/i);
+  assert.match(facing, new RegExp(UNRESOLVED_COVERAGE_SECTION_TITLE));
+  assert.match(report.coverage_gaps.join("\n"), /declarations\/schedule/i);
+  assert.match(report.coverage_gaps.join("\n"), /major medical/i);
+  assert.match(report.coverage_gaps.join("\n"), /surgical/i);
+  assert.doesNotMatch(report.coverage_gaps.join("\n"), /loss of use/i);
+  assert.doesNotMatch(report.coverage_gaps.join("\n"), /mortality is missing|theft is missing|missing coverage/i);
+  const unresolved = unresolvedCoverageItemsFromReport(report);
+  assert.ok(unresolved.some((item) => item.category === "Missing Package Information"));
+  assert.ok(unresolved.some((item) => item.category === "Needs Clarification" && /major medical/i.test(item.explanation)));
 
   console.log("NATIVE REPORT PARITY OK", {
     classification: doc.classification,
