@@ -1,3 +1,4 @@
+import { optionalFormApplicabilityUnresolved } from "./coverage-applicability";
 import { classifyPage } from "./classify";
 import {
   collectFormsScheduleText,
@@ -13,6 +14,7 @@ import { segmentLogicalForms } from "./form-segmentation";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
   clauseConcernsMortality,
+  clauseConcernsStallionCoverage,
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
   describeClaimDuty,
@@ -320,6 +322,7 @@ type CoverageEvidence = {
   clause: string;
   pageText: string;
   optional?: boolean;
+  applicabilityUnresolved?: boolean;
   contradiction?: { grant: CoverageEvidence; denial: CoverageEvidence };
 };
 
@@ -335,7 +338,7 @@ function laterEvidence(a: CoverageEvidence, b: CoverageEvidence): boolean {
 function classifyCoverageEvidence(
   hits: Hit[],
   query: CoverageQuery,
-  options: { limitedIfScheduleBound?: boolean } = {}
+  options: { limitedIfScheduleBound?: boolean; skipOptionalApplicability?: boolean } = {}
 ): CoverageEvidence | null {
   const seen = new Set<string>();
   const units: CoverageEvidence[] = [];
@@ -382,7 +385,50 @@ function classifyCoverageEvidence(
     };
   }
   if (denial) return denial;
+  if (affirmation && !options.skipOptionalApplicability) {
+    const pages = uniquePages(hits).map((h) => ({
+      page: h.page,
+      text: h.text,
+      document_id: h.document_id
+    }));
+    if (
+      (affirmation.status === "COVERED" || affirmation.status === "LIMITED") &&
+      optionalFormApplicabilityUnresolved(
+        { page: affirmation.page, text: affirmation.pageText, document_id: affirmation.document_id },
+        pages,
+        query.names
+      )
+    ) {
+      return {
+        ...affirmation,
+        status: "NEEDS CLARIFICATION",
+        optional: true,
+        applicabilityUnresolved: true
+      };
+    }
+  }
   if (affirmation) return affirmation;
+  if (mention && !options.skipOptionalApplicability) {
+    const pages = uniquePages(hits).map((h) => ({
+      page: h.page,
+      text: h.text,
+      document_id: h.document_id
+    }));
+    if (
+      optionalFormApplicabilityUnresolved(
+        { page: mention.page, text: mention.pageText, document_id: mention.document_id },
+        pages,
+        query.names
+      )
+    ) {
+      return {
+        ...mention,
+        status: "NEEDS CLARIFICATION",
+        optional: true,
+        applicabilityUnresolved: true
+      };
+    }
+  }
   if (mention) return mention;
   return null;
 }
@@ -503,7 +549,8 @@ function coverageNarrative(
     status,
     grantClause: grantLike ? evidence?.clause : undefined,
     denialClause: status === "EXCLUDED" ? evidence?.clause : undefined,
-    optionalMention: Boolean(evidence?.optional),
+    optionalMention: Boolean(evidence?.optional && !evidence?.applicabilityUnresolved),
+    applicabilityUnresolved: Boolean(evidence?.applicabilityUnresolved),
     missingDeclarationsOrSchedule: extras.missingDeclarationsOrSchedule,
     hasRelatedCoverageLimitation: extras.hasRelatedCoverageLimitation
   });
@@ -654,7 +701,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       names: ["full mortality coverage", "full mortality", "mortality coverage"],
       concerns: clauseConcernsMortality
     },
-    { limitedIfScheduleBound: factsMissing }
+    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true }
   );
   let mortalityStatus: AnalysisStatus = mortalityEv?.status || "NOT FOUND";
   if (
@@ -696,9 +743,6 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   ];
   const uniqueMedical = uniqueLimitAmounts(medicalLimits);
   const medicalController = controllingLimit(uniqueMedical, hits, pageControlsMedical);
-  const medicalDeductible = labeled(hits, ["Major Medical Deductible", "deductible of"]);
-  const reimbursement = firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i);
-  const diagnostic = firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i);
   const medicalEv = classifyCoverageEvidence(hits, { names: ["major medical coverage", "major medical"] });
   const medicalAmended = Boolean(medicalController) || hasPhrase(allText, ["medical limit is amended", "supersedes the medical limit"]);
   let medicalStatus: AnalysisStatus = medicalEv?.status || "NOT FOUND";
@@ -712,8 +756,15 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   } else if (medicalStatus === "COVERED" && medicalAmended) {
     medicalStatus = "COVERED WITH LIMITATIONS";
   }
+  const medicalIssued =
+    medicalStatus === "COVERED" ||
+    medicalStatus === "COVERED WITH LIMITATIONS" ||
+    medicalStatus === "LIMITED";
+  const medicalDeductible = medicalIssued ? labeled(hits, ["Major Medical Deductible", "deductible of"]) : undefined;
+  const reimbursement = medicalIssued ? firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i) : undefined;
+  const diagnostic = medicalIssued ? firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i) : undefined;
   const medicalLimit =
-    medicalStatus === "EXCLUDED" || medicalStatus === "POSSIBLE CONFLICT"
+    !medicalIssued || medicalStatus === "EXCLUDED" || medicalStatus === "POSSIBLE CONFLICT"
       ? undefined
       : medicalController
         ? sourcedFromLimit(medicalController)
@@ -725,7 +776,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     deductible: medicalDeductible,
     reimbursement_percentage: reimbursement,
     sublimit: diagnostic,
-    conditions: medicalAmended && medicalStatus !== "EXCLUDED" && medicalStatus !== "POSSIBLE CONFLICT"
+    conditions: medicalAmended && medicalIssued
       ? "An endorsement modifies the medical limit."
       : undefined,
     description: coverageNarrative("Major Medical", medicalStatus, medicalEv, {
@@ -735,36 +786,40 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     source_page: medicalController?.source_page || medicalEv?.page,
     source_text: medicalEv?.clause || medicalController?.source_text
   });
-  financial_limits.push(...medicalLimits);
-  if (medicalDeductible) {
-    financial_limits.push({
-      id: newId(),
-      label: "Major Medical deductible",
-      amount: medicalDeductible.value,
-      source_document_id: medicalDeductible.source_document_id,
-      source_page: medicalDeductible.source_page,
-      source_text: medicalDeductible.source_text
-    });
+  if (medicalIssued || medicalStatus === "POSSIBLE CONFLICT") {
+    financial_limits.push(...medicalLimits);
   }
-  if (reimbursement) {
-    financial_limits.push({
-      id: newId(),
-      label: "Reimbursement percentage",
-      amount: reimbursement.value,
-      source_document_id: reimbursement.source_document_id,
-      source_page: reimbursement.source_page,
-      source_text: reimbursement.source_text
-    });
-  }
-  if (diagnostic) {
-    financial_limits.push({
-      id: newId(),
-      label: "Diagnostic imaging sublimit",
-      amount: diagnostic.value,
-      source_document_id: diagnostic.source_document_id,
-      source_page: diagnostic.source_page,
-      source_text: diagnostic.source_text
-    });
+  if (medicalIssued) {
+    if (medicalDeductible) {
+      financial_limits.push({
+        id: newId(),
+        label: "Major Medical deductible",
+        amount: medicalDeductible.value,
+        source_document_id: medicalDeductible.source_document_id,
+        source_page: medicalDeductible.source_page,
+        source_text: medicalDeductible.source_text
+      });
+    }
+    if (reimbursement) {
+      financial_limits.push({
+        id: newId(),
+        label: "Reimbursement percentage",
+        amount: reimbursement.value,
+        source_document_id: reimbursement.source_document_id,
+        source_page: reimbursement.source_page,
+        source_text: reimbursement.source_text
+      });
+    }
+    if (diagnostic) {
+      financial_limits.push({
+        id: newId(),
+        label: "Diagnostic imaging sublimit",
+        amount: diagnostic.value,
+        source_document_id: diagnostic.source_document_id,
+        source_page: diagnostic.source_page,
+        source_text: diagnostic.source_text
+      });
+    }
   }
 
   const surgicalLimits = [
@@ -775,7 +830,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const surgicalController = controllingLimit(uniqueSurgical, hits, pageControlsSurgical);
   const surgicalEv = classifyCoverageEvidence(
     hits,
-    { names: ["surgical coverage"], concerns: clauseConcernsSurgicalCoverage },
+    { names: ["surgical coverage", "surgical procedure expenses"], concerns: clauseConcernsSurgicalCoverage },
     { limitedIfScheduleBound: factsMissing }
   );
   let surgicalStatus: AnalysisStatus = surgicalEv?.status || "NOT FOUND";
@@ -787,8 +842,12 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   ) {
     surgicalStatus = "POSSIBLE CONFLICT";
   }
+  const surgicalIssued =
+    surgicalStatus === "COVERED" ||
+    surgicalStatus === "COVERED WITH LIMITATIONS" ||
+    surgicalStatus === "LIMITED";
   const surgical =
-    surgicalStatus === "EXCLUDED" || surgicalStatus === "POSSIBLE CONFLICT"
+    !surgicalIssued || surgicalStatus === "EXCLUDED" || surgicalStatus === "POSSIBLE CONFLICT"
       ? undefined
       : surgicalController
         ? sourcedFromLimit(surgicalController)
@@ -805,7 +864,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     source_page: surgicalController?.source_page || surgicalEv?.page,
     source_text: surgicalEv?.clause || surgicalController?.source_text
   });
-  financial_limits.push(...surgicalLimits);
+  if (surgicalIssued || surgicalStatus === "POSSIBLE CONFLICT") financial_limits.push(...surgicalLimits);
 
   const colicEv = classifyCoverageEvidence(hits, { names: ["colic surgery"] });
   let colicStatus: AnalysisStatus = colicEv?.status || "NOT FOUND";
@@ -830,7 +889,13 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   });
 
   const stallionEv = classifyCoverageEvidence(hits, {
-    names: ["stallion infertility coverage", "stallion infertility"]
+    names: [
+      "stallion infertility coverage",
+      "stallion infertility",
+      "stallion availability",
+      "stallion permanent disability"
+    ],
+    concerns: clauseConcernsStallionCoverage
   });
   const stallionStatus: AnalysisStatus = stallionEv?.status || "NOT FOUND";
   addCoverage("Stallion Infertility", stallionStatus !== "NOT FOUND", stallionStatus, {
@@ -843,7 +908,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const theftEv = classifyCoverageEvidence(
     hits,
     { names: ["theft coverage", "coverage for theft"], concerns: clauseConcernsTheft },
-    { limitedIfScheduleBound: factsMissing }
+    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true }
   );
   const theftStatus: AnalysisStatus = theftEv?.status || "NOT FOUND";
   addCoverage("Theft", theftStatus !== "NOT FOUND", theftStatus, {

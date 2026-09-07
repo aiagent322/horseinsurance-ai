@@ -142,6 +142,8 @@ export function isCoverageGrantLanguage(clause: string): boolean {
     /\bagrees to indemnify\b/i.test(clause) ||
     /\bindemnify(?:\s+the\s+insured)?\b/i.test(clause) ||
     /\bwill pay\b/i.test(clause) ||
+    /\b(?:we |the company )?(?:agree|agrees) to reimburse\b/i.test(clause) ||
+    /\bwill reimburse\b/i.test(clause) ||
     /\bthis insurance covers\b/i.test(clause) ||
     /\bcoverage is afforded\b/i.test(clause) ||
     /\bcoverage is provided\b/i.test(clause)
@@ -157,6 +159,83 @@ export function isOptionalCoverageMention(clause: string): boolean {
     /\bif shown in the schedule\b/i.test(clause) ||
     /\bas stated in the schedule or endorsements\b/i.test(clause)
   );
+}
+
+export function textHasIssuedApplicabilityGate(text: string): boolean {
+  const n = String(text || "").replace(/\s+/g, " ");
+  if (!n.trim()) return false;
+  if (/\bonly applies (?:if|to)\b/i.test(n)) return true;
+  if (/\bspecific premium(?: charge)?\b/i.test(n) && /\b(?:shown|indicated)\b/i.test(n)) return true;
+  if (/\bpremium charge for\b/i.test(n) && /\b(?:is )?(?:indicated|shown)\b/i.test(n)) return true;
+  if (/\bspecifically indicated in (?:the )?(?:declarations|schedule|item)\b/i.test(n)) return true;
+  if (/\bif this endorsement is attached\b/i.test(n)) return true;
+  if (/\bif (?:this )?coverage (?:is )?selected\b/i.test(n)) return true;
+  if (/\bcoverage selected\b/i.test(n) && /\b(?:declarations|schedule)\b/i.test(n)) return true;
+  if (/\bfor each horse shown in (?:the )?(?:declarations|schedule|item)\b/i.test(n)) return true;
+  if (/\bif (?:a )?specific premium\b/i.test(n)) return true;
+  if (/\bonly if .{0,80}(?:premium|indicated|shown|selected|scheduled)\b/i.test(n)) return true;
+  if (/\bif shown (?:on|in) the (?:declarations|schedule)\b/i.test(n)) return true;
+  if (/\bshown in the (?:declarations|schedule)\b/i.test(n) && /\b(?:only if|only applies)\b/i.test(n)) return true;
+  return false;
+}
+
+const GENERIC_SELECTION_TERMS = new Set([
+  "coverage",
+  "endorsement",
+  "insurance",
+  "policy",
+  "expense",
+  "expenses",
+  "equine",
+  "optional",
+  "form",
+  "item",
+  "schedule",
+  "declarations"
+]);
+
+export function coverageSelectionTerms(names: string[], title?: string): string[] {
+  const out: string[] = [];
+  for (const raw of [...names, title || ""]) {
+    const cleaned = String(raw || "")
+      .replace(/\bendorsement\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (cleaned.length >= 4) out.push(cleaned);
+    const words = cleaned.split(" ").filter((word) => word.length > 2 && !GENERIC_SELECTION_TERMS.has(word.toLowerCase()));
+    if (words.length >= 2) out.push(words.slice(0, 2).join(" "));
+    if (words.length >= 1 && words[0].length >= 6) out.push(words[0]);
+  }
+  const unique = new Set<string>();
+  for (const term of out) {
+    const key = term.toLowerCase();
+    if (key.length < 4 || GENERIC_SELECTION_TERMS.has(key)) continue;
+    unique.add(key);
+  }
+  return [...unique];
+}
+
+export function hasIssuedCoverageSelection(declarationsText: string, terms: string[]): boolean {
+  const hay = String(declarationsText || "").replace(/\s+/g, " ").trim();
+  if (!hay) return false;
+  const lower = hay.toLowerCase();
+  for (const term of terms) {
+    const needle = term.toLowerCase().replace(/\s+/g, " ").trim();
+    if (needle.length < 4) continue;
+    let from = 0;
+    while (from < lower.length) {
+      const idx = lower.indexOf(needle, from);
+      if (idx < 0) break;
+      const window = hay.slice(Math.max(0, idx - 48), Math.min(hay.length, idx + needle.length + 140));
+      if (/\$[\d,]+(?:\.\d{2})?/.test(window)) return true;
+      if (/\b(?:yes|included|selected|elected)\b/i.test(window)) return true;
+      if (/\bpremium\b.{0,32}\$?\d/i.test(window)) return true;
+      if (/\b(?:limit|amount)\b.{0,24}\$?\d/i.test(window)) return true;
+      if (/[\[(]\s*[xX✓✔]\s*[\])]/.test(window)) return true;
+      from = idx + needle.length;
+    }
+  }
+  return false;
 }
 
 export function isScheduleDependentGrant(clause: string): boolean {
@@ -191,10 +270,25 @@ export function clauseConcernsTheft(clause: string): boolean {
 
 export function clauseConcernsSurgicalCoverage(clause: string): boolean {
   const lower = clause.toLowerCase();
+  if (/\bequine surgical clinic\b/.test(lower)) return false;
+  if (/\bsurgical clinic\b/.test(lower) && !/\bsurgical (?:procedure )?(?:expenses?|coverage)\b/.test(lower)) {
+    return false;
+  }
   if (/\bsurgical coverage\b/.test(lower)) return true;
-  if (/\bequine (?:zero deductible )?surgical\b/.test(lower)) return true;
-  if (/\bmajor medical and surgical\b/.test(lower)) return true;
+  if (/\bsurgical procedure expenses?\b/.test(lower)) return true;
+  if (/\bequine (?:zero deductible )?surgical coverage\b/.test(lower)) return true;
+  if (/\bequine zero deductible surgical\b/.test(lower)) return true;
   return false;
+}
+
+export function clauseConcernsStallionCoverage(clause: string): boolean {
+  const lower = clause.toLowerCase();
+  if (!/\bstallion\b/.test(lower)) return false;
+  return (
+    /\b(?:infertil|impotent|availability|permanent disability|servicing mares|fails to complete two services|incapable of servicing)\b/.test(
+      lower
+    )
+  );
 }
 
 export type PolicySection =
@@ -1512,6 +1606,7 @@ export type CoverageExplanationFacts = {
   grantClause?: string;
   denialClause?: string;
   optionalMention?: boolean;
+  applicabilityUnresolved?: boolean;
   missingDeclarationsOrSchedule?: boolean;
   hasRelatedCoverageLimitation?: boolean;
 };
@@ -1565,6 +1660,9 @@ export function explainCoverage(facts: CoverageExplanationFacts): string {
     return `${type} is granted in one provision and excluded in another. The analyzer does not choose which provision controls.`;
   }
   if (status === "NEEDS CLARIFICATION") {
+    if (facts.applicabilityUnresolved) {
+      return `${type} coverage form is present, but the uploaded documents do not establish that this optional coverage is issued or in force.`;
+    }
     if (facts.optionalMention) {
       return `${type} is mentioned only as a possible additional coverage that may appear in the Schedule or an endorsement. The uploaded documents do not establish that ${type} coverage is in force.`;
     }
@@ -1762,9 +1860,68 @@ function foundIdentification(field?: Sourced<string>): field is Sourced<string> 
   return Boolean(normalizeIdentificationValue(field.value));
 }
 
+function declarationsScheduleTextFromRecord(record: PolicyRecord): string {
+  const chunks: string[] = [];
+  for (const doc of record.documents) {
+    for (const page of doc.pages || []) {
+      const form = record.form_inventory.find((item) => {
+        const documentId = item.match_document_id || item.listing_document_id;
+        if (documentId !== doc.document_id) return false;
+        if (typeof item.page_start !== "number") return false;
+        return page.page >= item.page_start && page.page <= (item.page_end || item.page_start);
+      });
+      if (form && /declarations|schedule/i.test(String(form.form_role || ""))) {
+        chunks.push(page.text || "");
+        continue;
+      }
+      const head = String(page.text || "").slice(0, 600);
+      if (isDeclarationsHeading(page.text || "") || /\bdeclarations page\b/i.test(head)) {
+        chunks.push(page.text || "");
+      }
+    }
+  }
+  return chunks.join("\n");
+}
+
+function unresolvedOptionalTerritoryPage(record: PolicyRecord, documentId: string, page: number): boolean {
+  const doc = record.documents.find((item) => item.document_id === documentId);
+  if (!doc) return false;
+  const pageRec = doc.pages.find((item) => item.page === page);
+  const pageText = pageRec?.text || "";
+  const form = record.form_inventory.find((item) => {
+    const id = item.match_document_id || item.listing_document_id;
+    if (id !== documentId || typeof item.page_start !== "number") return false;
+    return page >= item.page_start && page <= (item.page_end || item.page_start);
+  });
+  const optional = form
+    ? /endorsement|optional coverage/i.test(String(form.form_role || ""))
+    : /\bthis endorsement\b/i.test(pageText);
+  if (!optional) return false;
+  let formText = pageText;
+  if (form && typeof form.page_start === "number") {
+    formText = doc.pages
+      .filter((item) => item.page >= form.page_start! && item.page <= (form.page_end || form.page_start!))
+      .map((item) => item.text || "")
+      .join("\n");
+  }
+  if (!textHasIssuedApplicabilityGate(formText)) return false;
+  const decls = declarationsScheduleTextFromRecord(record);
+  if (
+    hasIssuedCoverageSelection(
+      decls,
+      coverageSelectionTerms(["worldwide coverage", "worldwide", "territorial limits", "coverage territory"])
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function isTerritorialScopeLanguage(text: string): boolean {
   if (isOptionalCoverageMention(text)) return false;
   if (/\bterritorial limits?\b/i.test(text) && !/\bincluding transit\b/i.test(text)) return true;
+  if (/\bcoverage territory\b/i.test(text) && /\b(?:worldwide|anywhere in the world)\b/i.test(text)) return true;
+  if (/\bthis policy applies worldwide\b/i.test(text)) return true;
   return (
     /\b(united states|canada|continental usa|puerto rico)\b/i.test(text) &&
     /\b(covered only while|only while|while the insured horse is within|unless endorsed)\b/i.test(text)
@@ -2114,7 +2271,10 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
 
   for (const clause of walked) {
     if (!clause.document_id || clause.kind === "exclusion" || clause.kind === "grant") continue;
-    if (isTerritorialScopeLanguage(clause.clause)) {
+    if (
+      isTerritorialScopeLanguage(clause.clause) &&
+      !unresolvedOptionalTerritoryPage(record, clause.document_id, clause.page)
+    ) {
       const bucket = ensure(`limit:territorial:${clause.document_id}`, {
         label: "Territorial Limits",
         finding_type: "limit",

@@ -12,6 +12,7 @@
     "test:real-policy-semantic": "POLICY_ANALYZER_STORE=memory tsx scripts/real-policy-semantic-regression.ts",
     "test:classification": "POLICY_ANALYZER_STORE=memory tsx scripts/classification-regression.ts",
     "test:form-segmentation": "POLICY_ANALYZER_STORE=memory tsx scripts/form-segmentation-regression.ts",
+    "test:optional-endorsement-applicability": "POLICY_ANALYZER_STORE=memory tsx scripts/optional-endorsement-applicability-regression.ts",
     "test:identification": "POLICY_ANALYZER_STORE=memory tsx scripts/identification-regression.ts",
     "test:taxonomy": "POLICY_ANALYZER_STORE=memory tsx scripts/taxonomy-regression.ts",
     "test:emergency-requirements": "POLICY_ANALYZER_STORE=memory tsx scripts/emergency-requirements-regression.ts",
