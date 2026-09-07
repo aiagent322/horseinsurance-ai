@@ -1099,16 +1099,12 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     const families = allDutyFamilies(walked.clause);
     const familyList = families.length > 0 ? families : [dutyFamily(walked.clause)];
     for (const family of familyList) {
-      const described = describeClaimDuty(walked.clause, family);
-      let requirement = described.summary;
-      if (
-        family === "notice" &&
-        declarationsMissing &&
-        described.declarationsItem &&
-        /notify|notice|telephone/i.test(requirement)
-      ) {
-        requirement = `Immediate telephone notice is required. Notify the entity identified in Item ${described.declarationsItem} of the missing Declarations.`;
-      }
+      const described = describeClaimDuty(walked.clause, family, {
+        missingDeclarations: declarationsMissing,
+        missingSchedule: declarationsMissing
+      });
+      const requirement = described.summary;
+      const sourceText = described.sourceSpan || walked.clause;
       const existingIdx = requirementByFamily.get(family);
       if (existingIdx !== undefined) {
         const existing = requirements[existingIdx];
@@ -1119,7 +1115,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
           existing.requirement = requirement;
           existing.source_document_id = h.document_id;
           existing.source_page = h.page;
-          existing.source_text = excerpt(h.text, walked.clause.slice(0, 40));
+          existing.source_text = sourceText;
         }
         continue;
       }
@@ -1133,7 +1129,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
         requirement,
         source_document_id: h.document_id,
         source_page: h.page,
-        source_text: excerpt(h.text, walked.clause.slice(0, 40))
+        source_text: sourceText
       });
     }
   }

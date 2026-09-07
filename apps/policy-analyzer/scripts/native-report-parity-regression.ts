@@ -10,6 +10,7 @@ import {
   collectSourceReferences,
   formatCustomerSourceReference,
   formatPageLocator,
+  looksLikeRawClaimDutySummary,
   looksLikeRawExclusionExplanation,
   looksLikeRawPolicyFragment
 } from "../lib/policy-semantics";
@@ -226,6 +227,28 @@ function main() {
   }
   assert.doesNotMatch(reqFacing, /will indemnify|territorial limits|sole owner|not been recovered|this insurance does not cover|no liability arises/i);
   assert.equal(report.requirements.filter((row) => /proper care and attention/i.test(row.requirement)).length, 0);
+  assert.ok(report.requirements.length >= 10, `expected 10 duty concepts, got ${report.requirements.length}`);
+  for (const row of report.requirements) {
+    assert.equal(looksLikeRawClaimDutySummary(row.requirement, row.source_text), false, row.requirement);
+    assert.ok(row.requirement.length < 240, `${row.trigger} too long: ${row.requirement}`);
+    assert.ok(row.source_page === 2 || row.source_page === 3, `${row.trigger} page ${row.source_page}`);
+    assert.ok(row.source_text && row.source_text.length >= 12);
+    assert.doesNotMatch(row.trigger, /^claim duty$/i);
+  }
+  const emergency = facing.slice(
+    facing.indexOf("Emergency / Claim Requirements"),
+    facing.indexOf("Potential Coverage Gaps")
+  );
+  assert.doesNotMatch(
+    emergency,
+    /at all times provide proper care[\s\S]{10,}necropsy[\s\S]{10,}telephone notice/i
+  );
+  const theftVisible = report.requirements
+    .filter((row) => /theft \/ disappearance|police \/ law|follow law-enforcement|no ransom/i.test(row.trigger))
+    .map((row) => row.requirement);
+  assert.equal(new Set(theftVisible).size, theftVisible.length, "theft bullets must not repeat the same summary");
+  assert.ok(theftVisible.every((text) => !/follow their recommendations and the insured shall not pay/i.test(text)));
+  assert.doesNotMatch(emergency, /claim duty/i);
 
   for (const category of REQUIRED_EXCLUSIONS) {
     assert.ok(

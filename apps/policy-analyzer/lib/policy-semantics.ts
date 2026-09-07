@@ -963,18 +963,18 @@ export const CLAIM_DUTY_RULES: DutyRule[] = [
 ];
 
 const DUTY_TRIGGER_BY_FAMILY: Record<string, string> = {
-  professional_treatment: "Immediate veterinary care",
-  necropsy: "Postmortem / necropsy",
-  notice: "Immediate notice",
-  theft_notice: "Theft / disappearance notice",
-  police: "Police / law-enforcement reporting",
-  follow_law_enforcement: "Follow law-enforcement recommendations",
-  ransom: "No ransom",
-  proof_of_loss: "Proof of loss",
-  examination_under_oath: "Examination under oath",
-  records: "Record production",
-  property_protection: "Protect property",
-  cooperation: "Claim cooperation"
+  professional_treatment: "Immediate Veterinary Care",
+  necropsy: "Postmortem / Necropsy",
+  notice: "Immediate Notice",
+  theft_notice: "Theft / Disappearance Notice",
+  police: "Police / Law-Enforcement Reporting",
+  follow_law_enforcement: "Follow Law-Enforcement Recommendations",
+  ransom: "No Ransom",
+  proof_of_loss: "Proof of Loss",
+  examination_under_oath: "Examination Under Oath",
+  records: "Record Production",
+  property_protection: "Protect Property",
+  cooperation: "Claim Cooperation"
 };
 
 type DutyFamilyRule = { family: string; test: (text: string) => boolean };
@@ -1015,13 +1015,6 @@ export function allDutyFamilies(clause: string): string[] {
   return found;
 }
 
-export type ClaimDutyDescription = {
-  family: string;
-  trigger: string;
-  summary: string;
-  declarationsItem?: string;
-};
-
 export function dutyFamily(clause: string): string {
   return allDutyFamilies(clause)[0] || "claim_duty";
 }
@@ -1037,18 +1030,301 @@ export function clauseSpanForFamily(clause: string, family: string): string {
   return (hit || full).replace(/\s+/g, " ").trim();
 }
 
-export function describeClaimDuty(clause: string, family?: string): ClaimDutyDescription {
+export type DutySummaryContext = {
+  missingDeclarations?: boolean;
+  missingSchedule?: boolean;
+};
+
+export type ClaimDutyDescription = {
+  family: string;
+  trigger: string;
+  summary: string;
+  sourceSpan: string;
+  declarationsItem?: string;
+};
+
+function sentence(text: string): string {
+  const value = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[;:,]+$/g, "");
+  if (!value) return "";
+  const capped = value.charAt(0).toUpperCase() + value.slice(1);
+  return /[.!?]$/.test(capped) ? capped : `${capped}.`;
+}
+
+function extractDeadline(text: string): string | undefined {
+  const match = String(text || "").match(
+    /\bwithin\s+((?:[a-z]+(?:-[a-z]+)?\s*\(\s*\d+\s*\)|\d+))\s*(days?|hours?)/i
+  );
+  if (!match) return undefined;
+  const amount = match[1].match(/\d+/)?.[0];
+  if (!amount) return undefined;
+  return `within ${amount} ${match[2].toLowerCase()}`;
+}
+
+function extractRecipient(text: string): { label: string; external?: "declarations" | "schedule" } | undefined {
+  const named = text.match(
+    /\b((?:the\s+)?(?:person|firm|entity|contact|company|insurer)(?:\s+or\s+firm)?(?:\s+named|\s+shown|\s+listed|\s+identified)?(?:\s+in\s+item\s+[a-z0-9]+)?\s+of\s+(?:the\s+)?(?:missing\s+)?(?:declarations|schedule))\b/i
+  );
+  if (named) {
+    const external = /schedule/i.test(named[1]) ? "schedule" : "declarations";
+    return { label: named[1].replace(/\s+/g, " ").trim(), external };
+  }
+  if (/\bitem\s+[a-z0-9]+\s+of\s+(?:the\s+)?declarations\b/i.test(text)) {
+    return { label: "the entity identified in the Declarations", external: "declarations" };
+  }
+  if (/\bcontact shown in the schedule\b/i.test(text) || /\bshown in the schedule\b/i.test(text)) {
+    return { label: "the contact shown in the Schedule", external: "schedule" };
+  }
+  const company = text.match(/\bthe (?:company|insurer|carrier)\b/i);
+  if (company) return { label: company[0] };
+  return undefined;
+}
+
+function extractEventPhrase(text: string): string | undefined {
+  if (/\beither\s+\(\s*[a-z]{1,3}\s*\)\s+or\s+\(\s*[a-z]{1,3}\s*\)/i.test(text)) {
+    return "illness, injury, or death";
+  }
+  const match = text.match(
+    /\b(?:in the event of(?:\s+(?:any|either))?|after|upon|following)\s+(.+?)(?=\s+whatsoever|\s+(?:the\s+)?insured\s+(?:shall|must)|\s+immediately|\s+at the insured|\s+employ|\s+obtain|\s+arrange|\s+give|\s+notify|\s+report|\s+retain|,?\s+the insured|$)/i
+  );
+  if (!match) return undefined;
+  const phrase = match[1]
+    .replace(/\bwhatsoever\b/gi, "")
+    .replace(/[.,;:]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^any\s+/i, "");
+  if (!phrase || phrase.length < 3 || phrase.length > 160) return undefined;
+  if (/^\(\s*[a-z]{1,3}\s*\)$/i.test(phrase)) return undefined;
+  return phrase;
+}
+
+function extractDeadlineScope(text: string): string | undefined {
+  const match = String(text || "").match(/\bwithin\s+[^\s()]+\s*(?:\(\s*\d+\s*\)\s*)?(?:days?|hours?)\s+of\s+(.+)$/i);
+  if (!match) return undefined;
+  const phrase = match[1].replace(/[.,;:]+$/g, "").replace(/\s+/g, " ").trim();
+  return phrase.length >= 3 && phrase.length <= 160 ? phrase : undefined;
+}
+
+function afterEvents(events: string | undefined): string {
+  if (!events) return "";
+  if (/^an?\s+/i.test(events) || /^(?:the|this|that)\s+/i.test(events)) return `After ${events}`;
+  return `After ${events}`;
+}
+
+function missingExternalSentence(
+  external: "declarations" | "schedule" | undefined,
+  context?: DutySummaryContext
+): string {
+  if (external === "declarations" && context?.missingDeclarations) {
+    return "That contact cannot be identified because the Declarations were not uploaded.";
+  }
+  if (external === "schedule" && context?.missingSchedule) {
+    return "That contact cannot be identified because the Schedule was not uploaded.";
+  }
+  return "";
+}
+
+export function looksLikeRawClaimDutySummary(text: string, sourceText?: string): boolean {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  if (/\(\s*a\s*\).{8,}\(\s*b\s*\)/i.test(value)) return true;
+  if (/\bthe insured shall\b/i.test(value) && value.length > 110) return true;
+  if (/\bat all times provide proper care\b/i.test(value)) return true;
+  if (/\bveterinar/i.test(value) && /\bnecropsy\b/i.test(value) && /telephone notice|item [a-z]/i.test(value)) {
+    return true;
+  }
+  const source = String(sourceText || "").replace(/\s+/g, " ").trim();
+  if (source && value.length > 140 && source.toLowerCase().includes(value.slice(0, 80).toLowerCase()) && value.length > source.length * 0.6) {
+    return true;
+  }
+  return value.length > 280;
+}
+
+function dutyLabel(family: string, span: string): string {
+  if (DUTY_TRIGGER_BY_FAMILY[family]) return DUTY_TRIGGER_BY_FAMILY[family];
+  if (/inspect/i.test(span)) return "Inspection";
+  return "Claim requirement";
+}
+
+function synthesizeClaimDuty(family: string, span: string, clause: string, context?: DutySummaryContext): string {
+  const text = `${span} ${clause}`;
+  const immediately = /\bimmediately\b/i.test(span) || /\bimmediately\b/i.test(clause);
+  const uponRequest = /\bupon (?:written )?request\b/i.test(text);
+  const deadline = extractDeadline(span) || extractDeadline(clause);
+  const events =
+    extractEventPhrase(span) ||
+    extractDeadlineScope(span) ||
+    (family === "notice" ? extractEventPhrase(clause) || extractDeadlineScope(clause) : undefined);
+  const recipient = extractRecipient(span) || extractRecipient(clause);
+  const expense = /at the insured'?s own expense|at the insured'?s expense/i.test(text);
+  const licensedVet = /licensed veterinarian/i.test(text);
+  const veterinarian = /veterinar/i.test(text);
+  const qualifiedProfessional = /qualified professional assistance/i.test(text);
+  const professionalAssistance = /professional assistance/i.test(text);
+  const after = afterEvents(events);
+  const timing = immediately ? "immediately " : "";
+
+  if (family === "professional_treatment") {
+    const helper = qualifiedProfessional
+      ? "qualified professional assistance"
+      : professionalAssistance
+        ? "professional assistance"
+        : licensedVet
+          ? "care from a licensed veterinarian"
+          : veterinarian
+            ? "veterinary care"
+            : "professional assistance";
+    const lead = after || "After a covered illness, injury, or disability";
+    const cost = expense ? " at the insured's expense" : "";
+    if (qualifiedProfessional || professionalAssistance) {
+      return sentence(`${lead}, ${timing}obtain ${helper}${cost}`);
+    }
+    return sentence(`${lead}, ${timing}obtain ${helper}${cost}`);
+  }
+
+  if (family === "necropsy") {
+    const lead = after || "After the death of an insured horse";
+    const who = licensedVet || veterinarian ? " by a licensed veterinarian" : "";
+    const cost = expense ? " at the insured's expense" : "";
+    return sentence(`${lead}, ${timing}arrange a postmortem and necropsy examination${who}${cost}`);
+  }
+
+  if (family === "notice") {
+    const method = /telephone/i.test(text) ? "give telephone notice" : "notify";
+    const target =
+      recipient?.external === "declarations"
+        ? "the entity identified in the Declarations"
+        : recipient?.external === "schedule"
+          ? "the contact shown in the Schedule"
+          : recipient?.label || "the Company";
+    const to = method === "notify" ? ` ${target}` : ` to ${target}`;
+    const ofWhat = events && !after ? ` of ${events}` : "";
+    const lead = after ? `${after}, ` : "";
+    const first = sentence(`${lead}${timing}${method}${to}${deadline ? ` ${deadline}` : ""}${ofWhat}`.replace(/\s+/g, " "));
+    const missing = missingExternalSentence(recipient?.external, context);
+    return missing ? `${first} ${missing}` : first;
+  }
+
+  if (family === "theft_notice") {
+    const target =
+      recipient?.external === "declarations"
+        ? " to the entity identified in the Declarations"
+        : recipient?.external === "schedule"
+          ? " to the contact shown in the Schedule"
+          : recipient?.label
+            ? ` to ${recipient.label}`
+            : " as required by the policy";
+    const first = sentence(`${timing}report theft or disappearance${target}`.replace(/\s+/g, " "));
+    const missing = missingExternalSentence(recipient?.external, context);
+    return missing ? `${first} ${missing}` : first;
+  }
+
+  if (family === "police") {
+    const agencies = /law.?enforcement/i.test(text)
+      ? "police and other appropriate law-enforcement agencies"
+      : "police";
+    return sentence(`${timing}report theft or disappearance to ${agencies}`);
+  }
+
+  if (family === "follow_law_enforcement") {
+    return sentence("Follow the recommendations of the investigating law-enforcement agencies");
+  }
+
+  if (family === "ransom") {
+    const extra = /similar assurance/i.test(text) ? ", or give similar assurances to a third party" : "";
+    return sentence(`Do not pay or promise ransom${extra}`);
+  }
+
+  if (family === "proof_of_loss") {
+    const detail = /\bdetailed\b/i.test(text) ? "detailed " : "";
+    const sworn = /\bsworn\b/i.test(text) ? "sworn " : "";
+    const when = deadline ? ` ${deadline}` : "";
+    const afterLoss = /\bafter (?:an\s+)?(?:insured\s+)?loss\b/i.test(text) || /\bafter the loss\b/i.test(text);
+    return sentence(`Submit a ${detail}${sworn}proof of loss${when}${afterLoss ? " after the loss" : ""}`.replace(/\s+/g, " "));
+  }
+
+  if (family === "examination_under_oath") {
+    const requested = uponRequest
+      ? recipient?.label
+        ? ` when requested by ${recipient.label}`
+        : " when requested"
+      : "";
+    const first = sentence(`Submit to examination under oath${requested}`);
+    if (/agents?|employees?|representatives?/i.test(text)) {
+      return `${first} Agents, employees, and representatives may also be required to submit.`;
+    }
+    return first;
+  }
+
+  if (family === "records") {
+    if (/\bpreserve\b/i.test(span)) return sentence(`${timing}preserve all records`.trim());
+    const copying = /\bcopy/i.test(text) ? " and copying" : "";
+    const kinds = [];
+    if (/\bbooks\b/i.test(text)) kinds.push("books");
+    if (/\bdocuments?\b/i.test(text)) kinds.push("documents");
+    if (/\brecords?\b/i.test(text)) kinds.push("records");
+    if (/\breceipts?\b/i.test(text)) kinds.push("receipts");
+    if (/\binvoices?\b/i.test(text)) kinds.push("invoices");
+    const listed = kinds.length
+      ? kinds.length === 1
+        ? kinds[0]
+        : kinds.length === 2
+          ? `${kinds[0]} and ${kinds[1]}`
+          : `${kinds.slice(0, -1).join(", ")}, and ${kinds[kinds.length - 1]}`
+      : "records, documents, and receipts";
+    if (uponRequest) return sentence(`Produce ${listed} for examination${copying} when requested`);
+    return sentence(`${timing}produce ${listed} for examination${copying}`.trim());
+  }
+
+  if (family === "property_protection") {
+    return sentence(`${timing}protect the property from further damage`.trim());
+  }
+
+  if (family === "cooperation") {
+    return sentence("Cooperate with the Company as required after a loss");
+  }
+
+  if (/inspect/i.test(span)) {
+    return sentence(`${after || "After a total loss"}, ${timing}obtain an inspection`.replace(/\s+/g, " "));
+  }
+
+  let generic = stripClauseListPrefix(span)
+    .replace(/^(?:the\s+)?insured\s+(?:shall|must)(?:\s+also)?\s+/i, "")
+    .replace(/[;:]+$/g, "")
+    .trim();
+  if (looksLikeRawClaimDutySummary(generic, clause) || generic.length > 180) {
+    const action = generic.match(
+      /\b(?:immediately\s+)?(?:obtain|notify|report|submit|produce|preserve|protect|arrange|file|retain|contact|inspect|give notice)[\s\S]{0,100}/i
+    );
+    generic = (action?.[0] || generic).replace(/[,;:]+$/g, "").trim();
+  }
+  const lead = after ? `${after}, ` : immediately ? "Immediately " : "";
+  if (lead && !/^(after|immediately)\b/i.test(generic)) {
+    return sentence(`${lead}${generic}`.replace(/\s+/g, " "));
+  }
+  return sentence(generic);
+}
+
+export function describeClaimDuty(clause: string, family?: string, context?: DutySummaryContext): ClaimDutyDescription {
   const resolvedFamily = family || dutyFamily(clause);
-  const summary = clauseSpanForFamily(clause, resolvedFamily);
+  const sourceSpan = clauseSpanForFamily(clause, resolvedFamily);
   const trigger =
-    DUTY_TRIGGER_BY_FAMILY[resolvedFamily] ||
-    CLAIM_DUTY_RULES.find((rule) => rule.pattern.test(summary))?.trigger ||
+    dutyLabel(resolvedFamily, sourceSpan) ||
+    CLAIM_DUTY_RULES.find((rule) => rule.pattern.test(sourceSpan))?.trigger ||
     resolvedFamily.replace(/_/g, " ");
-  const item = `${summary} ${clause}`.match(/\bitem\s+([a-z0-9]+)\s+of\s+(?:the\s+)?declarations\b/i)?.[1];
+  const item = `${sourceSpan} ${clause}`.match(/\bitem\s+([a-z0-9]+)\s+of\s+(?:the\s+)?declarations\b/i)?.[1];
+  let summary = synthesizeClaimDuty(resolvedFamily, sourceSpan, clause, context);
+  if (looksLikeRawClaimDutySummary(summary, clause)) {
+    summary = sentence(trigger === "Claim requirement" ? "A claim requirement applies as stated in the source" : `Comply with the ${trigger.toLowerCase()} requirement`);
+  }
   return {
     family: resolvedFamily,
     trigger,
     summary,
+    sourceSpan,
     declarationsItem: item ? item.toUpperCase() : undefined
   };
 }
