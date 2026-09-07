@@ -372,6 +372,40 @@ async function assertUploadStatusIdentifierContract(): Promise<void> {
   assert.equal(malformed.status, 404, "malformed IDs fail closed");
 }
 
+async function assertHostedPostUploadRedirectIsRelative(): Promise<void> {
+  const store = resetMemoryStoreForTests();
+  await store.ensureAccount(TEST_ACTOR_A.userId);
+
+  const form = new FormData();
+  form.append("files", new File([tinyPdf("hosted-redirect")], "hosted-redirect.pdf", { type: "application/pdf" }));
+  form.append("redirect", "1");
+  const uploadReq = new Request("http://0.0.0.0:43147/api/upload", {
+    method: "POST",
+    headers: {
+      origin: "https://public-analyzer.example",
+      "sec-fetch-site": "same-origin",
+      host: "public-analyzer.example",
+      "x-forwarded-host": "public-analyzer.example",
+      "x-forwarded-proto": "https"
+    },
+    body: form
+  });
+  const uploaded = await runWithActor(TEST_ACTOR_A, () => uploadPost(uploadReq));
+  assert.equal(uploaded.status, 303, "browser upload form returns HTTP 303");
+  const location = uploaded.headers.get("location") || "";
+  assert.equal(location.startsWith("/analysis/"), true, "Location is a relative application path");
+  assert.match(location, /^\/analysis\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  assert.doesNotMatch(location, /0\.0\.0\.0/i);
+  assert.doesNotMatch(location, /localhost/i);
+  assert.doesNotMatch(location, /127\.0\.0\.1/);
+  const policyId = location.slice("/analysis/".length);
+  const pending = await readStatus(TEST_ACTOR_A, policyId);
+  assert.equal(pending.status, 200, "redirect Location policy_id is the created analysis");
+  const claimed = await store.claimJobs("w-hosted-redirect", 20);
+  const matching = claimed.filter((item) => item.policyId === policyId);
+  assert.equal(matching.length, 1, "successful redirect upload creates the policy exactly once");
+}
+
 async function main() {
   process.env.POLICY_ANALYZER_STORE = "memory";
   const store = new MemoryPolicyStore();
@@ -456,6 +490,7 @@ async function main() {
   assert.deepEqual(clientHits, [], "20: no service-role key or admin client in client components");
 
   await assertUploadStatusIdentifierContract();
+  await assertHostedPostUploadRedirectIsRelative();
   assertDemoAnonymousAuthFlag();
   await assertAnonymousSessionHelper();
   await assertAnonymousUserIsolation();

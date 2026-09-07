@@ -340,6 +340,12 @@ function main(): void {
   assert.doesNotMatch(hostedE2E, /runWorkerOnce/);
   const uploadRoute = readFileSync(path.join(APP_ROOT, "app/api/upload/route.ts"), "utf8");
   assert.match(uploadRoute, /policy_id:\s*result\.policy_id/);
+  assert.match(uploadRoute, /Location:\s*path/);
+  assert.match(uploadRoute, /redirectTo\(`\/analysis\/\$\{result\.policy_id\}`\)/);
+  assert.doesNotMatch(uploadRoute, /new URL\([^,]+,\s*req\.url\)/);
+  assert.doesNotMatch(uploadRoute, /NextResponse\.redirect/);
+  assert.doesNotMatch(uploadRoute, /0\.0\.0\.0/);
+  assert.doesNotMatch(uploadRoute, /web-production-839ec/);
   const statusRoute = readFileSync(path.join(APP_ROOT, "app/api/policies/[id]/status/route.ts"), "utf8");
   assert.match(statusRoute, /store\.getStatus\(actor,\s*id\)/);
   const supabaseStore = readFileSync(path.join(APP_ROOT, "lib/persistence/supabase-store.ts"), "utf8");
