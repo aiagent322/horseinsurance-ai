@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { describeFormsAndEndorsements } from "@/lib/document-terminology";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
 import { buildSourceReferenceIndex, formatPageLocator } from "@/lib/policy-semantics";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function ReportView({ record, accountEmail }: { record: PolicyRecord; accountEmail?: string }) {
   const router = useRouter();
   const id = record.identification;
+  const forms = describeFormsAndEndorsements(record);
   const extractionIncomplete = record.documents.some(
     (d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending"
   );
@@ -202,14 +204,10 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
         </ul>
       </Section>
 
-      <Section title="Forms listed on the declarations">
-        {record.form_inventory.length === 0 ? (
-          <p className="text-sm text-[#6b7280]">
-            No forms or endorsements schedule was identified. A listed form is not treated as uploaded just because its
-            number appears on the declarations.
-          </p>
-        ) : (
-          <ul className="space-y-3 text-sm">
+      <Section title={forms.heading}>
+        <p className="text-sm text-[#6b7280]">{forms.summary}</p>
+        {record.form_inventory.length > 0 ? (
+          <ul className="mt-3 space-y-3 text-sm">
             {record.form_inventory.map((f) => (
               <li key={f.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-[#f0f1f3] pb-3 last:border-0">
                 <div>
@@ -226,17 +224,14 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
                       {f.match_edition ? ` · uploaded edition ${f.match_edition}` : ""} — “{f.match_source_text}”
                     </p>
                   ) : (
-                    <p className="text-xs text-[#6b7280]">
-                      No separately sourced form text was found. The declarations list alone is not proof the form was
-                      uploaded.
-                    </p>
+                    <p className="text-xs text-[#6b7280]">{forms.listedMissingNote}</p>
                   )}
                 </div>
                 <Status value={f.status} />
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </Section>
 
       <Section title="Coverage Snapshot">

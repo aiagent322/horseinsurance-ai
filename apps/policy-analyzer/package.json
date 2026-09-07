@@ -25,6 +25,7 @@
     "test:exclusion-structure": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-structure-regression.ts",
     "test:exclusion-ownership": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-ownership-regression.ts",
     "test:exclusion-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-presentation-regression.ts",
+    "test:document-terminology": "POLICY_ANALYZER_STORE=memory tsx scripts/document-terminology-regression.ts",
     "test:compound-duty": "POLICY_ANALYZER_STORE=memory tsx scripts/live-duty-parity-regression.ts",
     "test:completeness": "POLICY_ANALYZER_STORE=memory tsx scripts/completeness-regression.ts",
     "test:ingestion": "POLICY_ANALYZER_STORE=memory tsx scripts/ingestion-regression.ts",

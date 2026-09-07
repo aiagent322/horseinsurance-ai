@@ -6,6 +6,10 @@ import { analyzeDocuments } from "../lib/analyze";
 import { looksLikeQuotedPolicyLanguage } from "../lib/agent-questions";
 import { classifyPackage } from "../lib/classify";
 import {
+  describeFormsAndEndorsements,
+  formsSectionContradictsPackageWarning
+} from "../lib/document-terminology";
+import {
   buildSourceReferenceIndex,
   collectSourceReferences,
   formatCustomerSourceReference,
@@ -77,6 +81,7 @@ function attachedBlob(report: PolicyRecord, needle: RegExp, kind?: string): stri
 function assembleCustomerFacingReport(report: PolicyRecord): string {
   const id = report.identification;
   const index = buildSourceReferenceIndex(report);
+  const forms = describeFormsAndEndorsements(report);
   const sections: string[] = [
     "Policy report",
     report.completeness.status,
@@ -92,6 +97,14 @@ function assembleCustomerFacingReport(report: PolicyRecord): string {
     `Expiration ${cite(id.policy_expiration_date)}`,
     `Deductible ${cite(id.deductible)}`,
     `Insured value ${cite(id.insured_value)}`,
+    "Policy Document Inventory",
+    ...report.documents.map((doc) => `Classified as ${doc.classification}`),
+    forms.heading,
+    forms.summary,
+    ...report.form_inventory.flatMap((form) => [
+      `${form.printed_identifier} ${form.status}`,
+      ...(form.status === "MISSING" ? [forms.listedMissingNote] : [])
+    ]),
     "Coverage Snapshot"
   ];
   for (const item of report.coverages) {
@@ -144,6 +157,8 @@ function assertReportViewConsumesAnalysisFields(): void {
   assert.match(source, /ref\.page_label/, "Source References UI must render page locators");
   assert.doesNotMatch(source, /e\.exact_source_excerpt/, "Exclusions UI must not quote raw excerpts");
   assert.doesNotMatch(source, /evidence\.source_text/, "Source References UI must not display raw evidence as primary text");
+  assert.match(source, /describeFormsAndEndorsements/, "Forms UI must consume document-state presentation");
+  assert.doesNotMatch(source, /Forms listed on the declarations/, "Forms heading must not be hardcoded to Declarations");
 }
 
 function main() {
@@ -163,6 +178,14 @@ function main() {
   assert.ok(report.completeness.warnings.some((warning) => /no page was classified as declarations/i.test(warning)));
   assert.doesNotMatch(report.completeness.status, /appears complete/i);
   assert.equal(report.form_inventory.length, 0, "no Declarations forms schedule should be invented");
+  const forms = describeFormsAndEndorsements(report);
+  assert.equal(forms.heading, "Forms & Endorsements");
+  assert.match(forms.summary, /declarations\/schedule/i);
+  assert.doesNotMatch(facing, /forms listed on the declarations/i);
+  assert.doesNotMatch(forms.summary, /no forms or endorsements schedule was identified/i);
+  assert.doesNotMatch(forms.summary, /endorsements are missing|no endorsements were uploaded/i);
+  assert.equal(formsSectionContradictsPackageWarning(report.completeness, forms), false);
+  assert.match(facing, /Forms & Endorsements/);
 
   const id = report.identification;
   assert.equal(id.carrier_name?.value, "Diamond State Insurance Company");
