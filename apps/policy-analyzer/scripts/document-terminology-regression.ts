@@ -9,7 +9,6 @@ import {
 import { newId } from "../lib/store";
 import type { DocumentRecord, PolicyRecord } from "../lib/types";
 import {
-  GENUINE_DECLARATIONS_PAGES,
   POLICY_FORM_REFERENCING_DECLARATIONS_PAGES
 } from "./fixtures/classification-regression-pages";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
