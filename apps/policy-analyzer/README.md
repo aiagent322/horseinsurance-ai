@@ -22,6 +22,7 @@ npm run test:live-duty-parity
 npm run test:duty-presentation
 npm run test:live-exclusion-parity
 npm run test:exclusion-structure
+npm run test:lettered-exclusion
 npm run test:exclusion-ownership
 npm run test:exclusion-presentation
 npm run test:document-terminology

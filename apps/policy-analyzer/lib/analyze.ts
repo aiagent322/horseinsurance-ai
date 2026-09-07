@@ -1022,8 +1022,16 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   let parentNumbered: number | null = null;
   let parentLettered: string | null = null;
   let parentDoc: string | undefined;
+  let parentSection: (typeof walkedClauses)[number]["section"] | undefined;
 
   for (const walked of walkedClauses) {
+    if (walked.document_id !== parentDoc || walked.section !== parentSection) {
+      parentGroup = [];
+      parentNumbered = null;
+      parentLettered = null;
+      parentDoc = walked.document_id;
+      parentSection = walked.section;
+    }
     if (walked.kind !== "exclusion") continue;
     const productDenial = clauseIsDenial(walked.clause, [
       "full mortality",
@@ -1037,12 +1045,6 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (productDenial) continue;
     const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
     if (!h) continue;
-    if (walked.document_id !== parentDoc) {
-      parentGroup = [];
-      parentNumbered = null;
-      parentLettered = null;
-      parentDoc = walked.document_id;
-    }
 
     const parentScope =
       parentGroup.length || parentNumbered != null

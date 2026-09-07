@@ -303,11 +303,18 @@ export type PolicySection =
 
 export type PolicyTermKind = "grant" | "limitation" | "condition" | "duty" | "exclusion";
 
-const STRONG_HEADING_PATTERN =
-  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|emergency requirements|claim requirements|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\s*[:.]?\s*(.*)$/i;
+const SECTION_ORDINAL =
+  "(?:(?:part|article|section)\\s+[ivxlcdm0-9]+|(?:xiv|xiii|xii|xi|viii|vii|vi|iv|ix|iii|ii|xv|x|v|i))\\.?\\s+";
 
-const WEAK_HEADING_PATTERN =
-  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(definitions?|coverage|agreement)\s*[:.]?\s*$/i;
+const STRONG_HEADING_PATTERN = new RegExp(
+  `^(?:${SECTION_ORDINAL})?[—–-]?\\s*(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|emergency requirements|claim requirements|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\\s*[:.]?\\s*(.*)$`,
+  "i"
+);
+
+const WEAK_HEADING_PATTERN = new RegExp(
+  `^(?:${SECTION_ORDINAL})?[—–-]?\\s*(definitions?|coverages?|agreement)\\s*[:.]?\\s*$`,
+  "i"
+);
 
 function sectionFromHeadingName(name: string): PolicySection | null {
   const n = name.replace(/\s+/g, " ").trim().toLowerCase();
@@ -318,7 +325,7 @@ function sectionFromHeadingName(name: string): PolicySection | null {
   if (n === "emergency requirements" || n === "claim requirements") return "duties";
   if (n === "general conditions" || n === "conditions") return "conditions";
   if (n === "limitations") return "limitations";
-  if (n === "insuring agreement" || n === "coverage" || n === "agreement") return "coverage";
+  if (n === "insuring agreement" || n === "coverage" || n === "coverages" || n === "agreement") return "coverage";
   if (n === "definition" || n === "definitions") return "definitions";
   if (n === "arbitration" || n === "arbitration clause") return "arbitration";
   return null;
@@ -362,6 +369,7 @@ export function isExclusionOperativeLanguage(clause: string): boolean {
     /\bwill not pay for (?:any )?loss\b/i.test(clause) ||
     /\bthe policy excludes\b/i.test(clause) ||
     /\bthe (?:company|insurer) (?:does not cover|shall not be liable)\b/i.test(clause) ||
+    /\b(?:this (?:insurance|policy|endorsement) )?shall not apply to (?:any )?(?:claims?|loss|losses)\b/i.test(clause) ||
     /\bexcluded loss\b/i.test(clause)
   );
 }
@@ -458,7 +466,7 @@ export function isClaimDutyLanguage(clause: string): boolean {
 
 export function classifyPolicyTerm(clause: string, section: PolicySection | null): PolicyTermKind | null {
   const text = String(clause || "").replace(/\s+/g, " ").trim();
-  const markedListItem = /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*)/i.test(text);
+  const markedListItem = /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Za-z]\.\s+)/i.test(text);
   if (text.length < 5) return null;
   if (text.length < 12 && !(section === "exclusions" && markedListItem)) return null;
   if (isOptionalCoverageMention(text)) return null;
@@ -498,6 +506,13 @@ export function classifyPolicyTerm(clause: string, section: PolicySection | null
 const CLAUSE_ABBREVIATION_END =
   /\b(?:Ed|Inc|Ltd|No|Mr|Mrs|Ms|Dr|Rev|vs|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.$/i;
 
+const BARE_CLAUSE_LIST_MARKER =
+  /^(?:\d+\.|\(\s*\d+\s*\)|\(\s*[a-z]{1,3}\s*\)|[A-Za-z]\.)(?:\s+(?:\d+\.|\(\s*\d+\s*\)|\(\s*[a-z]{1,3}\s*\)|[A-Za-z]\.))*$/i;
+
+function isBareClauseListMarker(text: string): boolean {
+  return BARE_CLAUSE_LIST_MARKER.test(String(text || "").replace(/\s+/g, " ").trim());
+}
+
 export function splitPolicyClauses(text: string): string[] {
   const flattened = String(text || "").replace(/-\s*\n\s*/g, "").replace(/\n+/g, " ");
   const parts = flattened
@@ -507,7 +522,10 @@ export function splitPolicyClauses(text: string): string[] {
   const out: string[] = [];
   for (const part of parts) {
     const prev = out[out.length - 1];
-    if (prev && CLAUSE_ABBREVIATION_END.test(prev)) {
+    if (
+      prev &&
+      (CLAUSE_ABBREVIATION_END.test(prev) || isBareClauseListMarker(prev) || /\bitem\s+\d+\.$/i.test(prev))
+    ) {
       out[out.length - 1] = `${prev} ${part}`;
     } else {
       out.push(part);
@@ -527,12 +545,12 @@ function isSequentialLetteredMarker(
 export function splitLetteredSubparagraphs(text: string): string[] {
   const raw = String(text || "").replace(/\s+/g, " ").trim();
   if (!raw) return [];
-  const marker = /(\(\s*[a-z]+\s*\))/gi;
+  const marker = /(\(\s*[a-z]+\s*\)|(?:^|(?<=[.!?;:]\s))[A-Z]\.(?=\s))/g;
   const starts: number[] = [];
   let lastLetter: string | null = null;
   let match: RegExpExecArray | null;
   while ((match = marker.exec(raw))) {
-    const letter = match[1].replace(/[()\s]/g, "").toLowerCase();
+    const letter = match[1].replace(/[().\s]/g, "").toLowerCase();
     const before = raw.slice(0, match.index);
     const atBoundary = match.index === 0 || /[.;:]\s+$/.test(before);
     const sequential = isSequentialLetteredMarker(letter, lastLetter) && /\s$/.test(before);
@@ -625,7 +643,14 @@ export type WalkedPolicyClause = {
 };
 
 const CLAUSE_LIST_PREFIX =
-  /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*)+/i;
+  /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Za-z]\.\s*)+/i;
+
+function isPageChromeLine(line: string): boolean {
+  const text = String(line || "").replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (/^page\s+\d+(?:\s+of\s+\d+)?$/i.test(text)) return true;
+  return /^(?:[A-Za-z0-9][A-Za-z0-9/.\-]{0,24}\s+)?(?:\(\s*\d{1,2}\/\d{2,4}\s*\)\s+)?page\s+\d+\s+of\s+\d+$/i.test(text);
+}
 
 export function stripClauseListPrefix(text: string): string {
   return String(text || "")
@@ -639,10 +664,11 @@ function parseClauseListMarkers(clause: string): { numbered: number | null; lett
   const text = String(clause || "").trim();
   const numberedDot = text.match(/^(\d+)\.(?=\s|$)/);
   const numberedParen = text.match(/^\(\s*(\d+)\s*\)(?=\s|$)/);
-  const lettered = text.match(/^(?:\d+\.\s*|\(\s*\d+\s*\)\s*)?\(\s*([a-z]{1,3})\s*\)/i);
+  const letteredParen = text.match(/^(?:\d+\.\s*|\(\s*\d+\s*\)\s*)?\(\s*([a-z]{1,3})\s*\)/i);
+  const letteredDot = text.match(/^([A-Za-z])\.(?=\s|$)/);
   return {
     numbered: numberedDot ? Number(numberedDot[1]) : numberedParen ? Number(numberedParen[1]) : null,
-    lettered: lettered ? lettered[1].toLowerCase() : null
+    lettered: letteredParen ? letteredParen[1].toLowerCase() : letteredDot ? letteredDot[1].toLowerCase() : null
   };
 }
 
@@ -702,7 +728,7 @@ export function walkPolicyClauses(
 
     for (const rawLine of String(page.text || "").split(/\n/)) {
       const line = rawLine.replace(/\s+/g, " ").trim();
-      if (!line) continue;
+      if (!line || isPageChromeLine(line)) continue;
       const parsed = parseSectionHeadingLine(line);
       if (parsed) {
         flush();
@@ -819,7 +845,11 @@ export function isUmbrellaExclusionOpener(clause: string): boolean {
   const core = splitExclusionSatellites(clause).core;
   if (exclusionCategories(core).length > 0) return false;
   const stripped = stripClauseListPrefix(core).replace(/\s+/g, " ").trim();
-  if (!/(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage)?)/i.test(stripped)) {
+  if (
+    !/(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage)?|shall not apply|does not apply)/i.test(
+      stripped
+    )
+  ) {
     return false;
   }
   const remainder = stripped
@@ -828,24 +858,35 @@ export function isUmbrellaExclusionOpener(clause: string): boolean {
       ""
     )
     .replace(
-      /^(?:does not cover|do not cover|will not cover|shall not be liable(?:\s+for)?|will not pay(?:\s+for)?|excludes(?:\s+coverage(?:\s+for)?)?)\s*/i,
+      /^(?:does not cover|do not cover|will not cover|shall not be liable(?:\s+for)?|will not pay(?:\s+for)?|excludes(?:\s+coverage(?:\s+for)?)?|shall not apply|does not apply)\s*/i,
       ""
     )
+    .replace(/^(?:to\s+)?(?:any\s+)?(?:claims?|loss(?:es)?)\s*/i, "")
+    .replace(/^(?:arising out of|resulting from)\s*,?\s*/i, "")
     .replace(/^(?:any\s+)?loss(?:\s+directly(?:\s+or\s+indirectly)?)?\s*/i, "")
-    .replace(/\b(?:caused by|happening through|in consequence of)\b/gi, " ")
-    .replace(/\b(?:and|or)\b/gi, " ")
+    .replace(
+      /\b(?:caused by|happening through|in consequence of|resulting from|arising out of|as a consequence of|directly or indirectly)\b/gi,
+      " "
+    )
+    .replace(/\b(?:and|or|to)\b/gi, " ")
     .replace(/[:.;,\s]+/g, " ")
     .trim();
   return remainder.length === 0;
 }
 
 function isNewExclusionSubject(clause: WalkedPolicyClause, parent: ExclusionParentScope | null, cats: string[]): boolean {
-  if (!parent) return startsAsNewExclusionLanguage(clause.clause) || cats.length > 0;
+  if (!parent) return startsAsNewExclusionLanguage(clause.clause) || cats.length > 0 || Boolean(clause.letteredItem);
 
   const numberedChanged =
     clause.numberedItem != null && parent.numberedItem != null && clause.numberedItem !== parent.numberedItem;
   const introducesNewKnownCause = cats.length > 0 && cats.some((title) => !parent.types.includes(title));
+  const letteredChanged =
+    Boolean(parent.letteredItem) && Boolean(clause.letteredItem) && clause.letteredItem !== parent.letteredItem;
 
+  if (letteredChanged && !startsAsExceptionLanguage(clause.clause)) return true;
+  if (parent.letteredItem && !clause.letteredItem && !startsAsNewExclusionLanguage(clause.clause)) {
+    return false;
+  }
   if (numberedChanged && (startsAsNewExclusionLanguage(clause.clause) || cats.length > 0)) return true;
   if (clause.letteredItem) {
     if (introducesNewKnownCause) return true;
@@ -859,6 +900,7 @@ function isNewExclusionSubject(clause: WalkedPolicyClause, parent: ExclusionPare
     ) {
       return true;
     }
+    if (!parent.letteredItem && !parent.numberedItem) return true;
     return false;
   }
   if (startsAsNewExclusionLanguage(clause.clause) && (numberedChanged || introducesNewKnownCause || parent.types.length === 0)) {
@@ -879,6 +921,15 @@ export function classifyExclusionClauseRelation(
   const cats = exclusionCategories(splitExclusionSatellites(text).core);
   if (isNewExclusionSubject(clause, parent, cats)) return "parent";
   if (parent && clause.letteredItem) return "exception";
+  if (parent?.letteredItem && !clause.letteredItem && !startsAsNewExclusionLanguage(text)) {
+    if (
+      hasExclusionExceptionCue(text) ||
+      /^(?:\d+\.\s*)?(?:to\b|if we|where the|unless)\b/i.test(stripClauseListPrefix(text))
+    ) {
+      return "exception";
+    }
+    return "continuation";
+  }
   if (parent && clause.numberedItem != null && parent.numberedItem != null && clause.numberedItem === parent.numberedItem) {
     if (cats.length > 0 && cats.every((title) => parent.types.includes(title))) return "continuation";
     if (!startsAsNewExclusionLanguage(text) && cats.length === 0) {
@@ -933,7 +984,7 @@ export function genericExclusionTitle(clause: string): string | null {
     /(?:does not cover|do not cover|will not cover|excludes(?:\s+coverage for)?)\s+(?:loss\s+(?:of|from|caused by)\s+)?([^.;]+)/i
   );
   let raw = (caused?.[1] || covered?.[1] || "").replace(/\s+/g, " ").trim();
-  if (!raw && /^(?:\d+\.|\(\s*\d+\s*\)|\(\s*[a-z]{1,3}\s*\))/i.test(core)) {
+  if (!raw && /^(?:\d+\.|\(\s*\d+\s*\)|\(\s*[a-z]{1,3}\s*\)|[A-Za-z]\.)/i.test(core)) {
     raw = stripped.split(/\s*[;,]+\s*|\s+or\s+/i)[0]?.trim() || "";
     if (/^(?:this insurance|this policy|we do not(?:\s+cover)?|the company|the policy|loss|loss caused by)$/i.test(raw.replace(/[:.]+$/, ""))) {
       raw = "";
@@ -941,7 +992,7 @@ export function genericExclusionTitle(clause: string): string | null {
   }
   if (!raw) return null;
   const first = raw.split(/\s*,\s*|\s+or\s+/i)[0]?.trim() || "";
-  if (first.length < 3 || first.length > 70) return null;
+  if (first.length < 3 || first.length > 100) return null;
   if (/^(?:any\s+)?loss(?:\s+directly(?:\s+or\s+indirectly)?)?$/i.test(first)) return null;
   if (/\bloss\b/i.test(first) && /(?:directly|indirectly|caused by)$/i.test(first)) return null;
   if (/^(?:caused by|happening through|in consequence of)$/i.test(first)) return null;

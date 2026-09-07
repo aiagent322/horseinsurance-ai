@@ -25,6 +25,7 @@
     "test:live-duty-parity": "POLICY_ANALYZER_STORE=memory tsx scripts/live-duty-parity-regression.ts",
     "test:live-exclusion-parity": "POLICY_ANALYZER_STORE=memory tsx scripts/live-exclusion-parity-regression.ts",
     "test:exclusion-structure": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-structure-regression.ts",
+    "test:lettered-exclusion": "POLICY_ANALYZER_STORE=memory tsx scripts/lettered-exclusion-regression.ts",
     "test:exclusion-ownership": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-ownership-regression.ts",
     "test:exclusion-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/exclusion-presentation-regression.ts",
     "test:document-terminology": "POLICY_ANALYZER_STORE=memory tsx scripts/document-terminology-regression.ts",
