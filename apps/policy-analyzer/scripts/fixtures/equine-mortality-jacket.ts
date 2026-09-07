@@ -30,11 +30,11 @@ The Insured shall provide proper care and attention.
 The Insured shall obtain immediate licensed veterinary care upon illness or injury.
 Following death, a postmortem and necropsy shall be performed.
 The Insured shall immediately give telephone notice to the Company.
-Theft coverage does not arise until at least 30 days after reported theft and non-recovery.
+No liability arises under this Policy for loss of an insured horse by theft until at least thirty (30) days after the incident of theft is reported to the Company, and then only in the event that the horse has not been recovered during that period.
 The Insured shall give immediate theft or disappearance notice.
 The Insured shall immediately report the matter to police or law-enforcement.
 The Insured shall make no ransom payment or promise.
-Embryo or foal is excluded unless separately insured.
+No coverage is afforded for an embryo or foal unless separately insured.
 The Insured shall file a sworn proof of loss.`
   },
   {

@@ -12,20 +12,21 @@ import {
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
   CLAIM_DUTY_RULES,
+  classifyPolicyTerm,
   clauseConcernsMortality,
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
   exclusionCategory,
   extractPolicyFormValue,
   isCoverageGrantLanguage,
-  isExclusionSectionHeading,
+  isCoverageLimitationLanguage,
   isExternalReferenceValue,
   isOptionalCoverageMention,
   isScheduleDependentGrant,
-  isStandaloneExclusionClause,
   looksLikeDeclarationsPage,
   normalizeIdentificationValue,
-  personalizedFactsMissing
+  personalizedFactsMissing,
+  walkPolicyClauses
 } from "./policy-semantics";
 import type {
   AnalysisStatus,
@@ -837,8 +838,11 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   function addExclusion(h: Hit, clause: string, type: string, condition?: string): void {
     const trimmed = clause.replace(/\s+/g, " ").trim();
     if (trimmed.length < 12) return;
-    const key = `${type}|${h.page}|${trimmed.toLowerCase().slice(0, 80)}`;
+    const bodyKey = `${h.document_id}:${h.page}|${trimmed.toLowerCase().slice(0, 80)}`;
+    if (seenExclusion.has(bodyKey)) return;
+    const key = `${type}|${bodyKey}`;
     if (seenExclusion.has(key)) return;
+    seenExclusion.add(bodyKey);
     seenExclusion.add(key);
     exclusions.push({
       exclusion_id: newId(),
@@ -853,7 +857,12 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     });
   }
 
-  let inExclusionSection = false;
+  const hitByPage = new Map<string, Hit>();
+  for (const h of pageHits) {
+    const key = `${h.document_id}:${h.page}`;
+    if (!hitByPage.has(key)) hitByPage.set(key, h);
+  }
+
   for (const h of pageHits) {
     const excl = /(?:this endorsement )?excludes coverage for the ([^.]+)\./i.exec(h.text);
     if (excl) {
@@ -863,32 +872,25 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     }
     const pre = /pre-existing condition:\s*([^\n.]+)/i.exec(h.text);
     if (pre) addExclusion(h, pre[0].trim(), "Pre-existing condition", pre[1].trim());
-    for (const clause of splitClauses(h.text)) {
-      if (isExclusionSectionHeading(clause) || /part\s+[ivxl]+\.?\s*exclusions\b/i.test(clause)) {
-        inExclusionSection = true;
-        continue;
-      }
-      if (/^part\s+[ivxl]+\./i.test(clause.trim()) && !/exclusions/i.test(clause)) {
-        inExclusionSection = false;
-      }
-      const productDenial = clauseIsDenial(clause, [
-        "full mortality",
-        "major medical",
-        "theft coverage",
-        "surgical coverage",
-        "loss of use",
-        "stallion infertility",
-        "colic surgery"
-      ]);
-      if (productDenial) continue;
-      if (inExclusionSection && clause.length > 24 && !isCoverageGrantLanguage(clause) && !isOptionalCoverageMention(clause)) {
-        addExclusion(h, clause, exclusionCategory(clause));
-        continue;
-      }
-      if (isStandaloneExclusionClause(clause)) {
-        addExclusion(h, clause, exclusionCategory(clause));
-      }
-    }
+  }
+
+  for (const walked of walkPolicyClauses(
+    pageHits.map((h) => ({ page: h.page, text: h.text, document_id: h.document_id }))
+  )) {
+    if (walked.kind !== "exclusion") continue;
+    const productDenial = clauseIsDenial(walked.clause, [
+      "full mortality",
+      "major medical",
+      "theft coverage",
+      "surgical coverage",
+      "loss of use",
+      "stallion infertility",
+      "colic surgery"
+    ]);
+    if (productDenial) continue;
+    const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
+    if (!h) continue;
+    addExclusion(h, walked.clause, exclusionCategory(walked.clause));
   }
 
   const endorsements: EndorsementEffect[] = [];
@@ -1090,9 +1092,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       `The documents show Major Medical as ${uniqueMedical.map((m) => m.amount + " (p." + m.source_page + ")").join(" and ")}. Which amount is in force after endorsements?`
     );
   }
-  if (exclusions.length) {
+  const questionExclusion = exclusions.find((row) => {
+    if (isCoverageLimitationLanguage(row.description)) return false;
+    const kind = classifyPolicyTerm(row.description, null);
+    return kind !== "limitation" && kind !== "condition" && kind !== "duty";
+  });
+  if (questionExclusion) {
     agent_questions.push(
-      `Please confirm the exclusion language on page ${exclusions[0].source_page}: “${exclusions[0].description}” — does this apply to the current policy period only?`
+      `Please confirm the exclusion language on page ${questionExclusion.source_page}: “${questionExclusion.description}” — does this apply to the current policy period only?`
     );
   }
   if (requirements.length) {

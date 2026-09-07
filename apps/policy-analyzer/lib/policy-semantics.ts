@@ -190,18 +190,236 @@ export function clauseConcernsSurgicalCoverage(clause: string): boolean {
   return false;
 }
 
+export type PolicySection =
+  | "coverage"
+  | "conditions"
+  | "duties"
+  | "limitations"
+  | "exclusions"
+  | "definitions"
+  | "arbitration"
+  | "other";
+
+export type PolicyTermKind = "grant" | "limitation" | "condition" | "duty" | "exclusion";
+
+const STRONG_HEADING_PATTERN =
+  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\s*[:.]?\s*(.*)$/i;
+
+const WEAK_HEADING_PATTERN =
+  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(definitions?|coverage|agreement)\s*[:.]?\s*$/i;
+
+function sectionFromHeadingName(name: string): PolicySection | null {
+  const n = name.replace(/\s+/g, " ").trim().toLowerCase();
+  if (n === "what we do not cover" || n === "losses not insured" || n === "exclusions") return "exclusions";
+  if (n === "duties after loss" || n === "duties after a loss" || n === "claim conditions" || n === "duties of the insured") {
+    return "duties";
+  }
+  if (n === "general conditions" || n === "conditions") return "conditions";
+  if (n === "limitations") return "limitations";
+  if (n === "insuring agreement" || n === "coverage" || n === "agreement") return "coverage";
+  if (n === "definition" || n === "definitions") return "definitions";
+  if (n === "arbitration" || n === "arbitration clause") return "arbitration";
+  return null;
+}
+
+export function parseSectionHeadingLine(line: string): { section: PolicySection; rest: string } | null {
+  const raw = String(line || "").replace(/\s+/g, " ").trim();
+  if (!raw || /^page\s+\d+$/i.test(raw)) return null;
+  const strong = raw.match(STRONG_HEADING_PATTERN);
+  if (strong?.[1]) {
+    const section = sectionFromHeadingName(strong[1]);
+    if (section) return { section, rest: (strong[2] || "").trim() };
+  }
+  const weak = raw.match(WEAK_HEADING_PATTERN);
+  if (weak?.[1]) {
+    const section = sectionFromHeadingName(weak[1]);
+    if (section) return { section, rest: "" };
+  }
+  return null;
+}
+
+export function detectSectionHeading(line: string): PolicySection | null {
+  return parseSectionHeadingLine(line)?.section || null;
+}
+
 export function isExclusionSectionHeading(text: string): boolean {
-  return /part\s+[ivxl]+\.?\s*exclusions\b/i.test(text) || /(?:^|\n)\s*exclusions\s*(?:$|\n)/i.test(text);
+  return String(text || "")
+    .split(/\n/)
+    .some((line) => parseSectionHeadingLine(line)?.section === "exclusions");
+}
+
+export function isExclusionOperativeLanguage(clause: string): boolean {
+  return (
+    /\bthis insurance does not cover\b/i.test(clause) ||
+    /\bthis policy does not cover\b/i.test(clause) ||
+    /\bthis endorsement excludes coverage for\b/i.test(clause) ||
+    /\bno coverage is afforded\b/i.test(clause) ||
+    /\bno liability arises\b/i.test(clause) ||
+    /\bwe will not pay for\b/i.test(clause) ||
+    /\bwill not pay for (?:any )?loss\b/i.test(clause) ||
+    /\bexcluded loss\b/i.test(clause)
+  );
 }
 
 export function isStandaloneExclusionClause(clause: string): boolean {
+  return classifyPolicyTerm(clause, null) === "exclusion";
+}
+
+export function looksLikeCauseOfLossExclusion(clause: string): boolean {
+  if (/\bthis endorsement excludes coverage for\b/i.test(clause)) return true;
+  if (/\b(?:this insurance|this policy) does not cover\b/i.test(clause)) return true;
+  if (/\bexcluded loss\b/i.test(clause)) return true;
+  return /\b(?:we will not pay|will not pay) for (?:any )?(?:loss|damage)\b/i.test(clause) && /\bcaused\b/i.test(clause);
+}
+
+export function isCoverageLimitationLanguage(clause: string): boolean {
   return (
-    /\bthis insurance does not cover\b/i.test(clause) ||
-    /\bno coverage is afforded\b/i.test(clause) ||
-    /\bno liability arises\b/i.test(clause) ||
-    /\bthis endorsement excludes coverage for\b/i.test(clause) ||
-    /\bthis policy does not cover\b/i.test(clause)
+    /\buntil at least\b/i.test(clause) ||
+    /\bdoes not arise until\b/i.test(clause) ||
+    /\bdoes not become payable until\b/i.test(clause) ||
+    /\bthen only in the event\b/i.test(clause) ||
+    /\bunless separately (?:insured|scheduled|endorsed|listed)\b/i.test(clause) ||
+    /\bunless (?:endorsed|scheduled|attached)\b/i.test(clause) ||
+    /\bcoverage applies only\b/i.test(clause) ||
+    /\bpayment will not be made until\b/i.test(clause) ||
+    /\bterritorial limits?\b/i.test(clause) ||
+    /\bonly for the declared use\b/i.test(clause) ||
+    /\blimit.{0,40}reduc/i.test(clause) ||
+    (/\bno liability arises\b/i.test(clause) && /\buntil\b/i.test(clause)) ||
+    (/\bno coverage is afforded\b/i.test(clause) && /\bunless\b/i.test(clause))
   );
+}
+
+export function isPolicyConditionLanguage(clause: string): boolean {
+  return (
+    /\bcondition precedent\b/i.test(clause) ||
+    /\bthe (?:insured|horse) shall\b/i.test(clause) ||
+    /\bthe insured must\b/i.test(clause)
+  );
+}
+
+export function isClaimDutyLanguage(clause: string): boolean {
+  if (!/\b(shall|must|required to)\b/i.test(clause)) return false;
+  if (CLAIM_DUTY_RULES.some((rule) => rule.pattern.test(clause))) return true;
+  return /\b(notify|notice|report|proof of loss|veterinar|necropsy|postmortem|ransom|examination under oath)\b/i.test(
+    clause
+  );
+}
+
+export function classifyPolicyTerm(clause: string, section: PolicySection | null): PolicyTermKind | null {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (text.length < 12) return null;
+  if (isOptionalCoverageMention(text)) return null;
+  if (isCoverageGrantLanguage(text) && !isExclusionOperativeLanguage(text)) return "grant";
+
+  const duty = isClaimDutyLanguage(text);
+  const limitation = isCoverageLimitationLanguage(text);
+  const condition = isPolicyConditionLanguage(text);
+  const exclusionWording = isExclusionOperativeLanguage(text) || looksLikeCauseOfLossExclusion(text);
+
+  if (section === "exclusions") {
+    if (isCoverageGrantLanguage(text)) return "grant";
+    return "exclusion";
+  }
+  if (section === "duties") {
+    if (duty || /\b(shall|must)\b/i.test(text)) return "duty";
+    if (limitation || exclusionWording) return "limitation";
+    if (condition) return "condition";
+    return null;
+  }
+  if (section === "conditions" || section === "limitations" || section === "coverage") {
+    if (duty && !limitation && !exclusionWording) return "duty";
+    if (limitation || exclusionWording) return "limitation";
+    if (condition) return "condition";
+    if (duty) return "duty";
+    return null;
+  }
+  if (looksLikeCauseOfLossExclusion(text) || (exclusionWording && !limitation && !condition && !duty)) {
+    return "exclusion";
+  }
+  if (limitation) return "limitation";
+  if (duty) return "duty";
+  if (condition) return "condition";
+  return null;
+}
+
+const CLAUSE_ABBREVIATION_END =
+  /\b(?:Ed|Inc|Ltd|No|Mr|Mrs|Ms|Dr|Rev|vs|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.$/i;
+
+export function splitPolicyClauses(text: string): string[] {
+  const flattened = String(text || "").replace(/-\s*\n\s*/g, "").replace(/\n+/g, " ");
+  const parts = flattened
+    .split(/(?<=[.!?;])\s+/)
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s.length > 0);
+  const out: string[] = [];
+  for (const part of parts) {
+    const prev = out[out.length - 1];
+    if (prev && CLAUSE_ABBREVIATION_END.test(prev)) {
+      out[out.length - 1] = `${prev} ${part}`;
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+export type WalkedPolicyClause = {
+  clause: string;
+  page: number;
+  document_id?: string;
+  section: PolicySection | null;
+  kind: PolicyTermKind | null;
+};
+
+export function walkPolicyClauses(
+  pages: Array<{ page: number; text: string; document_id?: string }>
+): WalkedPolicyClause[] {
+  let section: PolicySection | null = null;
+  let lastDocumentId: string | undefined;
+  const out: WalkedPolicyClause[] = [];
+
+  const emit = (chunk: string, page: number, document_id: string | undefined, active: PolicySection | null) => {
+    for (const clause of splitPolicyClauses(chunk)) {
+      if (clause.length < 12) continue;
+      out.push({
+        clause,
+        page,
+        document_id,
+        section: active,
+        kind: classifyPolicyTerm(clause, active)
+      });
+    }
+  };
+
+  for (const page of pages) {
+    if (page.document_id !== undefined && lastDocumentId !== undefined && page.document_id !== lastDocumentId) {
+      section = null;
+    }
+    if (page.document_id !== undefined) lastDocumentId = page.document_id;
+
+    let buffer = "";
+    const flush = () => {
+      if (buffer.trim()) emit(buffer, page.page, page.document_id, section);
+      buffer = "";
+    };
+
+    for (const rawLine of String(page.text || "").split(/\n/)) {
+      const line = rawLine.replace(/\s+/g, " ").trim();
+      if (!line) continue;
+      const parsed = parseSectionHeadingLine(line);
+      if (parsed) {
+        flush();
+        section = parsed.section;
+        if (parsed.rest) buffer = parsed.rest;
+        continue;
+      }
+      buffer = buffer ? `${buffer} ${line}` : line;
+    }
+    flush();
+  }
+
+  return out;
 }
 
 export function exclusionCategory(clause: string): string {
@@ -211,7 +429,7 @@ export function exclusionCategory(clause: string): string {
   if (/surgical operation/.test(t)) return "Surgical operations";
   if (/medication|narcotic|\bdrug\b|substance/.test(t)) return "Medication or substance";
   if (/malicious|willful|intentional act/.test(t)) return "Malicious or intentional acts";
-  if (/failure to provide proper care|proper care and attention/.test(t)) return "Failure to provide proper care";
+  if (/failure to provide proper care/.test(t)) return "Failure to provide proper care";
   if (/nuclear/.test(t)) return "Nuclear risk";
   if (/confiscation/.test(t)) return "Confiscation";
   if (/\bwar\b|civil war|military force/.test(t)) return "War or military force";

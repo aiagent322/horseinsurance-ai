@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { analyzeDocuments } from "../lib/analyze";
 import { classifyPackage } from "../lib/classify";
-import { collectSourceReferences } from "../lib/policy-semantics";
+import { collectSourceReferences, walkPolicyClauses } from "../lib/policy-semantics";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
@@ -121,7 +121,23 @@ function main() {
   assert.match(report.coverage_gaps.join(" "), /not established/i);
   assert.doesNotMatch(report.coverage_gaps.join(" "), /should necessarily|ask the agent whether a separate endorsement is available or intended/i);
 
-  assert.ok(report.exclusions.length > 0, "exclusions must be present");
+  const walked = walkPolicyClauses(EQUINE_MORTALITY_JACKET_PAGES);
+  const theftWaiting = walked.find((item) => /no liability arises[\s\S]*theft/i.test(item.clause));
+  const embryoLimit = walked.find((item) => /embryo or foal/i.test(item.clause));
+  assert.ok(theftWaiting, "30-day theft provision must be walked");
+  assert.ok(embryoLimit, "embryo/foal provision must be walked");
+  assert.equal(theftWaiting.section, "conditions");
+  assert.equal(embryoLimit.section, "conditions");
+  assert.ok(
+    theftWaiting.kind === "limitation" || theftWaiting.kind === "condition",
+    `30-day theft kind ${theftWaiting.kind}`
+  );
+  assert.ok(
+    embryoLimit.kind === "limitation" || embryoLimit.kind === "condition",
+    `embryo/foal kind ${embryoLimit.kind}`
+  );
+  assert.notEqual(theftWaiting.kind, "exclusion");
+  assert.notEqual(embryoLimit.kind, "exclusion");
   const exclusionBlob = report.exclusions.map((item) => `${item.exclusion_type} ${item.description}`).join(" ").toLowerCase();
   for (const needle of [
     "intentional destruction",
@@ -142,6 +158,35 @@ function main() {
   assert.ok(
     report.exclusions.some((item) => item.source_page === 3 || item.source_page === 4),
     "exclusion citation must include page 3 or 4"
+  );
+  assert.ok(
+    report.exclusions.every((item) => item.source_page === 3 || item.source_page === 4),
+    "true exclusions should be cited from the exclusion section pages"
+  );
+  assert.equal(
+    report.exclusions.filter((item) => /thirty|30\s+days|not been recovered/i.test(item.description)).length,
+    0,
+    "30-day theft waiting/non-recovery condition must not appear as an exclusion"
+  );
+  assert.equal(
+    report.exclusions.filter((item) => /embryo|foal/i.test(item.description)).length,
+    0,
+    "embryo/foal limitation must not appear as a Part IV exclusion"
+  );
+  assert.doesNotMatch(
+    report.agent_questions.join("\n"),
+    /exclusion language[\s\S]{0,400}(thirty|30\s+days|theft until)|((thirty|30\s+days)[\s\S]{0,400}exclusion language)/i
+  );
+  const exclusionRefs = refs.filter((item) => /^Exclusion:/i.test(item.label));
+  assert.ok(exclusionRefs.length > 0, "exclusion source references must exist");
+  assert.ok(
+    exclusionRefs.every((item) => item.page === 3 || item.page === 4),
+    "exclusion citations must remain on the exclusion-section pages"
+  );
+  assert.equal(
+    exclusionRefs.filter((item) => /thirty|30\s+days|embryo|foal/i.test(item.text)).length,
+    0,
+    "source references must not cite the theft waiting condition or embryo limitation as exclusions"
   );
 
   assert.ok(report.requirements.length > 0, "claim duties must be present");
