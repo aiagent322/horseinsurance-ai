@@ -10,7 +10,7 @@ import {
   normalizeFormId,
   parseListedForms
 } from "./form-schedule";
-import { segmentLogicalForms } from "./form-segmentation";
+import { isEndorsementOrOptionalRole, segmentLogicalForms } from "./form-segmentation";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
   clauseConcernsMortality,
@@ -18,6 +18,8 @@ import {
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
   describeClaimDuty,
+  additionalCoverageHeadingName,
+  additionalCoverageTitleFromClause,
   allDutyFamilies,
   dutyFamily,
   classifyExclusionClauseRelation,
@@ -27,6 +29,7 @@ import {
   extractPolicyFormValue,
   genericExclusionTitle,
   hasExclusionExceptionCue,
+  isCoverageConditionNotGrant,
   isCoverageGrantLanguage,
   isExclusionQualificationLanguage,
   isInsurerPerformanceLanguage,
@@ -37,6 +40,7 @@ import {
   KNOWN_EXCLUSION_TITLES,
   looksLikeDeclarationsPage,
   normalizeIdentificationValue,
+  packageHasUnfilledIssuedFacts,
   personalizedFactsMissing,
   splitExclusionSatellites,
   summarizeExclusionSatellite,
@@ -324,8 +328,20 @@ type CoverageEvidence = {
   pageText: string;
   optional?: boolean;
   applicabilityUnresolved?: boolean;
+  section?: string | null;
+  kind?: string | null;
   contradiction?: { grant: CoverageEvidence; denial: CoverageEvidence };
 };
+
+function grantSourceRank(unit: CoverageEvidence): number {
+  if (isCoverageConditionNotGrant(unit.clause)) return -1000;
+  let rank = 0;
+  if (unit.section === "coverage") rank += 80;
+  if (unit.kind === "grant") rank += 30;
+  if (unit.section === "duties" || unit.section === "conditions" || unit.section === "exclusions") rank -= 60;
+  if (unit.section === "definitions") rank -= 40;
+  return rank;
+}
 
 function pageIsEndorsement(text: string): boolean {
   return /\bthis endorsement\b/i.test(text) || /(?:^|\n)\s*endorsement\b/i.test(text);
@@ -339,30 +355,56 @@ function laterEvidence(a: CoverageEvidence, b: CoverageEvidence): boolean {
 function classifyCoverageEvidence(
   hits: Hit[],
   query: CoverageQuery,
-  options: { limitedIfScheduleBound?: boolean; skipOptionalApplicability?: boolean } = {}
+  options: {
+    limitedIfScheduleBound?: boolean;
+    skipOptionalApplicability?: boolean;
+    limitedIfIssuedFactsUnresolved?: boolean;
+  } = {}
 ): CoverageEvidence | null {
   const seen = new Set<string>();
   const units: CoverageEvidence[] = [];
-  for (const h of uniquePages(hits)) {
+  const pageHits = uniquePages(hits);
+  const walked = walkPolicyClauses(
+    pageHits.map((h) => ({ page: h.page, text: h.text, document_id: h.document_id }))
+  );
+  const hitByPage = new Map(pageHits.map((h) => [`${h.document_id}:${h.page}`, h]));
+
+  const pushUnit = (
+    h: Hit,
+    clause: string,
+    extra: { section?: string | null; kind?: string | null } = {}
+  ) => {
+    const key = `${h.document_index}:${h.document_id}:${h.page}:${clause.toLowerCase().slice(0, 160)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    units.push({
+      status: "NEEDS CLARIFICATION",
+      document_id: h.document_id,
+      document_index: h.document_index,
+      page: h.page,
+      clause,
+      pageText: h.text,
+      optional: isOptionalCoverageMention(clause),
+      section: extra.section,
+      kind: extra.kind
+    });
+  };
+
+  for (const walkedClause of walked) {
+    if (!clauseMatchesCoverage(walkedClause.clause, query)) continue;
+    const h = hitByPage.get(`${walkedClause.document_id}:${walkedClause.page}`);
+    if (!h) continue;
+    pushUnit(h, walkedClause.clause, { section: walkedClause.section, kind: walkedClause.kind });
+  }
+  for (const h of pageHits) {
     for (const clause of splitClauses(h.text)) {
       if (!clauseMatchesCoverage(clause, query)) continue;
-      const key = `${h.document_index}:${h.document_id}:${h.page}:${clause.toLowerCase()}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      units.push({
-        status: "NEEDS CLARIFICATION",
-        document_id: h.document_id,
-        document_index: h.document_index,
-        page: h.page,
-        clause,
-        pageText: h.text,
-        optional: isOptionalCoverageMention(clause)
-      });
+      pushUnit(h, clause);
     }
   }
 
   let denial: CoverageEvidence | undefined;
-  let affirmation: CoverageEvidence | undefined;
+  const affirmations: CoverageEvidence[] = [];
   let mention: CoverageEvidence | undefined;
   for (const u of units) {
     mention = mention || u;
@@ -370,12 +412,22 @@ function classifyCoverageEvidence(
       denial = denial || { ...u, status: "EXCLUDED", optional: false };
       continue;
     }
+    if (isCoverageConditionNotGrant(u.clause)) continue;
     if (clauseIsAffirmative(u.clause, query)) {
-      const limited = Boolean(options.limitedIfScheduleBound && isScheduleDependentGrant(u.clause));
-      affirmation =
-        affirmation || { ...u, status: limited ? "LIMITED" : "COVERED", optional: false };
+      const limited = Boolean(
+        options.limitedIfIssuedFactsUnresolved ||
+          (options.limitedIfScheduleBound && isScheduleDependentGrant(u.clause))
+      );
+      affirmations.push({ ...u, status: limited ? "LIMITED" : "COVERED", optional: false });
     }
   }
+  affirmations.sort((a, b) => {
+    const byRank = grantSourceRank(b) - grantSourceRank(a);
+    if (byRank !== 0) return byRank;
+    if (a.document_index !== b.document_index) return a.document_index - b.document_index;
+    return a.page - b.page;
+  });
+  const affirmation = affirmations[0];
 
   if (denial && affirmation) {
     const endorsementControls = pageIsEndorsement(denial.pageText) && laterEvidence(denial, affirmation);
@@ -620,6 +672,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const factsMissing = personalizedFactsMissing(identification);
   const pageHits = uniquePages(hits);
+  const issuedFactsUnresolved = packageHasUnfilledIssuedFacts(pageHits, identification);
   const walkedClauses = walkPolicyClauses(
     pageHits.map((h) => ({ page: h.page, text: h.text, document_id: h.document_id }))
   );
@@ -702,7 +755,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       names: ["full mortality coverage", "full mortality", "mortality coverage"],
       concerns: clauseConcernsMortality
     },
-    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true }
+    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true, limitedIfIssuedFactsUnresolved: issuedFactsUnresolved }
   );
   let mortalityStatus: AnalysisStatus = mortalityEv?.status || "NOT FOUND";
   if (
@@ -909,7 +962,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const theftEv = classifyCoverageEvidence(
     hits,
     { names: ["theft coverage", "coverage for theft"], concerns: clauseConcernsTheft },
-    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true }
+    { limitedIfScheduleBound: factsMissing, skipOptionalApplicability: true, limitedIfIssuedFactsUnresolved: issuedFactsUnresolved }
   );
   const theftStatus: AnalysisStatus = theftEv?.status || "NOT FOUND";
   addCoverage("Theft", theftStatus !== "NOT FOUND", theftStatus, {
@@ -921,6 +974,88 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     source_page: theftEv?.page,
     source_text: theftEv?.clause
   });
+
+  const formSegmentsByDoc = new Map<string, ReturnType<typeof segmentLogicalForms>>();
+  const coverageApplicabilityPages = pageHits.map((h) => ({
+    page: h.page,
+    text: h.text,
+    document_id: h.document_id
+  }));
+  function formRoleForPage(documentId: string, page: number) {
+    let segments = formSegmentsByDoc.get(documentId);
+    if (!segments) {
+      const docPages = pageHits
+        .filter((h) => h.document_id === documentId)
+        .map((h) => ({ page: h.page, text: h.text }));
+      segments = segmentLogicalForms(docPages);
+      formSegmentsByDoc.set(documentId, segments);
+    }
+    return segments.find((segment) => page >= segment.page_start && page <= segment.page_end);
+  }
+  const seenCoverageTypes = new Set(coverages.map((row) => row.coverage_type.toLowerCase()));
+  let pendingAdditionalHeading: string | null = null;
+  let pendingAdditionalHeadingText: string | null = null;
+  for (const walked of walkedClauses) {
+    if (walked.section !== "coverage") {
+      pendingAdditionalHeading = null;
+      pendingAdditionalHeadingText = null;
+      continue;
+    }
+    const headingOnly = additionalCoverageHeadingName(walked.clause);
+    if (headingOnly && walked.kind !== "grant") {
+      pendingAdditionalHeading = headingOnly;
+      pendingAdditionalHeadingText = walked.clause.replace(/\s+/g, " ").trim();
+      continue;
+    }
+    if (walked.kind !== "grant") {
+      pendingAdditionalHeading = null;
+      pendingAdditionalHeadingText = null;
+      continue;
+    }
+    const title = additionalCoverageTitleFromClause(walked.clause) || pendingAdditionalHeading;
+    const grantSource = pendingAdditionalHeadingText
+      ? `${pendingAdditionalHeadingText} ${walked.clause}`.replace(/\s+/g, " ").trim()
+      : walked.clause;
+    pendingAdditionalHeading = null;
+    pendingAdditionalHeadingText = null;
+    if (!title) continue;
+    const key = title.toLowerCase();
+    if (seenCoverageTypes.has(key)) continue;
+    const form = formRoleForPage(walked.document_id || "", walked.page);
+    if (form && isEndorsementOrOptionalRole(form.role)) continue;
+    const h = pageHits.find((hit) => hit.document_id === walked.document_id && hit.page === walked.page);
+    if (!h) continue;
+    if (
+      optionalFormApplicabilityUnresolved(
+        { page: h.page, text: h.text, document_id: h.document_id },
+        coverageApplicabilityPages,
+        [title]
+      )
+    ) {
+      continue;
+    }
+    seenCoverageTypes.add(key);
+    const additionalStatus: AnalysisStatus =
+      issuedFactsUnresolved || (factsMissing && isScheduleDependentGrant(walked.clause)) ? "LIMITED" : "COVERED";
+    addCoverage(title, true, additionalStatus, {
+      description: coverageNarrative(
+        title,
+        additionalStatus,
+        {
+          status: additionalStatus,
+          document_id: h.document_id,
+          document_index: h.document_index,
+          page: h.page,
+          clause: grantSource,
+          pageText: h.text
+        },
+        { missingDeclarationsOrSchedule: factsMissing }
+      ),
+      source_document_id: h.document_id,
+      source_page: h.page,
+      source_text: grantSource
+    });
+  }
 
   const exclusions: ExclusionRecord[] = [];
   const seenExclusion = new Set<string>();

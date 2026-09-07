@@ -298,6 +298,40 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
           ))}
       </Section>
 
+      {record.coverages.filter(
+        (c) =>
+          ![
+            "Full Mortality",
+            "Theft",
+            "Major Medical",
+            "Surgical",
+            "Colic Surgery",
+            "Loss of Use",
+            "Stallion Infertility"
+          ].includes(c.coverage_type) && !c.coverage_type.includes("Mortality") && !/Medical|Surgical/.test(c.coverage_type)
+      ).length > 0 ? (
+        <Section title="Additional Coverages">
+          {record.coverages
+            .filter(
+              (c) =>
+                ![
+                  "Full Mortality",
+                  "Theft",
+                  "Major Medical",
+                  "Surgical",
+                  "Colic Surgery",
+                  "Loss of Use",
+                  "Stallion Infertility"
+                ].includes(c.coverage_type) &&
+                !c.coverage_type.includes("Mortality") &&
+                !/Medical|Surgical/.test(c.coverage_type)
+            )
+            .map((c) => (
+              <CoverageExplanation key={c.coverage_id} coverage={c} />
+            ))}
+        </Section>
+      ) : null}
+
       <Section title="Exclusions">
         {record.exclusions.length === 0 ? (
           <p className="text-sm text-[#6b7280]">NOT FOUND IN DOCUMENTS PROVIDED</p>

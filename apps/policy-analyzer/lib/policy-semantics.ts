@@ -129,7 +129,19 @@ export function looksLikeDeclarationsPage(text: string): boolean {
   return false;
 }
 
+export function isCoverageConditionNotGrant(clause: string): boolean {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  if (/\bshall apply provided that\b/i.test(text)) return true;
+  if (/\bour obligation to indemnify\b/i.test(text)) return true;
+  if (/\bwe shall be released from any obligation to indemnify\b/i.test(text)) return true;
+  if (/\bindemnification to you shall be limited to the fair market value\b/i.test(text)) return true;
+  if (/\bcoverage [a-z]\.?\s+.{0,80}shall apply provided\b/i.test(text)) return true;
+  return false;
+}
+
 export function isCoverageGrantLanguage(clause: string): boolean {
+  if (isCoverageConditionNotGrant(clause)) return false;
   return (
     /\bprovides\b/i.test(clause) ||
     /\bis provided\b/i.test(clause) ||
@@ -140,6 +152,7 @@ export function isCoverageGrantLanguage(clause: string): boolean {
     /amended to\s*\$/i.test(clause) ||
     /\bwill indemnify\b/i.test(clause) ||
     /\bagrees to indemnify\b/i.test(clause) ||
+    /\bshall indemnify\b/i.test(clause) ||
     /\bindemnify(?:\s+the\s+insured)?\b/i.test(clause) ||
     /\bwill pay\b/i.test(clause) ||
     /\b(?:we |the company )?(?:agree|agrees) to reimburse\b/i.test(clause) ||
@@ -250,6 +263,65 @@ export function isScheduleDependentGrant(clause: string): boolean {
 
 export function personalizedFactsMissing(identification: PolicyIdentification): boolean {
   return !identification.insured_horse_name && !identification.insured_value && !identification.policy_effective_date;
+}
+
+export function isUnfilledDeclarationsTemplate(text: string): boolean {
+  const raw = String(text || "");
+  if (!/\bdeclarations(?:\s+page)?\b/i.test(raw)) return false;
+  if (!/\b(?:policy\s+number|named insured|schedule of covered horses|item\s*3)\b/i.test(raw)) return false;
+  for (const line of raw.split(/\n/)) {
+    const compact = line.replace(/\s+/g, " ").trim();
+    if (!compact) continue;
+    for (const pattern of DECLARATIONS_FIELD_PATTERNS) {
+      const match = compact.match(pattern);
+      const value = match?.[1]?.replace(/\s+/g, " ").trim() || "";
+      if (!value || /^(?:item\s*\d+|named insured|mailing address|schedule of covered horses)\b/i.test(value)) {
+        continue;
+      }
+      if (isFilledPolicySpecificValue(value)) return false;
+    }
+  }
+  return true;
+}
+
+export function packageHasUnfilledIssuedFacts(
+  pages: Array<{ text: string }>,
+  identification: PolicyIdentification
+): boolean {
+  if (!personalizedFactsMissing(identification)) return false;
+  return pages.some((page) => isUnfilledDeclarationsTemplate(page.text));
+}
+
+const STANDARD_COVERAGE_TITLE =
+  /^(?:death|humane destruction|death or humane destruction|theft|theft or unlawful removal|unlawful removal|full mortality|mortality|major medical|surgical|colic surgery|loss of use|stallion infertility|territory|coverage territory|definitions?|exclusions?|conditions?|coverages?)$/i;
+
+function titledAdditionalCoverageName(raw: string): string | null {
+  const cleaned = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  if (STANDARD_COVERAGE_TITLE.test(cleaned) || STANDARD_COVERAGE_TITLE.test(`${cleaned} coverage`)) return null;
+  const titled = cleaned
+    .toLowerCase()
+    .replace(/\bcoverage\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return titled.length >= 4 ? titled : null;
+}
+
+export function additionalCoverageHeadingName(clause: string): string | null {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  const heading = text.match(/^[A-Z]\.\s+([A-Z][A-Z0-9 ,/'()&-]{3,}?)\s+COVERAGE\s*$/);
+  return heading?.[1] ? titledAdditionalCoverageName(heading[1]) : null;
+}
+
+export function additionalCoverageTitleFromClause(clause: string): string | null {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!text || !isCoverageGrantLanguage(text)) return null;
+  const heading = text.match(
+    /^(?:[A-Z]\.\s+)?([A-Z][A-Z0-9 ,/'()&-]{3,}?)(?:\s+COVERAGE)?(?=\s+\d+\.|\s+we shall|\s+the (?:company|insurer)\b|$)/
+  );
+  if (!heading?.[1]) return null;
+  return titledAdditionalCoverageName(heading[1]);
 }
 
 export function clauseConcernsMortality(clause: string): boolean {
@@ -564,7 +636,20 @@ function trailingListMarker(text: string): boolean {
 }
 
 function continuesEnumeratedList(part: string): boolean {
-  return /^(?:and\s+)?(?:i{1,3}|iv|vi{0,3}|ix|x|[a-z])\.\s/i.test(String(part || "").trim());
+  return /^(?:and\s+)?(?:i{1,3}|iv|vi{0,3}|ix|x|[a-z]|\d+)\.\s/i.test(String(part || "").trim());
+}
+
+function isLetteredCoverageTitle(text: string): boolean {
+  return /^[A-Z]\.\s+[A-Z][A-Z0-9 ,/'()&-]{3,}(?:\s+COVERAGE)?\s*$/.test(String(text || "").trim());
+}
+
+function continuesCoverageGrantEnumeration(buffer: string, section: PolicySection | null): boolean {
+  if (section !== "coverage") return false;
+  const text = String(buffer || "").replace(/\s+/g, " ").trim();
+  if (/(?:the following|as follows)\s*:?\s*$/i.test(text)) return true;
+  if (isLetteredCoverageTitle(text)) return true;
+  if (/\b(?:the following|as follows)\b/i.test(text) && /(?:[:;]|\d+\.)\s*$/.test(text)) return true;
+  return false;
 }
 
 export function splitPolicyClauses(text: string): string[] {
@@ -804,7 +889,9 @@ export function walkPolicyClauses(
         continue;
       }
       if (CLAUSE_LIST_PREFIX.test(line) && buffer.trim()) {
-        flush();
+        const keepEnumeration =
+          continuesCoverageGrantEnumeration(buffer, section) && /^(?:\d+\.|\(\s*\d+\s*\))/.test(line);
+        if (!keepEnumeration) flush();
       }
       buffer = buffer ? `${buffer} ${line}` : line;
     }

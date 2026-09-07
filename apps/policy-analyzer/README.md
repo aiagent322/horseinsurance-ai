@@ -21,6 +21,7 @@ npm run test:native-report-parity
 npm run test:live-duty-parity
 npm run test:duty-presentation
 npm run test:claim-duty
+npm run test:base-coverage-grant
 npm run test:live-exclusion-parity
 npm run test:exclusion-structure
 npm run test:lettered-exclusion

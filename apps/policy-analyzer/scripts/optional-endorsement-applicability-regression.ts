@@ -244,8 +244,8 @@ This policy applies worldwide. The territorial limits are amended to worldwide.`
   assert.ok(territorial, "6: base territorial limits remain identifiable");
   assert.ok(territorial.pages.includes(2), "6: base territory page is retained");
   assert.equal(territorial.pages.includes(10), false, "6: unresolved worldwide form does not replace base territory");
-  assert.equal(coverage(blankOptional.report, "Full Mortality").coverage_status, "COVERED");
-  assert.equal(coverage(blankOptional.report, "Theft").coverage_status, "COVERED");
+  assert.equal(coverage(blankOptional.report, "Full Mortality").coverage_status, "LIMITED");
+  assert.equal(coverage(blankOptional.report, "Theft").coverage_status, "LIMITED");
 
   const issuedOptional = analyzePages(
     [
@@ -367,8 +367,8 @@ Surgical coverage is added with a $8,000 occurrence limit.`
   assert.ok(
     control.report.form_inventory.filter((form) => isEndorsementOrOptionalRole(form.form_role)).length >= 11
   );
-  assert.equal(coverage(control.report, "Full Mortality").coverage_status, "COVERED");
-  assert.equal(coverage(control.report, "Theft").coverage_status, "COVERED");
+  assert.equal(coverage(control.report, "Full Mortality").coverage_status, "LIMITED");
+  assert.equal(coverage(control.report, "Theft").coverage_status, "LIMITED");
 
   const diamond = analyzePages(NATIVE_POLICY_REPORT_PAGES, "native-policy.pdf");
   assert.equal(diamond.report.form_inventory.length, 0, "9: Diamond State form_inventory remains empty");

@@ -19,6 +19,7 @@
     "test:duty-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/duty-presentation-regression.ts",
     "test:claim-duty": "POLICY_ANALYZER_STORE=memory tsx scripts/claim-duty-regression.ts",
     "test:coverage-explanation": "POLICY_ANALYZER_STORE=memory tsx scripts/coverage-explanation-regression.ts",
+    "test:base-coverage-grant": "POLICY_ANALYZER_STORE=memory tsx scripts/base-coverage-grant-regression.ts",
     "test:source-references": "POLICY_ANALYZER_STORE=memory tsx scripts/source-references-regression.ts",
     "test:final-report": "POLICY_ANALYZER_STORE=memory tsx scripts/final-report-regression.ts",
     "test:agent-questions": "POLICY_ANALYZER_STORE=memory tsx scripts/agent-question-regression.ts",
