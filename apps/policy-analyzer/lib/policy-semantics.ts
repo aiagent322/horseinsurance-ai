@@ -1,4 +1,4 @@
-import type { PolicyIdentification, PolicyRecord, Sourced } from "./types";
+import type { AnalysisStatus, PolicyIdentification, PolicyRecord, Sourced } from "./types";
 
 export function isExternalReferenceValue(value: string): boolean {
   const v = value.replace(/\s+/g, " ").trim();
@@ -530,6 +530,87 @@ export function describeClaimDuty(clause: string): ClaimDutyDescription {
     summary,
     declarationsItem: item ? item.toUpperCase() : undefined
   };
+}
+
+export type CoverageExplanationFacts = {
+  coverageType: string;
+  status: AnalysisStatus;
+  grantClause?: string;
+  denialClause?: string;
+  optionalMention?: boolean;
+  missingDeclarationsOrSchedule?: boolean;
+  hasRelatedCoverageLimitation?: boolean;
+};
+
+function joinCauseList(causes: string[]): string {
+  if (causes.length === 1) return causes[0];
+  if (causes.length === 2) return `${causes[0]} or ${causes[1]}`;
+  return `${causes.slice(0, -1).join(", ")}, or ${causes[causes.length - 1]}`;
+}
+
+function grantAnalysis(coverageType: string, grantClause?: string): string {
+  const clause = grantClause || "";
+  if (coverageType === "Full Mortality") {
+    const causes: string[] = [];
+    if (/\baccident\b/i.test(clause)) causes.push("accident");
+    if (/\binjury\b/i.test(clause)) causes.push("injury");
+    if (/\billness\b/i.test(clause)) causes.push("illness");
+    if (/\bdisease\b/i.test(clause)) causes.push("disease");
+    if (causes.length >= 2) {
+      return `The policy form provides mortality coverage for death resulting from covered ${joinCauseList(causes)}.`;
+    }
+    return "The policy form provides mortality coverage.";
+  }
+  if (coverageType === "Theft") {
+    if (/\bdeath\b/i.test(clause) && /\btheft\b/i.test(clause)) {
+      return "The policy form provides coverage for theft of an insured horse and for death directly resulting from theft.";
+    }
+    return "The policy form provides coverage for theft of an insured horse.";
+  }
+  return `The policy form provides ${coverageType} coverage.`;
+}
+
+function missingDeclarationsAnalysis(): string {
+  return "The uploaded package does not include the Declarations/Schedule needed to identify the insured horse, policy period, liability limit, or deductible.";
+}
+
+export function explainCoverage(facts: CoverageExplanationFacts): string {
+  const type = facts.coverageType;
+  const status = facts.status;
+
+  if (status === "NOT FOUND") {
+    return `The uploaded documents do not establish ${type} coverage.`;
+  }
+  if (status === "EXCLUDED") {
+    const exception = facts.denialClause && /\bexcept\b/i.test(facts.denialClause);
+    return exception
+      ? `The uploaded documents state that ${type} is not provided, subject to a stated exception in the same provision.`
+      : `The uploaded documents state that ${type} is not provided.`;
+  }
+  if (status === "POSSIBLE CONFLICT") {
+    return `${type} is granted in one provision and excluded in another. The analyzer does not choose which provision controls.`;
+  }
+  if (status === "NEEDS CLARIFICATION") {
+    if (facts.optionalMention) {
+      return `${type} is mentioned only as a possible additional coverage that may appear in the Schedule or an endorsement. The uploaded documents do not establish that ${type} coverage is in force.`;
+    }
+    return `${type} is mentioned in the uploaded documents, but those documents do not establish that this coverage is in force.`;
+  }
+  if (status === "LIMITED" || status === "COVERED WITH LIMITATIONS") {
+    const parts = [grantAnalysis(type, facts.grantClause)];
+    if (facts.missingDeclarationsOrSchedule) {
+      parts.push(missingDeclarationsAnalysis());
+    } else if (status === "COVERED WITH LIMITATIONS") {
+      parts.push("The coverage is stated subject to a limit or modifying endorsement in the uploaded documents.");
+    }
+    if (type === "Theft" && facts.hasRelatedCoverageLimitation) {
+      parts.push("Theft coverage is also subject to policy conditions, including reporting and non-recovery requirements.");
+    }
+    return parts.join(" ");
+  }
+  const parts = [grantAnalysis(type, facts.grantClause)];
+  if (facts.missingDeclarationsOrSchedule) parts.push(missingDeclarationsAnalysis());
+  return parts.join(" ");
 }
 
 export function extractPolicyFormValue(text: string): string | undefined {

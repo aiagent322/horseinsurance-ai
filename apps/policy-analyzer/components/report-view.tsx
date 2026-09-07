@@ -39,6 +39,37 @@ function Cite({ s }: { s?: Sourced<string> }) {
   );
 }
 
+function CoverageExplanation({
+  coverage,
+  showLimit
+}: {
+  coverage: PolicyRecord["coverages"][number];
+  showLimit?: boolean;
+}) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Status value={coverage.coverage_status} />
+        <span className="font-medium">{coverage.coverage_type}</span>
+      </div>
+      <p className="text-[#4a5568]">{coverage.description}</p>
+      {showLimit && coverage.coverage_limit ? (
+        <p className="text-xs text-[#1d6fa5]">
+          Limit {coverage.coverage_limit.value} · p. {coverage.coverage_limit.source_page}
+        </p>
+      ) : null}
+      {coverage.deductible ? (
+        <p className="text-xs text-[#1d6fa5]">
+          Deductible {coverage.deductible.value} · p. {coverage.deductible.source_page}
+        </p>
+      ) : null}
+      {coverage.source_page > 0 ? (
+        <p className="text-xs text-[#1d6fa5]">Source: p. {coverage.source_page}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm">
@@ -226,46 +257,53 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
       </Section>
 
       <Section title="Mortality Coverage">
-        {record.coverages.filter((c) => c.coverage_type.includes("Mortality")).map((c) => (
-          <p key={c.coverage_id} className="text-sm">
-            <Status value={c.coverage_status} />{" "}
-            {c.coverage_limit ? <>Insured value {c.coverage_limit.value} (p. {c.coverage_limit.source_page}).</> : "No insured value found."}{" "}
-            {c.source_text ? <span className="text-[#6b7280]">“{c.source_text}”</span> : null}
-          </p>
-        ))}
+        {record.coverages
+          .filter((c) => c.coverage_type.includes("Mortality"))
+          .map((c) => (
+            <CoverageExplanation key={c.coverage_id} coverage={c} showLimit />
+          ))}
+      </Section>
+
+      <Section title="Theft Coverage">
+        {record.coverages
+          .filter((c) => c.coverage_type === "Theft")
+          .map((c) => (
+            <CoverageExplanation key={c.coverage_id} coverage={c} />
+          ))}
       </Section>
 
       <Section title="Major Medical / Surgical Coverage">
-        <ul className="space-y-2 text-sm">
+        <div className="space-y-4">
           {record.coverages
-            .filter((c) => /Medical|Surgical|Colic/.test(c.coverage_type))
+            .filter((c) => /Medical|Surgical/.test(c.coverage_type) && c.coverage_type !== "Colic Surgery")
             .map((c) => (
-              <li key={c.coverage_id}>
-                <Status value={c.coverage_status} /> <strong>{c.coverage_type}</strong>
-                {c.coverage_limit ? <> · {c.coverage_limit.value} (p. {c.coverage_limit.source_page})</> : null}
-                {c.deductible ? <> · deductible {c.deductible.value} (p. {c.deductible.source_page})</> : null}
-                {c.conditions ? <span className="block text-[#4a5568]">{c.conditions}</span> : null}
-              </li>
+              <CoverageExplanation key={c.coverage_id} coverage={c} showLimit />
             ))}
-        </ul>
+        </div>
       </Section>
 
       <Section title="Colic Coverage">
-        {record.coverages.filter((c) => c.coverage_type === "Colic Surgery").map((c) => (
-          <p key={c.coverage_id} className="text-sm">
-            <Status value={c.coverage_status} /> {c.conditions || c.description}{" "}
-            {c.source_page > 0 ? <span className="text-xs text-[#1d6fa5]">(p. {c.source_page})</span> : null}
-          </p>
-        ))}
+        {record.coverages
+          .filter((c) => c.coverage_type === "Colic Surgery")
+          .map((c) => (
+            <CoverageExplanation key={c.coverage_id} coverage={c} />
+          ))}
       </Section>
 
       <Section title="Loss of Use">
-        {record.coverages.filter((c) => c.coverage_type === "Loss of Use").map((c) => (
-          <p key={c.coverage_id} className="text-sm">
-            <Status value={c.coverage_status} /> {c.description}{" "}
-            {c.source_page > 0 ? <span className="text-xs text-[#1d6fa5]">(p. {c.source_page})</span> : null}
-          </p>
-        ))}
+        {record.coverages
+          .filter((c) => c.coverage_type === "Loss of Use")
+          .map((c) => (
+            <CoverageExplanation key={c.coverage_id} coverage={c} />
+          ))}
+      </Section>
+
+      <Section title="Stallion Infertility">
+        {record.coverages
+          .filter((c) => c.coverage_type === "Stallion Infertility")
+          .map((c) => (
+            <CoverageExplanation key={c.coverage_id} coverage={c} />
+          ))}
       </Section>
 
       <Section title="Exclusions">

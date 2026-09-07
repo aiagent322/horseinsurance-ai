@@ -14,6 +14,7 @@
     "test:identification": "POLICY_ANALYZER_STORE=memory tsx scripts/identification-regression.ts",
     "test:taxonomy": "POLICY_ANALYZER_STORE=memory tsx scripts/taxonomy-regression.ts",
     "test:emergency-requirements": "POLICY_ANALYZER_STORE=memory tsx scripts/emergency-requirements-regression.ts",
+    "test:coverage-explanation": "POLICY_ANALYZER_STORE=memory tsx scripts/coverage-explanation-regression.ts",
     "test:completeness": "POLICY_ANALYZER_STORE=memory tsx scripts/completeness-regression.ts",
     "test:ingestion": "POLICY_ANALYZER_STORE=memory tsx scripts/ingestion-regression.ts",
     "test:persistence": "POLICY_ANALYZER_STORE=memory tsx scripts/persistence.ts",

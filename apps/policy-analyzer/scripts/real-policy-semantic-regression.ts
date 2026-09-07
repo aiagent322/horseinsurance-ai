@@ -79,45 +79,44 @@ function main() {
   assert.doesNotMatch(identificationValues, /hereinafter/i);
 
   const mortality = coverage(report, "Full Mortality");
-  assert.notEqual(mortality.coverage_status, "NOT FOUND");
-  assert.ok(
-    mortality.coverage_status === "LIMITED" ||
-      mortality.coverage_status === "COVERED WITH LIMITATIONS" ||
-      mortality.coverage_status === "COVERED",
-    `mortality status ${mortality.coverage_status}`
-  );
+  assert.equal(mortality.coverage_status, "LIMITED");
   assert.equal(mortality.source_page, 1);
-  assert.match(mortality.source_text, /indemnify|death/i);
+  assert.match(mortality.description, /provides mortality coverage/i);
+  assert.match(mortality.description, /Declarations\/Schedule|missing Declarations/i);
+  assert.match(mortality.description, /insured horse|liability limit|deductible/i);
+  assert.doesNotMatch(mortality.description, /hereinafter|EDULE;|No insured value found/i);
+  assert.doesNotMatch(mortality.description, /\btheft\b/i);
+  assert.ok(!/will indemnify[\s\S]{80,}/i.test(mortality.description), "mortality explanation must not dump the grant clause");
 
   const theft = coverage(report, "Theft");
-  assert.notEqual(theft.coverage_status, "NOT FOUND");
-  assert.ok(
-    theft.coverage_status === "LIMITED" ||
-      theft.coverage_status === "COVERED WITH LIMITATIONS" ||
-      theft.coverage_status === "COVERED",
-    `theft status ${theft.coverage_status}`
-  );
+  assert.equal(theft.coverage_status, "LIMITED");
   assert.equal(theft.source_page, 1);
-  assert.match(theft.source_text, /theft/i);
+  assert.match(theft.description, /theft/i);
+  assert.match(theft.description, /Declarations\/Schedule|missing Declarations/i);
+  assert.match(theft.description, /reporting|non-recovery|conditions/i);
+  assert.doesNotMatch(theft.description, /\bexclusion\b/i);
+  assert.doesNotMatch(theft.description, /illness or disease|hereinafter|EDULE;/i);
 
   const medical = coverage(report, "Major Medical");
-  assert.notEqual(medical.coverage_status, "COVERED");
-  assert.ok(
-    medical.coverage_status === "NEEDS CLARIFICATION" || medical.coverage_status === "NOT FOUND",
-    `major medical ${medical.coverage_status}`
-  );
-  assert.match(medical.description, /possible additional coverage|NOT FOUND IN DOCUMENTS PROVIDED/i);
+  assert.equal(medical.coverage_status, "NEEDS CLARIFICATION");
+  assert.equal(medical.source_page, 3);
+  assert.match(medical.description, /possible additional coverage/i);
+  assert.match(medical.description, /Schedule or an endorsement/i);
+  assert.match(medical.description, /do not establish/i);
   assert.doesNotMatch(medical.description, /additional coverages such as equine$/i);
 
   const surgical = coverage(report, "Surgical");
-  assert.notEqual(surgical.coverage_status, "COVERED");
-  assert.ok(
-    surgical.coverage_status === "NEEDS CLARIFICATION" || surgical.coverage_status === "NOT FOUND",
-    `surgical ${surgical.coverage_status}`
-  );
+  assert.equal(surgical.coverage_status, "NEEDS CLARIFICATION");
+  assert.equal(surgical.source_page, 3);
+  assert.match(surgical.description, /possible additional coverage|do not establish/i);
+  assert.doesNotMatch(surgical.description, /surgical operations/i);
+
+  const lou = coverage(report, "Loss of Use");
+  assert.equal(lou.coverage_status, "NOT FOUND");
+  assert.match(lou.description, /do not establish Loss of Use coverage/i);
+  assert.doesNotMatch(lou.description, /excluded|should have been purchased/i);
 
   assert.equal(coverage(report, "Colic Surgery").coverage_status, "NOT FOUND");
-  assert.equal(coverage(report, "Loss of Use").coverage_status, "NOT FOUND");
   assert.match(report.coverage_gaps.join(" "), /not established/i);
   assert.doesNotMatch(report.coverage_gaps.join(" "), /should necessarily|ask the agent whether a separate endorsement is available or intended/i);
 
