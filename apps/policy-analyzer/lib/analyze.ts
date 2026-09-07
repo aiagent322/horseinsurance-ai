@@ -13,6 +13,12 @@ import {
 import { isEndorsementOrOptionalRole, segmentLogicalForms } from "./form-segmentation";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
+  contractualFormsAreAccountedFor,
+  discoveredFormsArePresent,
+  isContractualSpecimenFormSet,
+  resolvePackageCompleteness
+} from "./package-completeness";
+import {
   clauseConcernsMortality,
   clauseConcernsStallionCoverage,
   clauseConcernsSurgicalCoverage,
@@ -55,7 +61,6 @@ import { buildAgentQuestions } from "./agent-questions";
 import { buildUnresolvedCoverageGapStrings } from "./unresolved-coverage";
 import type {
   AnalysisStatus,
-  CompletenessResult,
   ConflictRecord,
   CoverageRecord,
   DocumentRecord,
@@ -1419,32 +1424,33 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const declarationPages = pageHits.filter((h) => looksLikeDeclarationsPage(h.text));
   const formInventory = buildFormInventory(pageHits, declarationPages, documents);
-  const warnings: string[] = [];
+  const documentWarnings: string[] = [];
   if (documents.some((d) => d.extraction_status && d.extraction_status !== "extracted" && d.extraction_status !== "pending")) {
-    warnings.push(
+    documentWarnings.push(
       "Text extraction is incomplete. OCR or native extraction did not recover every page. Coverage conclusions use only pages with reliable text."
     );
   }
   if (!declarationPages.length) {
-    warnings.push("No page was classified as Declarations.");
+    documentWarnings.push("No page was classified as Declarations.");
   }
   const scheduleFound = declarationPages.some((h) => Boolean(collectFormsScheduleText(h.text)));
   const uncertainSchedule = declarationPages.some((h) => {
     const block = collectFormsScheduleText(h.text);
     return Boolean(block) && parseListedForms(block || "").length === 0;
   });
-  if (declarationPages.length && !scheduleFound) {
-    warnings.push("No forms or endorsements schedule was identified on the declarations.");
+  const discoveredPresent = discoveredFormsArePresent(formInventory);
+  if (declarationPages.length && !scheduleFound && !discoveredPresent) {
+    documentWarnings.push("No forms or endorsements schedule was identified on the declarations.");
   }
-  if (uncertainSchedule) {
-    warnings.push("A forms schedule was found but could not be parsed with certainty.");
+  if (uncertainSchedule && !discoveredPresent) {
+    documentWarnings.push("A forms schedule was found but could not be parsed with certainty.");
   }
   for (const form of formInventory) {
     if (form.status === "MISSING") {
-      warnings.push(`Listed form ${form.printed_identifier} is missing from the uploaded package.`);
+      documentWarnings.push(`Listed form ${form.printed_identifier} is missing from the uploaded package.`);
     }
     if (form.status === "EDITION MISMATCH") {
-      warnings.push(
+      documentWarnings.push(
         `Listed form ${form.printed_identifier} edition ${form.edition || "unknown"} does not match uploaded edition ${form.match_edition || "unknown"}.`
       );
     }
@@ -1453,37 +1459,39 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     .flatMap((d) => d.pages)
     .map(hydratePageDiagnostics)
     .filter((p) => p.quality_status === "UNREADABLE");
-  if (unread.length) warnings.push(`${unread.length} page(s) have little or no readable text.`);
+  if (unread.length) documentWarnings.push(`${unread.length} page(s) have little or no readable text.`);
   const low = documents
     .flatMap((d) => d.pages)
     .map(hydratePageDiagnostics)
     .filter((p) => p.quality_status === "LOW");
   if (low.length) {
-    warnings.push(
+    documentWarnings.push(
       `${low.length} page(s) have low-quality extracted text and were not used as reliable policy language.`
     );
   }
-  if (!identification.policy_number) warnings.push("Policy number was not found.");
-  if (!identification.named_insured) warnings.push("Named insured was not found.");
   const documentIds = documents.map((d) => d.document_id);
   if (new Set(documentIds).size !== documentIds.length) {
-    warnings.push(
+    documentWarnings.push(
       "Uploaded documents reuse the same document identifier. The package cannot be treated as complete or published."
     );
   }
 
-  const allListedPresent =
-    scheduleFound &&
-    !uncertainSchedule &&
-    formInventory.length > 0 &&
-    formInventory.every((f) => f.status === "PRESENT");
-  const completeness: CompletenessResult = {
-    status:
-      warnings.length === 0 && declarationPages.length > 0 && scheduleFound && allListedPresent
-        ? "APPEARS COMPLETE"
-        : "DOCUMENT PACKAGE MAY BE INCOMPLETE",
-    warnings
-  };
+  const issuedFactWarnings: string[] = [];
+  if (!identification.policy_number) issuedFactWarnings.push("Policy number was not found.");
+  if (!identification.named_insured) issuedFactWarnings.push("Named insured was not found.");
+  const specimenFormSet = isContractualSpecimenFormSet({
+    pages: pageHits,
+    identification,
+    formInventory,
+    declarationPagesPresent: declarationPages.length > 0
+  });
+  const completeness = resolvePackageCompleteness({
+    documentWarnings,
+    issuedFactWarnings,
+    declarationPagesPresent: declarationPages.length > 0,
+    formsAccountedFor: contractualFormsAreAccountedFor(formInventory, scheduleFound),
+    specimenFormSet
+  });
 
   const coverage_gaps = buildUnresolvedCoverageGapStrings({
     completeness,

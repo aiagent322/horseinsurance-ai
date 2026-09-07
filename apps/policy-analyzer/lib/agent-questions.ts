@@ -118,12 +118,21 @@ function pushDraft(out: AgentQuestionDraft[], draft: AgentQuestionDraft): void {
 export function buildAgentQuestionDrafts(input: AgentQuestionInput): AgentQuestionDraft[] {
   const drafts: AgentQuestionDraft[] = [];
   const incomplete = input.completeness.status === "DOCUMENT PACKAGE MAY BE INCOMPLETE";
+  const specimen = input.completeness.status === "COMPLETE CONTRACTUAL SPECIMEN FORM SET";
   const missingForms = missingListedFormIds(input.formInventory);
   const missingValues = missingIdentificationLabels(input.identification);
   const optional = unresolvedOptionalCoverages(input.coverages);
   const notice = noticeContactFromRequirements(input.requirements, input.declarationsPresent);
 
-  if (incomplete && !input.declarationsPresent) {
+  if (specimen) {
+    pushDraft(drafts, {
+      key: "issued_package",
+      priority: 10,
+      reason: "The upload is a contractual specimen form set, so issued customer policy facts are not established.",
+      question:
+        "Can you provide the actual issued Declarations/Schedule for the policy being evaluated?"
+    });
+  } else if (incomplete && !input.declarationsPresent) {
     pushDraft(drafts, {
       key: "missing_package",
       priority: 10,
@@ -149,17 +158,26 @@ export function buildAgentQuestionDrafts(input: AgentQuestionInput): AgentQuesti
   }
 
   if (missingValues.length) {
-    const where = input.declarationsPresent ? "the Declarations/Schedule" : "the missing Declarations/Schedule";
-    const verb = missingValues.length === 1 ? "is" : "are";
-    pushDraft(drafts, {
-      key: "missing_values",
-      priority: 20,
-      reason: "Policy-specific values were not found in the uploaded documents.",
-      question: `What ${joinList(missingValues)} ${verb} shown on ${where}?`
-    });
+    if (specimen) {
+      pushDraft(drafts, {
+        key: "missing_values",
+        priority: 20,
+        reason: "Issued identity, schedule, and limit fields are blank on this specimen.",
+        question: "What horse(s), values, limits, and policy period apply?"
+      });
+    } else {
+      const where = input.declarationsPresent ? "the Declarations/Schedule" : "the missing Declarations/Schedule";
+      const verb = missingValues.length === 1 ? "is" : "are";
+      pushDraft(drafts, {
+        key: "missing_values",
+        priority: 20,
+        reason: "Policy-specific values were not found in the uploaded documents.",
+        question: `What ${joinList(missingValues)} ${verb} shown on ${where}?`
+      });
+    }
   }
 
-  if (notice) {
+  if (notice && !specimen) {
     const itemLabel = notice.item ? `Item ${notice.item} of the Declarations` : "the Declarations";
     pushDraft(drafts, {
       key: "missing_notice_contact",
@@ -170,12 +188,21 @@ export function buildAgentQuestionDrafts(input: AgentQuestionInput): AgentQuesti
   }
 
   if (optional.length) {
-    pushDraft(drafts, {
-      key: "optional_coverage",
-      priority: 40,
-      reason: "Optional coverage is mentioned but not established as in force.",
-      question: `Do the Schedule or endorsements establish ${joinList(optional)} coverage for this policy?`
-    });
+    if (specimen) {
+      pushDraft(drafts, {
+        key: "optional_coverage",
+        priority: 40,
+        reason: "Optional coverage forms are present in the specimen, but issued selection is not established.",
+        question: "Which optional endorsements were actually selected or issued for this policy?"
+      });
+    } else {
+      pushDraft(drafts, {
+        key: "optional_coverage",
+        priority: 40,
+        reason: "Optional coverage is mentioned but not established as in force.",
+        question: `Do the Schedule or endorsements establish ${joinList(optional)} coverage for this policy?`
+      });
+    }
   }
 
   input.conflicts.forEach((conflict, index) => {

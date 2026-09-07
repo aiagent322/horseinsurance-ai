@@ -181,7 +181,13 @@ export function buildUnresolvedCoverageItems(input: UnresolvedInput): Unresolved
     ? normalizeFormId(input.identification.policy_form.value)
     : "";
 
-  if (!state.declarationsPresent || state.declarationsMissingWarning) {
+  if (input.completeness.status === "COMPLETE CONTRACTUAL SPECIMEN FORM SET") {
+    items.push({
+      category: "Not Established",
+      explanation:
+        "Issued policy facts are not established from this contractual specimen form set. Policy number, named insured, policy period, insured horse, scheduled value, and selected optional coverages are blank."
+    });
+  } else if (!state.declarationsPresent || state.declarationsMissingWarning) {
     items.push({
       category: "Missing Package Information",
       explanation:

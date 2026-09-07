@@ -154,7 +154,10 @@ export type ConflictRecord = {
 };
 
 export type CompletenessResult = {
-  status: "APPEARS COMPLETE" | "DOCUMENT PACKAGE MAY BE INCOMPLETE";
+  status:
+    | "APPEARS COMPLETE"
+    | "DOCUMENT PACKAGE MAY BE INCOMPLETE"
+    | "COMPLETE CONTRACTUAL SPECIMEN FORM SET";
   warnings: string[];
 };
 

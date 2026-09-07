@@ -147,6 +147,11 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
           <strong>DOCUMENT PACKAGE MAY BE INCOMPLETE.</strong>{" "}
           {record.completeness.warnings.join(" ")} The report still proceeds from the pages that were readable.
         </div>
+      ) : record.completeness.status === "COMPLETE CONTRACTUAL SPECIMEN FORM SET" ? (
+        <div className="rounded-lg border border-[#1d6fa5]/30 bg-[#eff6ff] p-4 text-sm text-[#1e3a8a]">
+          <strong>COMPLETE CONTRACTUAL SPECIMEN FORM SET.</strong> Issued policy facts are not established.{" "}
+          {record.completeness.warnings.join(" ")}
+        </div>
       ) : (
         <div className="rounded-lg border border-[#047857]/30 bg-[#ecfdf5] p-4 text-sm text-[#065f46]">
           Document package appears complete enough for this reading. That is not a guarantee every form the carrier

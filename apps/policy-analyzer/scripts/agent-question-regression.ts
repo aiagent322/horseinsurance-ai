@@ -4,6 +4,7 @@ import { looksLikeQuotedPolicyLanguage } from "../lib/agent-questions";
 import { classifyPackage } from "../lib/classify";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
+import { CONTROL2_MULTI_FORM_PACKAGE_PAGES } from "./fixtures/control2-multi-form-package-pages";
 
 function docFromPages(pages: Array<{ page: number; text: string }>, filename = "agent-questions.pdf"): DocumentRecord {
   return {
@@ -77,7 +78,7 @@ The Insured shall immediately give telephone notice to the person or firm named 
       page: 1,
       text: `PART II. COVERAGE
 The Company will indemnify the Insured upon the death of an insured horse.
-Additional coverages such as Equine Major Medical and Surgical may be fully earned as stated in the Schedule or endorsements to the Policy.`
+Additional coverages such as Equine Major Medical and Equine Zero Deductible Surgical may be fully earned as stated in the Schedule or endorsements to the Policy.`
     }
   ]);
   const medical = testD.coverages.find((row) => row.coverage_type === "Major Medical");
@@ -173,6 +174,29 @@ ${longExclusion}`
   assert.doesNotMatch(blob(testI.agent_questions), /please confirm the following language/i);
   console.log("TEST I OK");
 
+  const control = analyzePages(CONTROL2_MULTI_FORM_PACKAGE_PAGES);
+  const controlBlob = blob(control.agent_questions);
+  assert.equal(control.completeness.status, "COMPLETE CONTRACTUAL SPECIMEN FORM SET");
+  assert.ok(
+    control.agent_questions.some((question) => /actual issued declarations\/schedule/i.test(question)),
+    "Control #2 asks for the issued Declarations/Schedule"
+  );
+  assert.ok(
+    control.agent_questions.some((question) => /horse\(s\), values, limits, and policy period/i.test(question)),
+    "Control #2 asks for issued horse/value/period facts"
+  );
+  assert.ok(
+    control.agent_questions.some((question) => /optional endorsements were actually selected or issued/i.test(question)),
+    "Control #2 asks which optional endorsements were issued"
+  );
+  assert.doesNotMatch(controlBlob, /are endorsements missing/i);
+  assert.doesNotMatch(
+    controlBlob,
+    /schedules or endorsements that form part of the issued policy but are missing/i
+  );
+  assert.doesNotMatch(controlBlob, /complete issued policy package/i);
+  console.log("TEST CONTROL2 OK");
+
   console.log("AGENT QUESTION REGRESSION OK", {
     A: "known exclusion suppressed",
     B: "missing declarations",
@@ -182,7 +206,8 @@ ${longExclusion}`
     F: "known duty suppressed",
     G: "true conflict",
     H: "missing-value deduplication",
-    I: "no raw clause quote"
+    I: "no raw clause quote",
+    control2: "specimen issued-policy questions"
   });
 }
 
