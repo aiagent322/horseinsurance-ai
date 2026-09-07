@@ -11,7 +11,6 @@ import {
 } from "../lib/policy-semantics";
 import { newId } from "../lib/store";
 import type { DocumentRecord, ExclusionRecord, PolicyRecord } from "../lib/types";
-import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
 
 function docFromPages(
   pages: Array<{ page: number; text: string }>,
