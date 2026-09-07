@@ -762,12 +762,16 @@ export function summarizeExclusionSatellite(
     if (/licensed/.test(text) && /veterinar|professional/.test(text)) {
       return "circumstances involving a licensed professional determination";
     }
+    if (body.length < 8) return "a stated exception in the same provision";
+    if (/^\(\s*[a-z]{1,3}\s*\)/i.test(text)) {
+      return "specified circumstances in which the exclusion may not apply";
+    }
     if (body.length > 0 && body.length <= 160) return body;
     return "a stated exception in the same provision";
   }
   if (kind === "qualification") {
     if (/post-?mortem|necropsy/.test(text)) {
-      return "the Company must be given an opportunity for postmortem or necropsy examination";
+      return "a postmortem or necropsy examination opportunity";
     }
     if (/certif/.test(text) && /licensed|professional|veterinar/.test(text)) {
       return "a licensed professional must certify the necessity";

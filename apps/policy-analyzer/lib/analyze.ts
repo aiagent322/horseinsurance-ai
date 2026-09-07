@@ -879,7 +879,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     sourceText: string
   ): void {
     if (!parents.length) return;
-    const explanation = summarizeExclusionSatellite(kind, sourceText);
+    const compact = sourceText.replace(/\s+/g, " ").trim();
+    const stripped = compact
+      .replace(/^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:however(?:\s*,)?|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply(?:\s+to)?)\s*/i, "")
+      .replace(/[:.;\s]+$/g, "")
+      .trim();
+    if (stripped.length < 8 && !/post-?mortem|necropsy|supplement|approved|humane|theft/i.test(compact)) return;
+    const explanation = summarizeExclusionSatellite(kind, compact);
+    if (!explanation.trim()) return;
     for (const parent of parents) {
       parent.attachments = parent.attachments || [];
       if (parent.attachments.some((item) => item.kind === kind && item.source_text === sourceText)) continue;
