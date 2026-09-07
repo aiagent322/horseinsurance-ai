@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { analyzeDocuments } from "../lib/analyze";
 import { classifyPackage } from "../lib/classify";
-import { collectSourceReferences, walkPolicyClauses } from "../lib/policy-semantics";
+import {
+  buildSourceReferenceIndex,
+  collectSourceReferences,
+  formatCustomerSourceReference,
+  looksLikeRawPolicyFragment,
+  walkPolicyClauses
+} from "../lib/policy-semantics";
 import { newId } from "../lib/store";
 import type { DocumentRecord } from "../lib/types";
 import { EQUINE_MORTALITY_JACKET_PAGES } from "./fixtures/equine-mortality-jacket";
@@ -238,6 +244,54 @@ function main() {
   assert.ok(refs.some((item) => item.label === "Full Mortality" && item.page === 1));
   assert.ok(refs.some((item) => item.label === "Theft" && item.page === 1));
 
+  const index = buildSourceReferenceIndex(report);
+  assert.ok(index.length > 0, "customer-facing Source References must be present");
+  for (const ref of index) {
+    assert.equal(looksLikeRawPolicyFragment(ref.label), false, `raw customer label: ${ref.label}`);
+    assert.doesNotMatch(ref.label, /the company will indemnify|the insured shall|this insurance does not cover/i);
+    assert.ok(ref.evidence.length > 0, `${ref.label} must retain underlying evidence`);
+    assert.ok(ref.evidence.every((item) => item.source_text.trim().length > 0));
+  }
+  const byLabel = (needle: RegExp) => {
+    const hit = index.find((item) => needle.test(item.label));
+    assert.ok(hit, `missing customer reference ${needle}. have: ${index.map((item) => item.label).join(" | ")}`);
+    return hit;
+  };
+  const identificationRef = byLabel(/policy identification/i);
+  const mortalityRef = byLabel(/mortality coverage/i);
+  const theftRef = byLabel(/theft coverage/i);
+  const territorialRef = byLabel(/territorial/i);
+  const vetRef = byLabel(/veterinar|necropsy/i);
+  const noticeRef = byLabel(/notice requirements/i);
+  const theftPoliceRef = byLabel(/theft \/ police/i);
+  const proofRef = byLabel(/proof of loss/i);
+  const euoRef = byLabel(/examination under oath|record production/i);
+  const otherInsRef = byLabel(/other insurance/i);
+  const medicalRef = byLabel(/major medical|surgical/i);
+  const exclusionsDisplay = byLabel(/^exclusions$/i);
+
+  assert.ok(identificationRef.pages.includes(1), "policy identification page 1");
+  assert.deepEqual(mortalityRef.pages, [1], "mortality locator page 1");
+  assert.deepEqual(theftRef.pages, [1], "theft locator page 1");
+  assert.deepEqual(territorialRef.pages, [2], "territorial limits page 2");
+  assert.ok(vetRef.pages.includes(2), "veterinary/necropsy page 2");
+  assert.ok(noticeRef.pages.includes(2), "notice page 2");
+  assert.ok(theftPoliceRef.pages.includes(2), "theft/police page 2");
+  assert.ok(
+    proofRef.pages.every((page) => page === 2 || page === 3) && proofRef.pages.length > 0,
+    "proof of loss on pages 2-3"
+  );
+  assert.ok(euoRef.pages.includes(3), "examination/records page 3");
+  assert.ok(otherInsRef.pages.includes(3), "other insurance page 3");
+  assert.ok(medicalRef.pages.includes(3), "major medical/surgical page 3");
+  assert.ok(exclusionsDisplay.pages.includes(3) && exclusionsDisplay.pages.includes(4), "exclusions pages 3-4");
+  assert.equal(exclusionsDisplay.page_label, "Pages 3-4");
+  assert.ok(
+    index.every((item) => !looksLikeRawPolicyFragment(formatCustomerSourceReference(item))),
+    "no raw clause dumps as primary references"
+  );
+  assert.equal(index.filter((item) => /^named insured$/i.test(item.label)).length, 0);
+
   console.log("REAL POLICY SEMANTIC REGRESSION OK", {
     carrier: report.identification.carrier_name?.value,
     form: report.identification.policy_form?.value,
@@ -248,7 +302,9 @@ function main() {
     surgical: surgical.coverage_status,
     exclusions: report.exclusions.length,
     requirements: report.requirements.length,
-    source_references: refs.length
+    source_references: refs.length,
+    source_reference_index: index.length,
+    source_reference_labels: index.map((item) => `${item.label} ${item.page_label}`)
   });
 }
 

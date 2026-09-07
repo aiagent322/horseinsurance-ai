@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { hydratePageDiagnostics, pageMethodCounts } from "@/lib/extraction-quality";
-import { collectSourceReferences } from "@/lib/policy-semantics";
+import { buildSourceReferenceIndex } from "@/lib/policy-semantics";
 import { cn } from "@/lib/utils";
 import type { AnalysisStatus, PolicyRecord, Sourced } from "@/lib/types";
 
@@ -421,15 +421,21 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
 
       <Section title="Source References">
         {(() => {
-          const refs = collectSourceReferences(record);
+          const refs = buildSourceReferenceIndex(record);
+          const multiDoc = record.documents.length > 1;
           if (!refs.length) {
             return <p className="text-sm text-[#6b7280]">No source references were collected from the uploaded pages.</p>;
           }
           return (
-            <ul className="space-y-2 text-xs text-[#4a5568]">
+            <ul className="space-y-3 text-sm">
               {refs.map((ref) => (
-                <li key={`${ref.label}-${ref.page}-${ref.text.slice(0, 24)}`}>
-                  {ref.label} — p. {ref.page} — “{ref.text}”
+                <li key={ref.id}>
+                  <p className="font-medium text-[#0b3c5d]">{ref.label}</p>
+                  <p className="text-xs text-[#4a5568]">
+                    {multiDoc ? `${ref.document_label} — ` : ""}
+                    {ref.page_label}
+                    {ref.section_label ? ` — ${ref.section_label}` : ""}
+                  </p>
                 </li>
               ))}
             </ul>

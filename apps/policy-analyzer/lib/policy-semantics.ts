@@ -1,4 +1,11 @@
-import type { AnalysisStatus, PolicyIdentification, PolicyRecord, Sourced } from "./types";
+import type {
+  AnalysisStatus,
+  CoverageRecord,
+  DocumentRecord,
+  PolicyIdentification,
+  PolicyRecord,
+  Sourced
+} from "./types";
 
 export function isExternalReferenceValue(value: string): boolean {
   const v = value.replace(/\s+/g, " ").trim();
@@ -625,20 +632,58 @@ export type SourceReference = {
   label: string;
   page: number;
   text: string;
+  document_id?: string;
 };
 
-function pushRef(out: SourceReference[], seen: Set<string>, label: string, page: number, text: string): void {
+export type SourceReferenceFindingType =
+  | "identification"
+  | "coverage"
+  | "limit"
+  | "duty"
+  | "condition"
+  | "exclusion"
+  | "other";
+
+export type SourceEvidenceLink = {
+  document_id: string;
+  page: number;
+  finding_type: SourceReferenceFindingType;
+  finding_key: string;
+  source_text: string;
+  section?: PolicySection | null;
+};
+
+export type CustomerSourceReference = {
+  id: string;
+  label: string;
+  document_id: string;
+  document_label: string;
+  pages: number[];
+  page_label: string;
+  section_label?: string;
+  finding_type: SourceReferenceFindingType;
+  evidence: SourceEvidenceLink[];
+};
+
+function pushRef(
+  out: SourceReference[],
+  seen: Set<string>,
+  label: string,
+  page: number,
+  text: string,
+  document_id?: string
+): void {
   const excerpt = String(text || "").replace(/\s+/g, " ").trim();
   if (!excerpt || !page || page <= 0) return;
-  const key = `${label}|${page}|${excerpt.slice(0, 80).toLowerCase()}`;
+  const key = `${document_id || ""}|${label}|${page}|${excerpt.slice(0, 80).toLowerCase()}`;
   if (seen.has(key)) return;
   seen.add(key);
-  out.push({ label, page, text: excerpt });
+  out.push({ label, page, text: excerpt, document_id });
 }
 
 function sourcedRef(out: SourceReference[], seen: Set<string>, label: string, field?: Sourced<string>): void {
   if (!field) return;
-  pushRef(out, seen, label, field.source_page, field.source_text || field.value);
+  pushRef(out, seen, label, field.source_page, field.source_text || field.value, field.source_document_id);
 }
 
 export function collectSourceReferences(record: PolicyRecord): SourceReference[] {
@@ -656,16 +701,550 @@ export function collectSourceReferences(record: PolicyRecord): SourceReference[]
   sourcedRef(out, seen, "Insured value", id.insured_value);
   for (const coverage of record.coverages) {
     if (coverage.coverage_status === "NOT FOUND") continue;
-    pushRef(out, seen, coverage.coverage_type, coverage.source_page, coverage.source_text);
+    pushRef(out, seen, coverage.coverage_type, coverage.source_page, coverage.source_text, coverage.source_document_id);
   }
   for (const limit of record.financial_limits) {
-    pushRef(out, seen, limit.label, limit.source_page, limit.source_text);
+    pushRef(out, seen, limit.label, limit.source_page, limit.source_text, limit.source_document_id);
   }
   for (const exclusion of record.exclusions) {
-    pushRef(out, seen, `Exclusion: ${exclusion.exclusion_type}`, exclusion.source_page, exclusion.exact_source_excerpt);
+    pushRef(
+      out,
+      seen,
+      `Exclusion: ${exclusion.exclusion_type}`,
+      exclusion.source_page,
+      exclusion.exact_source_excerpt,
+      exclusion.source_document_id
+    );
   }
   for (const requirement of record.requirements) {
-    pushRef(out, seen, requirement.trigger || "Requirement", requirement.source_page, requirement.source_text);
+    pushRef(
+      out,
+      seen,
+      requirement.trigger || "Requirement",
+      requirement.source_page,
+      requirement.source_text,
+      requirement.source_document_id
+    );
   }
   return out;
+}
+
+export function formatPageLocator(pages: number[]): string {
+  const unique = [...new Set(pages.filter((page) => Number.isInteger(page) && page > 0))].sort((a, b) => a - b);
+  if (unique.length === 0) return "";
+  const parts: string[] = [];
+  let i = 0;
+  while (i < unique.length) {
+    let j = i;
+    while (j + 1 < unique.length && unique[j + 1] === unique[j] + 1) j += 1;
+    if (i === j) parts.push(String(unique[i]));
+    else parts.push(`${unique[i]}-${unique[j]}`);
+    i = j + 1;
+  }
+  const joined = parts.join(", ");
+  return unique.length === 1 ? `Page ${joined}` : `Pages ${joined}`;
+}
+
+export function formatCustomerSourceReference(
+  ref: Pick<CustomerSourceReference, "label" | "page_label" | "section_label" | "document_label">,
+  options?: { includeDocument?: boolean }
+): string {
+  const locator = [
+    options?.includeDocument ? ref.document_label : undefined,
+    ref.page_label,
+    ref.section_label
+  ].filter(Boolean);
+  return [ref.label, ...locator].join(" — ");
+}
+
+export function sourceDocumentLabel(doc: DocumentRecord | undefined): string {
+  if (!doc) return "Policy Document";
+  if (doc.classification && doc.classification !== "Unknown Document") return doc.classification;
+  const filename = String(doc.original_filename || "")
+    .replace(/\.[^.]+$/, "")
+    .trim();
+  return filename || "Policy Document";
+}
+
+function sectionDisplayLabel(section: PolicySection | null | undefined): string | undefined {
+  switch (section) {
+    case "coverage":
+      return "Coverage";
+    case "conditions":
+      return "Conditions";
+    case "duties":
+      return "Duties After Loss";
+    case "exclusions":
+      return "Exclusions";
+    case "limitations":
+      return "Limitations";
+    case "definitions":
+      return "Definitions";
+    case "arbitration":
+      return "Arbitration";
+    default:
+      return undefined;
+  }
+}
+
+function foundIdentification(field?: Sourced<string>): field is Sourced<string> {
+  if (!field) return false;
+  return Boolean(normalizeIdentificationValue(field.value));
+}
+
+function isTerritorialScopeLanguage(text: string): boolean {
+  if (isOptionalCoverageMention(text)) return false;
+  if (/\bterritorial limits?\b/i.test(text) && !/\bincluding transit\b/i.test(text)) return true;
+  return (
+    /\b(united states|canada|continental usa|puerto rico)\b/i.test(text) &&
+    /\b(covered only while|only while|while the insured horse is within|unless endorsed)\b/i.test(text)
+  );
+}
+
+function isOtherInsuranceLanguage(text: string): boolean {
+  if (isOptionalCoverageMention(text)) return false;
+  return /\bother insurance\b/i.test(text);
+}
+
+function dutyIndexGroup(family: string): string | null {
+  switch (family) {
+    case "professional_treatment":
+    case "necropsy":
+      return "vet_necropsy";
+    case "notice":
+      return "notice";
+    case "theft_notice":
+    case "police":
+    case "follow_law_enforcement":
+    case "ransom":
+      return "theft_police";
+    case "proof_of_loss":
+    case "cooperation":
+      return "proof";
+    case "examination_under_oath":
+    case "records":
+      return "euo_records";
+    default:
+      return null;
+  }
+}
+
+function coverageIndexLabel(type: string, status: AnalysisStatus): string {
+  const normalized = String(type || "").replace(/\s+/g, " ").trim();
+  if (/full mortality|^mortality$/i.test(normalized)) return "Mortality Coverage";
+  if (/^theft$/i.test(normalized)) return "Theft Coverage";
+  if (/major medical/i.test(normalized)) {
+    return status === "NEEDS CLARIFICATION" ? "Optional Major Medical Reference" : "Major Medical Coverage";
+  }
+  if (/^surgical$/i.test(normalized)) {
+    return status === "NEEDS CLARIFICATION" ? "Optional Surgical Reference" : "Surgical Coverage";
+  }
+  if (status === "EXCLUDED") return `${normalized} Exclusion`;
+  if (status === "NEEDS CLARIFICATION") return `Optional ${normalized} Reference`;
+  return `${normalized} Coverage`;
+}
+
+function dutyGroupLabel(group: string, families: Set<string>): string {
+  if (group === "vet_necropsy") {
+    const vet = families.has("professional_treatment");
+    const necropsy = families.has("necropsy");
+    if (vet && necropsy) return "Veterinary / Necropsy Requirements";
+    if (necropsy) return "Necropsy Requirements";
+    return "Veterinary Requirements";
+  }
+  if (group === "notice") return "Notice Requirements";
+  if (group === "theft_police") return "Theft / Police Requirements";
+  if (group === "proof") {
+    return families.has("cooperation") ? "Proof of Loss / Claim Cooperation" : "Proof of Loss";
+  }
+  if (group === "euo_records") {
+    const euo = families.has("examination_under_oath");
+    const records = families.has("records");
+    if (euo && records) return "Examination Under Oath / Record Production";
+    if (records) return "Record Production";
+    return "Examination Under Oath";
+  }
+  return "Claim Requirements";
+}
+
+function coverageSortRank(type: string, status: AnalysisStatus): number {
+  if (/full mortality|^mortality$/i.test(type)) return 20;
+  if (/^theft$/i.test(type)) return 30;
+  if (status === "NEEDS CLARIFICATION" && /major medical|^surgical$/i.test(type)) return 120;
+  if (status === "NEEDS CLARIFICATION") return 130;
+  return 40;
+}
+
+type IndexBucket = {
+  key: string;
+  label: string;
+  finding_type: SourceReferenceFindingType;
+  sort_rank: number;
+  document_id: string;
+  families: Set<string>;
+  evidence: SourceEvidenceLink[];
+};
+
+function walkedPagesForRecord(record: PolicyRecord): WalkedPolicyClause[] {
+  const pages = record.documents.flatMap((doc) =>
+    doc.pages.map((page) => ({
+      page: page.page,
+      text: page.text,
+      document_id: doc.document_id
+    }))
+  );
+  return walkPolicyClauses(pages);
+}
+
+function documentById(record: PolicyRecord, documentId: string): DocumentRecord | undefined {
+  return record.documents.find((doc) => doc.document_id === documentId);
+}
+
+function pushEvidence(bucket: IndexBucket, evidence: SourceEvidenceLink): void {
+  const key = `${evidence.document_id}|${evidence.page}|${evidence.finding_key}|${evidence.source_text.slice(0, 80).toLowerCase()}`;
+  if (bucket.evidence.some((item) => `${item.document_id}|${item.page}|${item.finding_key}|${item.source_text.slice(0, 80).toLowerCase()}` === key)) {
+    return;
+  }
+  bucket.evidence.push(evidence);
+}
+
+function looksLikeIdentityExternalReference(text: string): boolean {
+  const hay = String(text || "");
+  if (!/\bdeclarations\b/i.test(hay)) return false;
+  if (!/\b(named insured|policy period|policy number|deductible|premium|insured horse|insured value)\b/i.test(hay)) {
+    return false;
+  }
+  return (
+    /\bas (?:stated|shown|set forth|described|listed|specified) in\b/i.test(hay) ||
+    /\bitem [a-z] of (?:the )?(?:missing )?declarations\b/i.test(hay)
+  );
+}
+
+function packageHasDeclarations(record: PolicyRecord): boolean {
+  return record.documents.some(
+    (doc) => doc.classification === "Declarations" || doc.pages.some((page) => looksLikeDeclarationsPage(page.text))
+  );
+}
+
+export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceReference[] {
+  const buckets = new Map<string, IndexBucket>();
+  const walked = walkedPagesForRecord(record);
+
+  const ensure = (
+    key: string,
+    init: Omit<IndexBucket, "key" | "families" | "evidence"> & { families?: string[] }
+  ): IndexBucket => {
+    const existing = buckets.get(key);
+    if (existing) return existing;
+    const created: IndexBucket = {
+      key,
+      label: init.label,
+      finding_type: init.finding_type,
+      sort_rank: init.sort_rank,
+      document_id: init.document_id,
+      families: new Set(init.families || []),
+      evidence: []
+    };
+    buckets.set(key, created);
+    return created;
+  };
+
+  const identificationFields: Array<{ field?: Sourced<string>; key: string }> = [
+    { field: record.identification.carrier_name, key: "carrier" },
+    { field: record.identification.policy_form, key: "policy_form" },
+    { field: record.identification.policy_number, key: "policy_number" },
+    { field: record.identification.agency_name, key: "agency" },
+    { field: record.identification.agent_name, key: "agent" },
+    { field: record.identification.named_insured, key: "named_insured" },
+    { field: record.identification.insured_horse_name, key: "insured_horse" },
+    { field: record.identification.policy_effective_date, key: "effective_date" },
+    { field: record.identification.policy_expiration_date, key: "expiration_date" },
+    { field: record.identification.deductible, key: "deductible" },
+    { field: record.identification.insured_value, key: "insured_value" }
+  ];
+  for (const item of identificationFields) {
+    if (!foundIdentification(item.field)) continue;
+    const bucket = ensure(`identification:${item.field.source_document_id}`, {
+      label: "Policy Identification",
+      finding_type: "identification",
+      sort_rank: 10,
+      document_id: item.field.source_document_id
+    });
+    pushEvidence(bucket, {
+      document_id: item.field.source_document_id,
+      page: item.field.source_page,
+      finding_type: "identification",
+      finding_key: item.key,
+      source_text: item.field.source_text || item.field.value
+    });
+  }
+
+  if (!packageHasDeclarations(record) && !foundIdentification(record.identification.named_insured)) {
+    for (const doc of record.documents) {
+      for (const page of doc.pages) {
+        const sentences = String(page.text || "").split(/(?<=[.!?;\n])/);
+        for (const sentence of sentences) {
+          if (!looksLikeIdentityExternalReference(sentence)) continue;
+          const excerpt = sentence.replace(/\s+/g, " ").trim().slice(0, 400);
+          if (!excerpt) continue;
+          const bucket = ensure(`missing-declarations:${doc.document_id}`, {
+            label: "Missing Declarations / External-Reference Evidence",
+            finding_type: "other",
+            sort_rank: 15,
+            document_id: doc.document_id
+          });
+          pushEvidence(bucket, {
+            document_id: doc.document_id,
+            page: page.page,
+            finding_type: "other",
+            finding_key: "missing_declarations",
+            source_text: excerpt
+          });
+        }
+      }
+    }
+  }
+
+  const presentCoverages = record.coverages.filter((coverage) => coverage.coverage_status !== "NOT FOUND");
+  const medical = presentCoverages.find((coverage) => /major medical/i.test(coverage.coverage_type));
+  const surgical = presentCoverages.find((coverage) => /^surgical$/i.test(coverage.coverage_type));
+  const mergeOptionalMedicalSurgical = Boolean(
+    medical &&
+      surgical &&
+      medical.source_document_id === surgical.source_document_id &&
+      medical.coverage_status === "NEEDS CLARIFICATION" &&
+      surgical.coverage_status === "NEEDS CLARIFICATION"
+  );
+  const skipOptionalSameClause = new Set<string>();
+  if (mergeOptionalMedicalSurgical && medical) {
+    skipOptionalSameClause.add(`${medical.source_document_id}:${medical.source_page}`);
+  }
+
+  const addCoverageBucket = (coverage: CoverageRecord, label: string, rank: number, keySuffix: string) => {
+    if (!coverage.source_page || coverage.source_page <= 0) return;
+    const walkedHit = walked.find(
+      (item) =>
+        item.document_id === coverage.source_document_id &&
+        item.page === coverage.source_page &&
+        (item.kind === "grant" || item.section === "coverage" || isOptionalCoverageMention(item.clause))
+    );
+    const bucket = ensure(`coverage:${keySuffix}:${coverage.source_document_id}`, {
+      label,
+      finding_type: "coverage",
+      sort_rank: rank,
+      document_id: coverage.source_document_id
+    });
+    pushEvidence(bucket, {
+      document_id: coverage.source_document_id,
+      page: coverage.source_page,
+      finding_type: "coverage",
+      finding_key: coverage.coverage_type,
+      source_text: coverage.source_text,
+      section: walkedHit?.section
+    });
+  };
+
+  if (mergeOptionalMedicalSurgical && medical && surgical) {
+    addCoverageBucket(
+      medical,
+      "Optional Major Medical / Surgical Reference",
+      120,
+      "optional-medical-surgical"
+    );
+    addCoverageBucket(
+      surgical,
+      "Optional Major Medical / Surgical Reference",
+      120,
+      "optional-medical-surgical"
+    );
+  }
+
+  for (const coverage of presentCoverages) {
+    const isMedical = /major medical/i.test(coverage.coverage_type);
+    const isSurgical = /^surgical$/i.test(coverage.coverage_type);
+    if (mergeOptionalMedicalSurgical && (isMedical || isSurgical)) continue;
+    if (
+      coverage.coverage_status === "NEEDS CLARIFICATION" &&
+      !isMedical &&
+      !isSurgical &&
+      skipOptionalSameClause.has(`${coverage.source_document_id}:${coverage.source_page}`)
+    ) {
+      continue;
+    }
+    addCoverageBucket(
+      coverage,
+      coverageIndexLabel(coverage.coverage_type, coverage.coverage_status),
+      coverageSortRank(coverage.coverage_type, coverage.coverage_status),
+      coverage.coverage_type.toLowerCase()
+    );
+  }
+
+  const addDutyEvidence = (
+    documentId: string,
+    page: number,
+    sourceText: string,
+    family: string,
+    findingKey: string
+  ) => {
+    const group = dutyIndexGroup(family);
+    if (!group || !page || page <= 0) return;
+    const walkedHit = walked.find(
+      (item) => item.document_id === documentId && item.page === page && item.kind === "duty" && item.clause.includes(sourceText.slice(0, 24))
+    ) || walked.find((item) => item.document_id === documentId && item.page === page && item.kind === "duty");
+    const bucket = ensure(`duty:${group}:${documentId}`, {
+      label: dutyGroupLabel(group, new Set([family])),
+      finding_type: "duty",
+      sort_rank:
+        group === "vet_necropsy"
+          ? 60
+          : group === "notice"
+            ? 70
+            : group === "theft_police"
+              ? 80
+              : group === "proof"
+                ? 90
+                : 100,
+      document_id: documentId,
+      families: [family]
+    });
+    bucket.families.add(family);
+    bucket.label = dutyGroupLabel(group, bucket.families);
+    pushEvidence(bucket, {
+      document_id: documentId,
+      page,
+      finding_type: "duty",
+      finding_key: findingKey,
+      source_text: sourceText,
+      section: walkedHit?.section
+    });
+  };
+
+  for (const requirement of record.requirements) {
+    const blob = `${requirement.requirement} ${requirement.source_text}`;
+    addDutyEvidence(
+      requirement.source_document_id,
+      requirement.source_page,
+      requirement.source_text || requirement.requirement,
+      dutyFamily(blob),
+      requirement.trigger || "duty"
+    );
+  }
+  for (const clause of walked) {
+    if (clause.kind !== "duty" || !clause.document_id) continue;
+    addDutyEvidence(clause.document_id, clause.page, clause.clause, dutyFamily(clause.clause), dutyFamily(clause.clause));
+  }
+
+  for (const clause of walked) {
+    if (!clause.document_id || clause.kind === "exclusion" || clause.kind === "grant") continue;
+    if (isTerritorialScopeLanguage(clause.clause)) {
+      const bucket = ensure(`limit:territorial:${clause.document_id}`, {
+        label: "Territorial Limits",
+        finding_type: "limit",
+        sort_rank: 50,
+        document_id: clause.document_id
+      });
+      pushEvidence(bucket, {
+        document_id: clause.document_id,
+        page: clause.page,
+        finding_type: "limit",
+        finding_key: "territorial",
+        source_text: clause.clause,
+        section: clause.section
+      });
+    }
+    if (isOtherInsuranceLanguage(clause.clause)) {
+      const bucket = ensure(`condition:other-insurance:${clause.document_id}`, {
+        label: "Other Insurance",
+        finding_type: "condition",
+        sort_rank: 110,
+        document_id: clause.document_id
+      });
+      pushEvidence(bucket, {
+        document_id: clause.document_id,
+        page: clause.page,
+        finding_type: "condition",
+        finding_key: "other_insurance",
+        source_text: clause.clause,
+        section: clause.section
+      });
+    }
+  }
+
+  const exclusionsByDoc = new Map<string, typeof record.exclusions>();
+  for (const exclusion of record.exclusions) {
+    const list = exclusionsByDoc.get(exclusion.source_document_id) || [];
+    list.push(exclusion);
+    exclusionsByDoc.set(exclusion.source_document_id, list);
+  }
+  for (const [documentId, list] of exclusionsByDoc) {
+    const bucket = ensure(`exclusion:${documentId}`, {
+      label: "Exclusions",
+      finding_type: "exclusion",
+      sort_rank: 140,
+      document_id: documentId
+    });
+    for (const exclusion of list) {
+      const walkedHit = walked.find(
+        (item) =>
+          item.document_id === documentId &&
+          item.page === exclusion.source_page &&
+          (item.kind === "exclusion" || item.section === "exclusions")
+      );
+      pushEvidence(bucket, {
+        document_id: documentId,
+        page: exclusion.source_page,
+        finding_type: "exclusion",
+        finding_key: exclusion.exclusion_type,
+        source_text: exclusion.exact_source_excerpt,
+        section: walkedHit?.section || "exclusions"
+      });
+    }
+  }
+
+  const documentIndex = new Map(record.documents.map((doc, index) => [doc.document_id, index]));
+  const orderedBuckets = [...buckets.values()]
+    .filter((bucket) => bucket.evidence.some((item) => item.page > 0))
+    .sort((a, b) => {
+      if (a.sort_rank !== b.sort_rank) return a.sort_rank - b.sort_rank;
+      const docA = documentIndex.get(a.document_id) ?? 999;
+      const docB = documentIndex.get(b.document_id) ?? 999;
+      if (docA !== docB) return docA - docB;
+      const pageA = Math.min(...a.evidence.map((item) => item.page).filter((page) => page > 0));
+      const pageB = Math.min(...b.evidence.map((item) => item.page).filter((page) => page > 0));
+      return pageA - pageB;
+    });
+
+  return orderedBuckets.map((bucket) => {
+    const pages = [...new Set(bucket.evidence.map((item) => item.page).filter((page) => page > 0))].sort((a, b) => a - b);
+    const sectionNames = [
+      ...new Set(
+        bucket.evidence
+          .map((item) => sectionDisplayLabel(item.section))
+          .filter((label): label is string => Boolean(label))
+      )
+    ];
+    return {
+      id: bucket.key,
+      label: bucket.label,
+      document_id: bucket.document_id,
+      document_label: sourceDocumentLabel(documentById(record, bucket.document_id)),
+      pages,
+      page_label: formatPageLocator(pages),
+      section_label: sectionNames.length === 1 ? sectionNames[0] : undefined,
+      finding_type: bucket.finding_type,
+      evidence: bucket.evidence
+    };
+  });
+}
+
+export function looksLikeRawPolicyFragment(text: string): boolean {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (value.length > 90) return true;
+  return (
+    /\bthe company will indemnify\b/i.test(value) ||
+    /\bthe insured shall\b/i.test(value) ||
+    /\bthis insurance does not cover\b/i.test(value) ||
+    /\bno liability arises\b/i.test(value) ||
+    /\bsubject nevertheless\b/i.test(value)
+  );
 }
