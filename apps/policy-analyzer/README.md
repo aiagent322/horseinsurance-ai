@@ -23,6 +23,7 @@ npm run test:duty-presentation
 npm run test:live-exclusion-parity
 npm run test:exclusion-structure
 npm run test:exclusion-ownership
+npm run test:exclusion-presentation
 npm run test:completeness
 npm run test:ingestion
 npm run test:persistence

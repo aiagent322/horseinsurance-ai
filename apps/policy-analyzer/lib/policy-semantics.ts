@@ -824,69 +824,102 @@ export function summarizeExclusionSatellite(
   clause: string
 ): string {
   const text = String(clause || "").replace(/\s+/g, " ").trim();
-  const body = text
-    .replace(
-      /^(?:\d+\.\s*)?(?:\(\s*[a-z]{1,3}\s*\)\s*)?(?:however(?:\s*,)?|except(?:\s+that)?|provided(?:\s*,?\s*however)?(?:\s+that)?|this exclusion (?:shall|does|will) not apply(?:\s+to)?)\s*/i,
-      ""
-    )
-    .replace(/[.]+$/, "")
-    .trim();
 
-  if (kind === "exception") {
-    if (/fire/.test(text) && /flood/.test(text)) return "fire following flood";
-    if (/supplement/.test(text) && /direction|label|product/.test(text)) {
-      return "commonly available nutritional supplements used according to stated product directions";
-    }
-    if (/supplement/.test(text)) return "qualifying nutritional supplements meeting the stated policy conditions";
-    if (/death/.test(text) && /theft/.test(text)) return "death following theft";
-    if (/approved/.test(text) && /humane/.test(text)) {
-      return "Company-approved destruction and certain humane-destruction circumstances subject to the policy's veterinary requirements";
-    }
-    if (/humane/.test(text)) return "certain humane-destruction circumstances subject to the policy's veterinary requirements";
-    if (/approved/.test(text)) return "Company-approved circumstances";
-    if (/licensed/.test(text) && /veterinar/.test(text) && /surgical|operation/.test(text)) {
-      return "surgical operations performed by a licensed veterinarian in the stated circumstances";
-    }
-    if (/licensed/.test(text) && /veterinar|professional/.test(text)) {
-      return "circumstances involving a licensed professional determination";
-    }
-    if (body.length < 8) return "a stated exception in the same provision";
-    if (/^\(\s*[a-z]{1,3}\s*\)/i.test(text)) {
-      return "specified circumstances in which the exclusion may not apply";
-    }
-    if (body.length > 0 && body.length <= 160) return body;
-    return "a stated exception in the same provision";
+  if (kind === "definition") {
+    return "The provision defines a term used in this exclusion.";
   }
-  if (kind === "qualification") {
+
+  if (kind === "qualification" || kind === "continuation") {
     if (/post-?mortem|necropsy/.test(text)) {
-      return "a postmortem or necropsy examination opportunity";
+      return "The Company must be given the opportunity for the required postmortem/necropsy examination.";
+    }
+    if (/inspect|examin/.test(text) && /opportunit|provided that|must be given/i.test(text)) {
+      return "The insurer must be given an opportunity to inspect, as stated in the policy.";
     }
     if (/certif/.test(text) && /licensed|professional|veterinar/.test(text)) {
-      return "a licensed professional must certify the necessity";
+      return "A licensed professional must certify the necessity, as stated in the policy.";
     }
-    if (body.length > 0 && body.length <= 160) return body;
-    return "a stated qualification in the same provision";
+    return "The exclusion is subject to a stated procedural condition in the same provision.";
   }
-  if (kind === "definition") return "the provision includes a definition of a stated term";
-  return "additional language in the same exclusion provision";
+
+  if (/will not invoke|not invoke this.{0,60}exclusion|as a defense/i.test(text)) {
+    return "The Company will not rely on this exclusion as a defense in the circumstances stated in the policy.";
+  }
+  if (/fire/.test(text) && /flood/.test(text)) {
+    return "Fire following flood, as stated in the provision.";
+  }
+  if (/supplement/.test(text) && /direction|label|product/.test(text)) {
+    return "Commonly available nutritional supplements used according to the stated product directions and policy conditions.";
+  }
+  if (/supplement/.test(text)) {
+    return "Qualifying nutritional supplements meeting the stated policy conditions.";
+  }
+  if (/death/.test(text) && /theft/.test(text)) {
+    return "Death following theft, as stated in the provision.";
+  }
+  if (/humane/.test(text)) {
+    return "Certain humane-destruction circumstances supported by the required veterinary determination.";
+  }
+  if (/approved|authoriz/.test(text)) {
+    return "Company-authorized destruction in the circumstances stated by the policy.";
+  }
+  if (/licensed/.test(text) && /veterinar/.test(text) && /surgical|operation/.test(text)) {
+    return "Surgical operations performed by a licensed veterinarian under the specified medically necessary or approved circumstances.";
+  }
+  if (/licensed/.test(text) && /veterinar|professional/.test(text)) {
+    return "Circumstances involving a licensed professional determination, as stated in the policy.";
+  }
+  if (/aircraft|in.?transit|aboard|transport/.test(text) || /emergency/.test(text)) {
+    return "Certain emergency or in-transit circumstances stated in the policy.";
+  }
+  if (/household product/.test(text)) {
+    return "Ordinary household products used according to stated label directions.";
+  }
+  if (/peacetime|training exercise/.test(text)) {
+    return "A declared peacetime training exercise, as stated in the provision.";
+  }
+  return "A circumstance described in the provision in which this exclusion may not apply.";
 }
 
 const EXCLUSION_CAUSE_PHRASE: Record<string, string> = {
   "Intentional Destruction": "intentional destruction of an insured horse",
-  "Contagious / Communicable Disease": "destruction or loss due to contagious or communicable disease",
-  "Surgical Operations": "certain surgical operations",
-  "Medication / Substance": "loss related to prohibited medication or chemical-substance circumstances",
+  "Contagious / Communicable Disease": "destruction of a horse because of contagious or communicable disease",
+  "Surgical Operations": "loss arising from certain surgical operations",
+  "Medication / Substance": "loss arising from certain medication or substance circumstances described in the policy",
   "Malicious / Willful / Intentional Acts": "loss caused by malicious, willful, or intentional acts or omissions",
-  "Failure to Provide Proper Care": "loss caused by failure to provide proper care",
-  "Nuclear Risk": "loss caused by nuclear risk",
-  Confiscation: "loss caused by confiscation",
-  "War / Military Force": "loss caused by war or military force",
-  "Mysterious Disappearance / Escape": "mysterious disappearance or escape",
-  "Fraudulent Voluntary Parting": "fraudulent voluntary parting",
-  "Consequential Loss": "consequential loss",
+  "Failure to Provide Proper Care": "loss caused by failure to provide proper care and attention",
+  "Nuclear Risk": "loss caused by nuclear fission, nuclear fusion, or radioactive contamination",
+  Confiscation: "loss caused by confiscation or similar governmental action described in the provision",
+  "War / Military Force": "loss caused by war, civil war, insurrection, invasion, military force, or related events described in the policy",
+  "Mysterious Disappearance / Escape": "loss arising from mysterious disappearance or escape",
+  "Fraudulent Voluntary Parting": "loss resulting from fraudulent voluntary parting with possession or title",
+  "Consequential Loss": "consequential loss, injury, or damage",
   "Named anatomical / condition exclusion": "coverage for the named anatomical area or condition",
   "Pre-existing condition": "pre-existing conditions as stated in the documents"
 };
+
+const EXCLUSION_PLACEHOLDER_PATTERNS = [
+  /specified circumstances in which the exclusion may not apply/i,
+  /specified circumstances in which destruction may not be barred/i,
+  /a stated exception in the same provision/i,
+  /\bstated exclusion\b/i,
+  /exception for the Company will not invoke/i,
+  /\bunknown exception\b/i,
+  /\brelated exception\b/i
+];
+
+const EXCLUSION_GRAMMAR_ARTIFACT_PATTERNS = [
+  /\.;/,
+  /:;/,
+  /,\./,
+  /for the Company will/i,
+  /exception for when/i,
+  /exception for where/i,
+  /contains an exception for the policy excludes/i,
+  /contains an exception for the Company/i,
+  /exception for the Company will/i,
+  /subject to The Company must/i
+];
 
 function joinExclusionPhrases(parts: string[]): string {
   const unique = [...new Set(parts.filter(Boolean))];
@@ -896,46 +929,155 @@ function joinExclusionPhrases(parts: string[]): string {
   return `${unique.slice(0, -1).join(", ")}, and ${unique[unique.length - 1]}`;
 }
 
+function satelliteBlob(attachments?: Array<{ kind: string; explanation: string; source_text?: string }>): string {
+  return (attachments || []).map((item) => `${item.explanation} ${item.source_text || ""}`).join(" ");
+}
+
+function exclusionLeadSentence(type: string, source: string): string {
+  switch (type) {
+    case "Intentional Destruction":
+      return "The policy excludes intentional destruction of an insured horse.";
+    case "Contagious / Communicable Disease":
+      if (/destruct/.test(source)) {
+        return "The policy excludes destruction of a horse because it contracted or was exposed to a contagious or communicable disease.";
+      }
+      return "The policy excludes destruction of a horse because of contagious or communicable disease.";
+    case "Surgical Operations":
+      return "The policy excludes loss arising from certain surgical operations.";
+    case "Medication / Substance":
+      return "The policy excludes loss arising from certain medication or substance circumstances described in the policy.";
+    case "Malicious / Willful / Intentional Acts":
+      if (/\binsured\b/i.test(source)) {
+        return "The policy excludes loss caused by malicious, willful, or intentional acts or omissions by the insured or specified persons associated with the insured.";
+      }
+      return "The policy excludes loss caused by malicious, willful, or intentional acts or omissions.";
+    case "Failure to Provide Proper Care":
+      return "The policy excludes loss caused by failure to provide proper care and attention.";
+    case "Nuclear Risk":
+      return "The policy excludes loss caused by nuclear fission, nuclear fusion, or radioactive contamination.";
+    case "Confiscation":
+      return "The policy excludes loss caused by confiscation or similar governmental action described in the provision.";
+    case "War / Military Force":
+      return "The policy excludes loss caused by war, civil war, insurrection, invasion, military force, or related events described in the policy.";
+    case "Mysterious Disappearance / Escape":
+      return "The policy excludes loss arising from mysterious disappearance or escape.";
+    case "Fraudulent Voluntary Parting":
+      return "The policy excludes loss resulting from fraudulent voluntary parting with possession or title.";
+    case "Consequential Loss":
+      return "The policy excludes consequential loss, injury, or damage.";
+    default: {
+      const phrase = EXCLUSION_CAUSE_PHRASE[type];
+      if (phrase) return `The policy excludes ${phrase}.`;
+      const named = type.replace(/\s*\/\s*/g, " ").trim();
+      if (named && !/^stated exclusion$/i.test(named)) {
+        return `The policy excludes ${named.charAt(0).toLowerCase()}${named.slice(1)}.`;
+      }
+      return "The policy excludes this cause of loss.";
+    }
+  }
+}
+
+function withSubjectClause(lead: string, clause: string): string {
+  return `${lead.replace(/\.+$/, "")}, ${clause}.`;
+}
+
+function genericSatelliteSubjectClause(exceptions: boolean, qualifications: boolean): string {
+  if (exceptions && qualifications) return "subject to the exceptions or qualifications stated in the provision";
+  if (exceptions) return "subject to the exceptions stated in the policy";
+  return "subject to the qualifications stated in the provision";
+}
+
+function intentionalDestructionExceptionSentence(source: string): string {
+  const authorized = /approved|authoriz/.test(source);
+  const humane = /humane/.test(source);
+  const emergency = /aircraft|in.?transit|aboard|emergency|berserk/.test(source);
+  const bits: string[] = [];
+  if (authorized) bits.push("Company-authorized destruction");
+  if (emergency || humane) {
+    bits.push("certain emergency or humane-destruction circumstances subject to the policy's veterinary requirements");
+  }
+  if (bits.length) return `Exceptions include ${joinExclusionPhrases(bits)}.`;
+  return "The exclusion is subject to specified exceptions for circumstances permitted by the policy.";
+}
+
+function qualificationNarrative(source: string): string | undefined {
+  if (/post-?mortem|necropsy/.test(source)) {
+    return "The Company must be given the opportunity for the required postmortem/necropsy examination in the circumstances specified by the policy.";
+  }
+  if (/inspect/.test(source)) {
+    return "The Company must be given the opportunity to inspect as stated in the policy.";
+  }
+  if (/certif/.test(source)) {
+    return "A licensed professional must certify the necessity, as stated in the policy.";
+  }
+  return undefined;
+}
+
+export function looksLikePlaceholderExclusionNarrative(text: string): boolean {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  return EXCLUSION_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+export function looksLikeUngrammaticalExclusionNarrative(text: string): boolean {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  return EXCLUSION_GRAMMAR_ARTIFACT_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function conservativeExclusionFallback(hasSatellites: boolean): string {
+  return hasSatellites
+    ? "The policy excludes this cause of loss, subject to the exceptions or qualifications stated in the provision."
+    : "The policy excludes this cause of loss.";
+}
+
+function finalizeExclusionNarrative(text: string, hasSatellites: boolean): string {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (
+    !cleaned ||
+    looksLikePlaceholderExclusionNarrative(cleaned) ||
+    looksLikeUngrammaticalExclusionNarrative(cleaned) ||
+    /this is covered if|automatically covered|coverage is guaranteed/i.test(cleaned)
+  ) {
+    return conservativeExclusionFallback(hasSatellites);
+  }
+  return cleaned;
+}
+
 export function explainExclusion(
   type: string,
   attachments?: Array<{ kind: string; explanation: string; source_text?: string }>,
   sourceText?: string
 ): string {
-  const source = `${sourceText || ""} ${attachments?.map((item) => `${item.explanation} ${item.source_text || ""}`).join(" ") || ""}`;
+  const source = `${sourceText || ""} ${satelliteBlob(attachments)}`;
   const exceptions = (attachments || []).filter((item) => item.kind === "exception");
   const qualifications = (attachments || []).filter((item) => item.kind === "qualification");
-  const cause = EXCLUSION_CAUSE_PHRASE[type] || `loss caused by ${type.replace(/\s*\/\s*/g, " ").toLowerCase()}`;
-  const parts: string[] = [];
+  const hasSatellites = exceptions.length > 0 || qualifications.length > 0;
+  const parts: string[] = [exclusionLeadSentence(type, source)];
 
-  if (type === "Surgical Operations" && exceptions.length > 0) {
-    parts.push("The policy excludes certain surgical operations, subject to stated exceptions.");
-  } else {
-    parts.push(`The policy excludes ${cause}.`);
-  }
-
-  if (type === "Consequential Loss" && /death/.test(source) && /theft/.test(source)) {
-    parts.push("This exclusion contains an exception for death following theft.");
-  } else if (type === "Intentional Destruction" && exceptions.length > 0) {
-    const bits: string[] = [];
-    if (/approved/.test(source)) bits.push("Company-approved destruction");
-    if (/humane/.test(source)) {
-      bits.push("certain humane-destruction circumstances subject to the policy's veterinary requirements");
-    }
-    if (bits.length) {
-      parts.push(
-        `The exclusion contains specified circumstances in which destruction may not be barred, including ${joinExclusionPhrases(bits)}.`
-      );
-    } else {
-      parts.push(`This exclusion contains an exception for ${joinExclusionPhrases(exceptions.map((item) => item.explanation))}.`);
-    }
-  } else if (exceptions.length > 0) {
-    parts.push(`This exclusion contains an exception for ${joinExclusionPhrases(exceptions.map((item) => item.explanation))}.`);
+  if (type === "Intentional Destruction" && exceptions.length > 0) {
+    parts.push(intentionalDestructionExceptionSentence(source));
+  } else if (type === "Surgical Operations" && exceptions.length > 0) {
+    parts[0] = withSubjectClause(parts[0], "subject to the exceptions stated in the policy");
+  } else if (type === "Medication / Substance" && /supplement/.test(source)) {
+    parts.push(
+      "The provision contains an exception for commonly available nutritional supplements used according to the stated product directions and policy conditions."
+    );
+  } else if (type === "Consequential Loss" && /death/.test(source) && /theft/.test(source)) {
+    parts[0] = withSubjectClause(
+      "The policy excludes consequential loss, injury, or damage",
+      "subject to the policy's stated exception for death following theft"
+    );
+  } else if (hasSatellites) {
+    parts[0] = withSubjectClause(parts[0], genericSatelliteSubjectClause(exceptions.length > 0, qualifications.length > 0));
   }
 
   if (qualifications.length > 0) {
-    parts.push(`The exclusion is subject to ${qualifications[0].explanation}.`);
+    const qualification = qualificationNarrative(source);
+    if (qualification) parts.push(qualification);
   }
-  return parts.join(" ");
+
+  return finalizeExclusionNarrative(parts.join(" "), hasSatellites);
 }
 
 export function looksLikeRawExclusionExplanation(description: string, sourceText?: string): boolean {

@@ -12,6 +12,8 @@ import {
   formatPageLocator,
   looksLikeRawClaimDutySummary,
   looksLikeRawExclusionExplanation,
+  looksLikePlaceholderExclusionNarrative,
+  looksLikeUngrammaticalExclusionNarrative,
   looksLikeRawPolicyFragment
 } from "../lib/policy-semantics";
 import { newId } from "../lib/store";
@@ -300,6 +302,27 @@ function main() {
   assert.ok(report.exclusions.some((row) => /war/i.test(row.exclusion_type)));
   assert.ok(report.exclusions.every((row) => row.source_page > 0));
   assert.doesNotMatch(facing, /this insurance does not cover[\s\S]{80,}/i);
+  assert.equal(report.exclusions.length, 12, `expected 12 exclusions, got ${report.exclusions.map((row) => row.exclusion_type).join(" | ")}`);
+  const exclusionsFacingStart = facing.indexOf("\nExclusions\n");
+  const exclusionsFacingEnd = facing.indexOf("\nEmergency / Claim Requirements\n");
+  const exclusionsFacing =
+    exclusionsFacingStart >= 0 && exclusionsFacingEnd > exclusionsFacingStart
+      ? facing.slice(exclusionsFacingStart, exclusionsFacingEnd)
+      : facing.slice(facing.indexOf("Exclusions"), facing.indexOf("Emergency / Claim Requirements"));
+  assert.doesNotMatch(exclusionsFacing, /specified circumstances in which the exclusion may not apply/i);
+  assert.doesNotMatch(exclusionsFacing, /a stated exception in the same provision/i);
+  assert.doesNotMatch(exclusionsFacing, /exception for the Company will not invoke/i);
+  assert.doesNotMatch(exclusionsFacing, /stated exclusion/i);
+  assert.doesNotMatch(exclusionsFacing, /this insurance does not cover/i);
+  for (const row of report.exclusions) {
+    assert.equal(looksLikePlaceholderExclusionNarrative(row.description), false, row.description);
+    assert.equal(looksLikeUngrammaticalExclusionNarrative(row.description), false, row.description);
+    for (const item of row.attachments || []) {
+      if (item.kind !== "exception" && item.kind !== "qualification") continue;
+      assert.equal(looksLikePlaceholderExclusionNarrative(item.explanation), false, item.explanation);
+      assert.equal(looksLikeUngrammaticalExclusionNarrative(item.explanation), false, item.explanation);
+    }
+  }
 
   const questions = report.agent_questions;
   assert.ok(questions.length >= 3 && questions.length <= 5, `question count ${questions.length}: ${questions.join(" | ")}`);
