@@ -17,6 +17,7 @@
     "test:taxonomy": "POLICY_ANALYZER_STORE=memory tsx scripts/taxonomy-regression.ts",
     "test:emergency-requirements": "POLICY_ANALYZER_STORE=memory tsx scripts/emergency-requirements-regression.ts",
     "test:duty-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/duty-presentation-regression.ts",
+    "test:claim-duty": "POLICY_ANALYZER_STORE=memory tsx scripts/claim-duty-regression.ts",
     "test:coverage-explanation": "POLICY_ANALYZER_STORE=memory tsx scripts/coverage-explanation-regression.ts",
     "test:source-references": "POLICY_ANALYZER_STORE=memory tsx scripts/source-references-regression.ts",
     "test:final-report": "POLICY_ANALYZER_STORE=memory tsx scripts/final-report-regression.ts",

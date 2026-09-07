@@ -331,7 +331,10 @@ function sectionFromHeadingName(name: string): PolicySection | null {
   return null;
 }
 
-export function parseSectionHeadingLine(line: string): { section: PolicySection; rest: string } | null {
+export function parseSectionHeadingLine(
+  line: string,
+  current?: PolicySection | null
+): { section: PolicySection; rest: string } | null {
   const raw = String(line || "").replace(/\s+/g, " ").trim();
   if (!raw || /^page\s+\d+$/i.test(raw)) return null;
   const strong = raw.match(STRONG_HEADING_PATTERN);
@@ -343,6 +346,17 @@ export function parseSectionHeadingLine(line: string): { section: PolicySection;
   if (weak?.[1]) {
     const section = sectionFromHeadingName(weak[1]);
     if (section) return { section, rest: "" };
+  }
+  const dutyHeading = raw.match(
+    /^(?:[A-Z]\.\s+)?(duties(?:\s+after(?:\s+a)?\s+loss)?(?:\s+in the event of\b.*)?|what you must do|loss conditions)\s*[:.]?\s*$/i
+  );
+  if (dutyHeading) return { section: "duties", rest: "" };
+  const titled = raw.match(/^[A-Z]\.\s+([A-Z][A-Z0-9 ,/'()&-]{3,})\s*$/);
+  if (titled?.[1]) {
+    if (/\bduties\b|what you must do|claim conditions|loss conditions|emergency requirements/i.test(titled[1])) {
+      return { section: "duties", rest: "" };
+    }
+    if (current === "duties") return { section: "conditions", rest: "" };
   }
   return null;
 }
@@ -413,7 +427,11 @@ export function isPolicyConditionLanguage(clause: string): boolean {
 
 function hasDutyAction(clause: string): boolean {
   return (
-    /\b(?:notify|notice|report|file|submit|produce|obtain|employ|arrange|preserve|protect|cooperat)\b/i.test(clause) ||
+    /\b(?:notify|notice|report(?:ed)?|file|submit|produce|provide|obtain|employ|arrange|preserve|protect|cooperat\w*|furnish|inspect)\b/i.test(
+      clause
+    ) ||
+    /\bsend us\b/i.test(clause) ||
+    /\ballow us to inspect\b/i.test(clause) ||
     /\bexaminations?\s+under\s+oath\b/i.test(clause) ||
     /\bproof of loss\b/i.test(clause) ||
     /\bransom\b/i.test(clause) ||
@@ -422,6 +440,7 @@ function hasDutyAction(clause: string): boolean {
     /\bpostmortem\b/i.test(clause) ||
     /\bpost-mortem\b/i.test(clause) ||
     /\bnecropsy\b/i.test(clause) ||
+    /\bdisposal of\b.{0,80}\bremains\b/i.test(clause) ||
     /\bfollow .{0,80}recommend/i.test(clause)
   );
 }
@@ -451,15 +470,40 @@ function hasEventOrClaimCue(clause: string): boolean {
 function hasDutyObligation(clause: string): boolean {
   if (/\b(shall|must|required to)\b/i.test(clause)) return true;
   if (/\b(?:shall|must|do)\s+not\b/i.test(clause)) return true;
+  if (/\byou (?:must |shall )?notify\b/i.test(clause)) return true;
   if (/^\(\s*[a-z]+\s*\)/.test(clause.trim()) && /\bimmediate(?:ly)?\b/i.test(clause)) return true;
-  return /^(?:[-•]\s*|\(\s*[a-z]+\s*\)\s*)?(?:immediately\s+)?(?:notify|report|file|submit|produce|obtain|employ|arrange|preserve|protect|follow|cooperate)\b/i.test(
+  return /^(?:[-•]\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Za-z]\.\s*)?(?:immediately\s+)?(?:notify|report|file|submit|produce|obtain|employ|arrange|preserve|protect|follow|cooperate|give|allow|send|furnish)\b/i.test(
     clause.trim()
+  );
+}
+
+export function isInsurerPerformanceLanguage(clause: string): boolean {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (/\b(?:you|the insured)\s+(?:must|shall)\b/i.test(text)) return false;
+  return (
+    /\bonce we have received\b/i.test(text) ||
+    /\bwe shall pay\b/i.test(text) ||
+    /\bwe will pay for a covered claim\b/i.test(text) ||
+    /\bour obligation to indemnify\b/i.test(text)
+  );
+}
+
+export function isValuationOrAuctionNotice(clause: string): boolean {
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!/notify|notice|report/i.test(text)) return false;
+  return (
+    /\b(?:public )?auction\b/i.test(text) ||
+    /\bclaiming (?:race|price)\b/i.test(text) ||
+    /\bhighest (?:bid|amount bid)\b/i.test(text) ||
+    /limit of insurance.{0,120}reduc/i.test(text)
   );
 }
 
 export function isClaimDutyLanguage(clause: string): boolean {
   if (isCoverageGrantLanguage(clause)) return false;
   if (isCoverageLimitationLanguage(clause)) return false;
+  if (isInsurerPerformanceLanguage(clause)) return false;
+  if (isValuationOrAuctionNotice(clause)) return false;
   if (!hasDutyAction(clause) || !hasDutyObligation(clause)) return false;
   return hasEventOrClaimCue(clause);
 }
@@ -482,7 +526,9 @@ export function classifyPolicyTerm(clause: string, section: PolicySection | null
     return "exclusion";
   }
   if (section === "duties") {
+    if (isInsurerPerformanceLanguage(text) || isValuationOrAuctionNotice(text)) return null;
     if (duty) return "duty";
+    if (markedListItem && hasDutyAction(text) && !limitation && !exclusionWording) return "duty";
     if (limitation || exclusionWording) return "limitation";
     if (condition) return "condition";
     return null;
@@ -513,6 +559,14 @@ function isBareClauseListMarker(text: string): boolean {
   return BARE_CLAUSE_LIST_MARKER.test(String(text || "").replace(/\s+/g, " ").trim());
 }
 
+function trailingListMarker(text: string): boolean {
+  return /(?:^|[\s:])(?:\d+\.|\(\s*\d+\s*\)|\(\s*[a-z]{1,3}\s*\)|[A-Za-z]\.)$/i.test(String(text || "").trim());
+}
+
+function continuesEnumeratedList(part: string): boolean {
+  return /^(?:and\s+)?(?:i{1,3}|iv|vi{0,3}|ix|x|[a-z])\.\s/i.test(String(part || "").trim());
+}
+
 export function splitPolicyClauses(text: string): string[] {
   const flattened = String(text || "").replace(/-\s*\n\s*/g, "").replace(/\n+/g, " ");
   const parts = flattened
@@ -524,7 +578,11 @@ export function splitPolicyClauses(text: string): string[] {
     const prev = out[out.length - 1];
     if (
       prev &&
-      (CLAUSE_ABBREVIATION_END.test(prev) || isBareClauseListMarker(prev) || /\bitem\s+\d+\.$/i.test(prev))
+      (CLAUSE_ABBREVIATION_END.test(prev) ||
+        isBareClauseListMarker(prev) ||
+        /\bitem\s+\d+\.$/i.test(prev) ||
+        trailingListMarker(prev) ||
+        (/[;:]$/.test(prev) && continuesEnumeratedList(part)))
     ) {
       out[out.length - 1] = `${prev} ${part}`;
     } else {
@@ -545,12 +603,14 @@ function isSequentialLetteredMarker(
 export function splitLetteredSubparagraphs(text: string): string[] {
   const raw = String(text || "").replace(/\s+/g, " ").trim();
   if (!raw) return [];
-  const marker = /(\(\s*[a-z]+\s*\)|(?:^|(?<=[.!?;:]\s))[A-Z]\.(?=\s))/g;
+  const marker = /(\(\s*[a-z]+\s*\)|(?:^|(?<=[.!?;:]\s))[A-Z]\.(?=\s)|(?:^|(?<=[:;]\s)|(?<=[.!?]\s))[a-z]\.(?=\s))/g;
   const starts: number[] = [];
   let lastLetter: string | null = null;
   let match: RegExpExecArray | null;
   while ((match = marker.exec(raw))) {
     const letter = match[1].replace(/[().\s]/g, "").toLowerCase();
+    if (/^(i{2,3}|iv|vi{0,3}|ix|x)$/.test(letter)) continue;
+    if (letter === "i" && lastLetter !== "h") continue;
     const before = raw.slice(0, match.index);
     const atBoundary = match.index === 0 || /[.;:]\s+$/.test(before);
     const sequential = isSequentialLetteredMarker(letter, lastLetter) && /\s$/.test(before);
@@ -566,7 +626,13 @@ export function splitLetteredSubparagraphs(text: string): string[] {
     const end = i + 1 < starts.length ? starts[i + 1] : raw.length;
     let piece = raw.slice(starts[i], end).trim();
     if (obligationPrefix && !/\b(shall|must)\b/i.test(piece)) {
-      piece = `${obligationPrefix} ${piece}`;
+      const marked = piece.match(/^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Za-z]\.\s*)/);
+      if (marked) {
+        const lead = obligationPrefix.replace(/^(?:\d+\.\s*)/, "").trim();
+        piece = `${marked[0]}${lead} ${piece.slice(marked[0].length)}`.replace(/\s+/g, " ").trim();
+      } else {
+        piece = `${obligationPrefix} ${piece}`;
+      }
     }
     if (piece.length >= 5) slices.push(piece);
   }
@@ -643,7 +709,7 @@ export type WalkedPolicyClause = {
 };
 
 const CLAUSE_LIST_PREFIX =
-  /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Za-z]\.\s*)+/i;
+  /^(?:\d+\.\s*|\(\s*\d+\s*\)\s*|\(\s*[a-z]{1,3}\s*\)\s*|[A-Z]\.\s*)+/;
 
 function isPageChromeLine(line: string): boolean {
   const text = String(line || "").replace(/\s+/g, " ").trim();
@@ -729,7 +795,7 @@ export function walkPolicyClauses(
     for (const rawLine of String(page.text || "").split(/\n/)) {
       const line = rawLine.replace(/\s+/g, " ").trim();
       if (!line || isPageChromeLine(line)) continue;
-      const parsed = parseSectionHeadingLine(line);
+      const parsed = parseSectionHeadingLine(line, section);
       if (parsed) {
         flush();
         section = parsed.section;
@@ -1296,10 +1362,19 @@ const DUTY_TRIGGER_BY_FAMILY: Record<string, string> = {
   examination_under_oath: "Examination Under Oath",
   records: "Record Production",
   property_protection: "Protect Property",
-  cooperation: "Claim Cooperation"
+  cooperation: "Claim Cooperation",
+  inspection: "Inspection",
+  remains_disposal: "Remains Disposal"
 };
 
 type DutyFamilyRule = { family: string; test: (text: string) => boolean };
+
+function theftSpecificNotice(text: string): boolean {
+  if (!/(?:theft|disappearance|unlawful removal)/.test(text)) return false;
+  if (!/notice|notify/.test(text)) return false;
+  const events = ["accident", "illness", "injury", "death"].filter((event) => new RegExp(`\\b${event}\\b`).test(text));
+  return events.length < 2;
+}
 
 const DUTY_FAMILY_RULES: DutyFamilyRule[] = [
   {
@@ -1307,25 +1382,42 @@ const DUTY_FAMILY_RULES: DutyFamilyRule[] = [
     test: (t) =>
       /(?:employ|obtain|seek)\b.{0,60}\b(?:licensed\s+)?veterinar|veterinar(?:y)?\s+(?:care|treatment|surgeon)|qualified professional|professional (?:assistance|treatment)/.test(t)
   },
-  { family: "necropsy", test: (t) => /postmortem|post-mortem|\bnecropsy\b/.test(t) },
+  {
+    family: "necropsy",
+    test: (t) =>
+      /postmortem|post-mortem|\bnecropsy\b/.test(t) &&
+      !/\bsend us\b/.test(t) &&
+      !/death certificate/.test(t)
+  },
   { family: "examination_under_oath", test: (t) => /examinations?\s+under\s+oath/.test(t) },
-  { family: "proof_of_loss", test: (t) => /proof of loss/.test(t) },
+  { family: "proof_of_loss", test: (t) => /proof of loss/.test(t) || (/\bsend us\b/.test(t) && /death certificate/.test(t)) || (/this statement/.test(t) && /within .{0,24}days/.test(t) && /(?:death|theft|loss|humane destruction)/.test(t)) },
+  {
+    family: "inspection",
+    test: (t) =>
+      /allow us to inspect|inspect and examine the horse|inspect.{0,40}the (?:horse|animal|property)/.test(t) &&
+      !/examinations?\s+under\s+oath/.test(t)
+  },
   {
     family: "records",
     test: (t) =>
-      /(?:produce|submit|provide|preserve|furnish|copy)\b.{0,60}\b(?:records|documents|receipts|invoices|books)\b/.test(t) ||
-      /(?:records|documents|receipts|invoices|books)\b.{0,40}\b(?:produc|examin|copy)/.test(t)
+      !/allow us to inspect|inspect and examine the horse/.test(t) &&
+      (/(?:produce|submit|provide|preserve|furnish|copy)\b.{0,60}\b(?:records|documents|receipts|invoices|books)\b/.test(t) ||
+        /(?:records|documents|receipts|invoices|books)\b.{0,40}\b(?:produc|examin|copy)/.test(t))
   },
-  { family: "ransom", test: (t) => /\bransom\b/.test(t) },
+  { family: "ransom", test: (t) => /\bransom\b/.test(t) || /assurances? of .{0,60}intent to pay/.test(t) },
   { family: "follow_law_enforcement", test: (t) => /follow .{0,80}recommend/.test(t) },
   { family: "police", test: (t) => /(?:police|law.?enforcement)/.test(t) },
   {
     family: "theft_notice",
-    test: (t) => /(?:theft|disappearance)/.test(t) && /notice|notify|report/.test(t)
+    test: (t) => theftSpecificNotice(t)
   },
-  { family: "notice", test: (t) => /notify|notice|report/.test(t) && !/(?:theft|disappearance)/.test(t) },
+  { family: "notice", test: (t) => /notify|notice/.test(t) && !/(?:police|law.?enforcement)/.test(t) && !theftSpecificNotice(t) },
   { family: "property_protection", test: (t) => /\bprotect\b.{0,40}\b(?:property|damage)\b/.test(t) },
-  { family: "cooperation", test: (t) => /cooperat/.test(t) }
+  { family: "cooperation", test: (t) => /cooperat/.test(t) },
+  {
+    family: "remains_disposal",
+    test: (t) => /disposal of .{0,80}remains|dispose of .{0,80}remains|responsible for the disposal/.test(t)
+  }
 ];
 
 export function allDutyFamilies(clause: string): string[] {
@@ -1377,7 +1469,7 @@ function sentence(text: string): string {
 
 function extractDeadline(text: string): string | undefined {
   const match = String(text || "").match(
-    /\bwithin\s+((?:[a-z]+(?:-[a-z]+)?\s*\(\s*\d+\s*\)|\d+))\s*(days?|hours?)/i
+    /\b(?:within|no later than)\s+((?:[a-z]+(?:-[a-z]+)?\s*\(\s*\d+\s*\)|\d+))\s*(days?|hours?)/i
   );
   if (!match) return undefined;
   const amount = match[1].match(/\d+/)?.[0];
@@ -1409,7 +1501,7 @@ function extractEventPhrase(text: string): string | undefined {
     return "illness, injury, or death";
   }
   const match = text.match(
-    /\b(?:in the event of(?:\s+(?:any|either))?|after|upon|following)\s+(.+?)(?=\s+whatsoever|\s+(?:the\s+)?insured\s+(?:shall|must)|\s+immediately|\s+at the insured|\s+employ|\s+obtain|\s+arrange|\s+give|\s+notify|\s+report|\s+retain|,?\s+the insured|$)/i
+    /\b(?:in the event of(?:\s+(?:any|either))?|after|upon|following(?=\s+(?:the\s+)?(?:death|loss|theft|injury)))\s+(.+?)(?=\s+whatsoever|\s+(?:the\s+)?insured\s+(?:shall|must)|\s+immediately|\s+at the insured|\s+employ|\s+obtain|\s+arrange|\s+give|\s+notify|\s+report|\s+retain|\s+cooperate|\s+allow|\s+send|\s+have a |,?\s+the insured|$)/i
   );
   if (!match) return undefined;
   const phrase = match[1]
@@ -1417,9 +1509,12 @@ function extractEventPhrase(text: string): string | undefined {
     .replace(/[.,;:]+$/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^any\s+/i, "");
+    .replace(/^any\s+/i, "")
+    .replace(/^the following\b/i, "")
+    .trim();
   if (!phrase || phrase.length < 3 || phrase.length > 160) return undefined;
   if (/^\(\s*[a-z]{1,3}\s*\)$/i.test(phrase)) return undefined;
+  if (/^in the event of\b/i.test(phrase)) return undefined;
   return phrase;
 }
 
@@ -1473,7 +1568,11 @@ function dutyLabel(family: string, span: string): string {
 
 function synthesizeClaimDuty(family: string, span: string, clause: string, context?: DutySummaryContext): string {
   const text = `${span} ${clause}`;
-  const immediately = /\bimmediately\b/i.test(span) || /\bimmediately\b/i.test(clause);
+  const immediately =
+    /\bimmediately\b/i.test(span) ||
+    /\bimmediately\b/i.test(clause) ||
+    /\bimmediate notice\b/i.test(span) ||
+    /\bimmediate notice\b/i.test(clause);
   const uponRequest = /\bupon (?:written )?request\b/i.test(text);
   const deadline = extractDeadline(span) || extractDeadline(clause);
   const events =
@@ -1508,7 +1607,8 @@ function synthesizeClaimDuty(family: string, span: string, clause: string, conte
   }
 
   if (family === "necropsy") {
-    const lead = after || "After the death of an insured horse";
+    const lead =
+      after && !/,/.test(after) ? after : "After the death of an insured horse";
     const who = licensedVet || veterinarian ? " by a licensed veterinarian" : "";
     const cost = expense ? " at the insured's expense" : "";
     return sentence(`${lead}, ${timing}arrange a postmortem and necropsy examination${who}${cost}`);
@@ -1545,10 +1645,16 @@ function synthesizeClaimDuty(family: string, span: string, clause: string, conte
   }
 
   if (family === "police") {
+    const policeDeadline = extractDeadline(span) || extractDeadline(clause);
+    if (/law may have been broken/i.test(text)) {
+      return sentence(`${timing}notify the appropriate law-enforcement agency if a law may have been broken`);
+    }
     const agencies = /law.?enforcement/i.test(text)
       ? "police and other appropriate law-enforcement agencies"
       : "police";
-    return sentence(`${timing}report theft or disappearance to ${agencies}`);
+    return sentence(
+      `${timing}report theft or disappearance to ${agencies}${policeDeadline ? ` ${policeDeadline}` : ""}`.replace(/\s+/g, " ")
+    );
   }
 
   if (family === "follow_law_enforcement") {
@@ -1607,6 +1713,15 @@ function synthesizeClaimDuty(family: string, span: string, clause: string, conte
 
   if (family === "cooperation") {
     return sentence("Cooperate with the Company as required after a loss");
+  }
+
+  if (family === "inspection") {
+    return sentence("Allow the Company to inspect and examine the horse and any relevant records");
+  }
+
+  if (family === "remains_disposal") {
+    const cost = expense ? " at the insured's expense" : "";
+    return sentence(`Dispose of remains as required${cost} and with the Company's approval`.replace(/\s+/g, " "));
   }
 
   if (/inspect/i.test(span)) {
@@ -2002,6 +2117,10 @@ function dutyIndexGroup(family: string): string | null {
     case "examination_under_oath":
     case "records":
       return "euo_records";
+    case "inspection":
+      return "inspection";
+    case "remains_disposal":
+      return "remains";
     default:
       return null;
   }
@@ -2042,6 +2161,8 @@ function dutyGroupLabel(group: string, families: Set<string>): string {
     if (records) return "Record Production";
     return "Examination Under Oath";
   }
+  if (group === "inspection") return "Inspection Requirements";
+  if (group === "remains") return "Remains Disposal";
   return "Claim Requirements";
 }
 

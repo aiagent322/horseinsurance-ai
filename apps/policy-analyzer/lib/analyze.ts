@@ -29,6 +29,7 @@ import {
   hasExclusionExceptionCue,
   isCoverageGrantLanguage,
   isExclusionQualificationLanguage,
+  isInsurerPerformanceLanguage,
   isUmbrellaExclusionOpener,
   isExternalReferenceValue,
   isOptionalCoverageMention,
@@ -1158,13 +1159,19 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const requirements: RequirementRecord[] = [];
   const seenRequirement = new Set<string>();
-  const requirementByFamily = new Map<string, number>();
+  const requirementByIdentity = new Map<string, number>();
   const declarationsMissing = pageHits.filter((h) => looksLikeDeclarationsPage(h.text)).length === 0;
+  const applicabilityPages = pageHits.map((h) => ({
+    page: h.page,
+    text: h.text,
+    document_id: h.document_id
+  }));
 
   for (const walked of walkedClauses) {
     if (walked.kind !== "duty") continue;
     const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
     if (!h) continue;
+    if (optionalFormApplicabilityUnresolved(h, applicabilityPages, [])) continue;
     const families = allDutyFamilies(walked.clause);
     const familyList = families.length > 0 ? families : [dutyFamily(walked.clause)];
     for (const family of familyList) {
@@ -1174,24 +1181,34 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       });
       const requirement = described.summary;
       const sourceText = described.sourceSpan || walked.clause;
-      const existingIdx = requirementByFamily.get(family);
+      const identity = `${family}|${walked.section || ""}|${walked.numberedItem ?? ""}`;
+      const existingIdx = requirementByIdentity.get(identity);
       if (existingIdx !== undefined) {
         const existing = requirements[existingIdx];
-        const nextHasDeadline = /\bwithin\b.{0,24}\d+/i.test(requirement);
+        const combined = `${existing.source_text} ${walked.clause}`.replace(/\s+/g, " ").trim();
+        const merged = describeClaimDuty(combined, family, {
+          missingDeclarations: declarationsMissing,
+          missingSchedule: declarationsMissing
+        });
+        const nextOperative = !isInsurerPerformanceLanguage(walked.clause);
+        const existingOperative = !isInsurerPerformanceLanguage(existing.source_text);
+        const nextHasDeadline = /\bwithin\b.{0,24}\d+/i.test(merged.summary) || /\bwithin\b.{0,24}\d+/i.test(requirement);
         const existingHasDeadline = /\bwithin\b.{0,24}\d+/i.test(existing.requirement);
-        if (nextHasDeadline && !existingHasDeadline) {
-          existing.trigger = described.trigger;
-          existing.requirement = requirement;
-          existing.source_document_id = h.document_id;
-          existing.source_page = h.page;
-          existing.source_text = sourceText;
+        const better =
+          (nextOperative && !existingOperative) ||
+          (walked.section === "duties" && nextOperative) ||
+          (family === "proof_of_loss" && nextHasDeadline && !existingHasDeadline && nextOperative);
+        if (better || nextHasDeadline) {
+          existing.trigger = merged.trigger;
+          existing.requirement = merged.summary;
+          existing.source_text = merged.sourceSpan || combined;
         }
         continue;
       }
-      const key = `${family}|${requirement.toLowerCase().slice(0, 80)}`;
+      const key = `${identity}|${requirement.toLowerCase().slice(0, 80)}`;
       if (seenRequirement.has(key)) continue;
       seenRequirement.add(key);
-      requirementByFamily.set(family, requirements.length);
+      requirementByIdentity.set(identity, requirements.length);
       requirements.push({
         id: newId(),
         trigger: described.trigger,
