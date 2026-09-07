@@ -317,13 +317,14 @@ export function ReportView({ record, accountEmail }: { record: PolicyRecord; acc
         </div>
       </Section>
 
-      <Section title="Emergency Requirements">
+      <Section title="Emergency / Claim Requirements">
         {record.requirements.length === 0 ? (
           <p className="text-sm text-[#6b7280]">NOT FOUND IN DOCUMENTS PROVIDED</p>
         ) : (
           <ul className="list-disc space-y-2 pl-5 text-sm">
             {record.requirements.map((r) => (
               <li key={r.id}>
+                {r.trigger ? <span className="font-medium">{r.trigger}. </span> : null}
                 {r.requirement} <span className="text-xs text-[#1d6fa5]">(p. {r.source_page})</span>
               </li>
             ))}

@@ -189,19 +189,51 @@ function main() {
     "source references must not cite the theft waiting condition or embryo limitation as exclusions"
   );
 
-  assert.ok(report.requirements.length > 0, "claim duties must be present");
-  const reqBlob = report.requirements.map((item) => item.requirement).join(" ").toLowerCase();
+  assert.ok(report.requirements.length > 0, "Emergency / Claim Requirements must be present");
+  const reqBlob = report.requirements.map((item) => `${item.trigger} ${item.requirement}`).join(" ").toLowerCase();
   for (const needle of [
-    "veterinary",
+    "veterinar",
     "necropsy",
-    "notice",
+    "telephone notice",
     "theft",
     "police",
     "ransom",
-    "proof of loss"
+    "proof of loss",
+    "60 days",
+    "examination under oath",
+    "records"
   ]) {
     assert.ok(reqBlob.includes(needle), `missing duty ${needle}`);
   }
+  assert.match(reqBlob, /law.?enforcement|police/);
+  assert.doesNotMatch(reqBlob, /will indemnify/);
+  assert.doesNotMatch(reqBlob, /actual cash value/);
+  assert.doesNotMatch(reqBlob, /sound health/);
+  assert.doesNotMatch(reqBlob, /sole owner/);
+  assert.doesNotMatch(reqBlob, /territorial limits/);
+  assert.doesNotMatch(reqBlob, /declared use/);
+  assert.doesNotMatch(reqBlob, /not been recovered/);
+  assert.doesNotMatch(reqBlob, /this insurance does not cover/);
+  assert.doesNotMatch(reqBlob, /no liability arises/);
+  assert.ok(
+    report.requirements.every((item) => item.source_page === 2 || item.source_page === 3),
+    "requirement citations must be on the duty pages"
+  );
+  const reqBy = (needle: RegExp) => report.requirements.find((item) => needle.test(`${item.trigger} ${item.requirement}`));
+  assert.equal(reqBy(/veterinar/i)?.source_page, 2);
+  assert.equal(reqBy(/necropsy/i)?.source_page, 2);
+  assert.equal(reqBy(/telephone notice/i)?.source_page, 2);
+  assert.equal(reqBy(/theft or disappearance/i)?.source_page, 2);
+  assert.equal(reqBy(/police|law.?enforcement/i)?.source_page, 2);
+  assert.equal(reqBy(/ransom/i)?.source_page, 2);
+  assert.ok(reqBy(/proof of loss/i)?.source_page === 2 || reqBy(/proof of loss/i)?.source_page === 3);
+  assert.ok(reqBy(/examination under oath/i)?.source_page === 2 || reqBy(/examination under oath/i)?.source_page === 3);
+  assert.equal(reqBy(/records|documents|receipts/i)?.source_page, 3);
+  assert.ok(
+    report.agent_questions.some((question) => /item g of the declarations/i.test(question) && /missing declarations/i.test(question)),
+    "missing Declarations notice-contact question must be accurate"
+  );
+  assert.ok(!report.agent_questions.some((question) => /mortality coverage language/i.test(question)));
 
   assert.ok(refs.length > 0, "source references must be nonempty");
   assert.ok(refs.some((item) => item.label === "Full Mortality" && item.page === 1));

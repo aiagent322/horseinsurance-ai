@@ -11,11 +11,11 @@ import {
 } from "./form-schedule";
 import { hydratePageDiagnostics, isReliablePolicyPage } from "./extraction-quality";
 import {
-  CLAIM_DUTY_RULES,
   classifyPolicyTerm,
   clauseConcernsMortality,
   clauseConcernsSurgicalCoverage,
   clauseConcernsTheft,
+  describeClaimDuty,
   exclusionCategory,
   extractPolicyFormValue,
   isCoverageGrantLanguage,
@@ -874,9 +874,11 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (pre) addExclusion(h, pre[0].trim(), "Pre-existing condition", pre[1].trim());
   }
 
-  for (const walked of walkPolicyClauses(
+  const walkedClauses = walkPolicyClauses(
     pageHits.map((h) => ({ page: h.page, text: h.text, document_id: h.document_id }))
-  )) {
+  );
+
+  for (const walked of walkedClauses) {
     if (walked.kind !== "exclusion") continue;
     const productDenial = clauseIsDenial(walked.clause, [
       "full mortality",
@@ -960,43 +962,45 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
 
   const requirements: RequirementRecord[] = [];
   const seenRequirement = new Set<string>();
-  const reqBlock = hits.find((h) => /emergency requirements/i.test(h.text));
-  if (reqBlock) {
-    const bullets = reqBlock.text.split(/\n|•|-/).map((s) => s.trim()).filter((s) => s.length > 12);
-    const triggers = ["colic", "serious illness", "injury", "surgery", "euthanasia", "death", "theft"];
-    for (const line of bullets) {
-      if (!/notify|veterinar|preserv|file written|authorization|certif/i.test(line)) continue;
-      const key = line.toLowerCase().slice(0, 80);
-      if (seenRequirement.has(key)) continue;
-      seenRequirement.add(key);
-      requirements.push({
-        id: newId(),
-        trigger: triggers.filter((t) => reqBlock.text.toLowerCase().includes(t)).join(", "),
-        requirement: line.replace(/^[\d.)\s]+/, ""),
-        source_document_id: reqBlock.document_id,
-        source_page: reqBlock.page,
-        source_text: excerpt(reqBlock.text, line.slice(0, 40))
-      });
+  const requirementByFamily = new Map<string, number>();
+  const declarationsMissing = pageHits.filter((h) => looksLikeDeclarationsPage(h.text)).length === 0;
+
+  for (const walked of walkedClauses) {
+    if (walked.kind !== "duty") continue;
+    const h = hitByPage.get(`${walked.document_id}:${walked.page}`);
+    if (!h) continue;
+    const described = describeClaimDuty(walked.clause);
+    let requirement = described.summary;
+    if (declarationsMissing && described.declarationsItem && /notify|notice|telephone/i.test(requirement)) {
+      requirement = `Immediate telephone notice is required. Notify the entity identified in Item ${described.declarationsItem} of the missing Declarations.`;
     }
-  }
-  for (const h of pageHits) {
-    for (const clause of splitClauses(h.text)) {
-      for (const rule of CLAIM_DUTY_RULES) {
-        if (!rule.pattern.test(clause)) continue;
-        const key = clause.toLowerCase().slice(0, 80);
-        if (seenRequirement.has(key)) continue;
-        seenRequirement.add(key);
-        requirements.push({
-          id: newId(),
-          trigger: rule.trigger,
-          requirement: clause.replace(/\s+/g, " ").trim(),
-          source_document_id: h.document_id,
-          source_page: h.page,
-          source_text: excerpt(h.text, clause.slice(0, 40))
-        });
-        break;
+    const familyKey = described.family;
+    const existingIdx = requirementByFamily.get(familyKey);
+    if (existingIdx !== undefined) {
+      const existing = requirements[existingIdx];
+      const nextHasDeadline = /\bwithin \d+/i.test(requirement);
+      const existingHasDeadline = /\bwithin \d+/i.test(existing.requirement);
+      if (nextHasDeadline && !existingHasDeadline) {
+        existing.trigger = described.trigger;
+        existing.requirement = requirement;
+        existing.source_document_id = h.document_id;
+        existing.source_page = h.page;
+        existing.source_text = excerpt(h.text, walked.clause.slice(0, 40));
       }
+      continue;
     }
+    const key = requirement.toLowerCase().slice(0, 80);
+    if (seenRequirement.has(key)) continue;
+    seenRequirement.add(key);
+    requirementByFamily.set(familyKey, requirements.length);
+    requirements.push({
+      id: newId(),
+      trigger: described.trigger,
+      requirement,
+      source_document_id: h.document_id,
+      source_page: h.page,
+      source_text: excerpt(h.text, walked.clause.slice(0, 40))
+    });
   }
 
   const declarationPages = pageHits.filter((h) => looksLikeDeclarationsPage(h.text));
@@ -1102,7 +1106,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       `Please confirm the exclusion language on page ${questionExclusion.source_page}: “${questionExclusion.description}” — does this apply to the current policy period only?`
     );
   }
-  if (requirements.length) {
+  const contactDuty = requirements.find((row) => /item\s+[a-z0-9]+\s+of\s+(?:the\s+)?(?:missing\s+)?declarations/i.test(`${row.requirement} ${row.source_text}`));
+  if (contactDuty && declarationsMissing) {
+    const item = `${contactDuty.requirement} ${contactDuty.source_text}`.match(/\bitem\s+([a-z0-9]+)\b/i)?.[1] || "the";
+    const itemLabel = item.toLowerCase() === "the" ? "the Declarations" : `Item ${item.toUpperCase()} of the Declarations`;
+    agent_questions.push(
+      `The policy requires immediate telephone notice to the entity listed in ${itemLabel}. Please provide the missing Declarations so that contact can be confirmed.`
+    );
+  } else if (requirements.length) {
     agent_questions.push("Please confirm the notice window and euthanasia/remains instructions that apply in an emergency.");
   }
   const missingForms = formInventory.filter((f) => f.status !== "PRESENT");

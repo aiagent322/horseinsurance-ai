@@ -29,10 +29,11 @@ The horse shall be used only for the declared use.
 The Insured shall provide proper care and attention.
 The Insured shall obtain immediate licensed veterinary care upon illness or injury.
 Following death, a postmortem and necropsy shall be performed.
-The Insured shall immediately give telephone notice to the Company.
+The Insured shall immediately give telephone notice to the entity as stated in Item G of the Declarations.
 No liability arises under this Policy for loss of an insured horse by theft until at least thirty (30) days after the incident of theft is reported to the Company, and then only in the event that the horse has not been recovered during that period.
 The Insured shall give immediate theft or disappearance notice.
 The Insured shall immediately report the matter to police or law-enforcement.
+The Insured shall follow law-enforcement recommendations.
 The Insured shall make no ransom payment or promise.
 No coverage is afforded for an embryo or foal unless separately insured.
 The Insured shall file a sworn proof of loss.`
@@ -40,7 +41,8 @@ The Insured shall file a sworn proof of loss.`
   {
     page: 3,
     text: `The Insured shall file a sworn proof of loss within 60 days.
-The Insured shall submit to examinations under oath and produce documents.
+Upon request, the Insured shall submit to examination under oath, and agents, employees, and representatives shall also submit to examination under oath.
+Upon request, the Insured shall produce records, documents, and receipts for examination.
 Other insurance shall not increase the Company's limit.
 Subrogation applies after payment.
 Cancellation terms and a short-rate scale apply.

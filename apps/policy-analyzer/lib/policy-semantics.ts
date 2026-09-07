@@ -203,7 +203,7 @@ export type PolicySection =
 export type PolicyTermKind = "grant" | "limitation" | "condition" | "duty" | "exclusion";
 
 const STRONG_HEADING_PATTERN =
-  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\s*[:.]?\s*(.*)$/i;
+  /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|emergency requirements|claim requirements|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\s*[:.]?\s*(.*)$/i;
 
 const WEAK_HEADING_PATTERN =
   /^(?:(?:part|article|section)\s+[ivxlcdm0-9]+\.?\s+)?(definitions?|coverage|agreement)\s*[:.]?\s*$/i;
@@ -214,6 +214,7 @@ function sectionFromHeadingName(name: string): PolicySection | null {
   if (n === "duties after loss" || n === "duties after a loss" || n === "claim conditions" || n === "duties of the insured") {
     return "duties";
   }
+  if (n === "emergency requirements" || n === "claim requirements") return "duties";
   if (n === "general conditions" || n === "conditions") return "conditions";
   if (n === "limitations") return "limitations";
   if (n === "insuring agreement" || n === "coverage" || n === "agreement") return "coverage";
@@ -298,12 +299,52 @@ export function isPolicyConditionLanguage(clause: string): boolean {
   );
 }
 
-export function isClaimDutyLanguage(clause: string): boolean {
-  if (!/\b(shall|must|required to)\b/i.test(clause)) return false;
-  if (CLAIM_DUTY_RULES.some((rule) => rule.pattern.test(clause))) return true;
-  return /\b(notify|notice|report|proof of loss|veterinar|necropsy|postmortem|ransom|examination under oath)\b/i.test(
-    clause
+function hasDutyAction(clause: string): boolean {
+  return (
+    /\b(?:notify|notice|report|file|submit|produce|obtain|employ|arrange|preserve|cooperat)\b/i.test(clause) ||
+    /\bexamination under oath\b/i.test(clause) ||
+    /\bproof of loss\b/i.test(clause) ||
+    /\bransom\b/i.test(clause) ||
+    /\bqualified professional\b/i.test(clause) ||
+    /\bprofessional (?:assistance|treatment)\b/i.test(clause) ||
+    /\bpostmortem\b/i.test(clause) ||
+    /\bnecropsy\b/i.test(clause) ||
+    /\bfollow .{0,60}recommend/i.test(clause)
   );
+}
+
+function hasEventOrClaimCue(clause: string): boolean {
+  return (
+    /\bin the event of\b/i.test(clause) ||
+    /\bupon (?:request|the request|illness|injury|death|theft|loss|damage|disappearance|accident)\b/i.test(clause) ||
+    /\bfollowing (?:death|loss|theft|injury)\b/i.test(clause) ||
+    /\bafter (?:an |the )?(?:insured )?loss\b/i.test(clause) ||
+    /\bimmediate(?:ly)?\b/i.test(clause) ||
+    /\bwithin \d+\s*(?:hours?|days?)\b/i.test(clause) ||
+    /\b(?:if|when|as) requested\b/i.test(clause) ||
+    /\bupon request\b/i.test(clause) ||
+    /\bproof of loss\b/i.test(clause) ||
+    /\bexamination under oath\b/i.test(clause) ||
+    /\bproduce .{0,40}(?:records|documents|receipts)\b/i.test(clause) ||
+    /\bransom\b/i.test(clause) ||
+    /\b(?:police|law.?enforcement)\b/i.test(clause) ||
+    /\bpostmortem\b/i.test(clause) ||
+    /\bnecropsy\b/i.test(clause)
+  );
+}
+
+function hasDutyObligation(clause: string): boolean {
+  if (/\b(shall|must|required to)\b/i.test(clause)) return true;
+  return /^(?:[-•]\s*)?(?:immediately\s+)?(?:notify|report|file|submit|produce|obtain|employ|arrange|preserve)\b/i.test(
+    clause.trim()
+  );
+}
+
+export function isClaimDutyLanguage(clause: string): boolean {
+  if (isCoverageGrantLanguage(clause)) return false;
+  if (isCoverageLimitationLanguage(clause)) return false;
+  if (!hasDutyAction(clause) || !hasDutyObligation(clause)) return false;
+  return hasEventOrClaimCue(clause);
 }
 
 export function classifyPolicyTerm(clause: string, section: PolicySection | null): PolicyTermKind | null {
@@ -322,7 +363,7 @@ export function classifyPolicyTerm(clause: string, section: PolicySection | null
     return "exclusion";
   }
   if (section === "duties") {
-    if (duty || /\b(shall|must)\b/i.test(text)) return "duty";
+    if (duty) return "duty";
     if (limitation || exclusionWording) return "limitation";
     if (condition) return "condition";
     return null;
@@ -448,8 +489,48 @@ export const CLAIM_DUTY_RULES: DutyRule[] = [
   { trigger: "theft", pattern: /theft.{0,80}(?:notice|report)|disappearance.{0,50}notice/i },
   { trigger: "theft", pattern: /\bpolice\b|law.?enforcement/i },
   { trigger: "theft", pattern: /\bransom\b/i },
-  { trigger: "proof of loss", pattern: /proof of loss/i }
+  { trigger: "proof of loss", pattern: /proof of loss/i },
+  { trigger: "claim cooperation", pattern: /examination under oath|produce .{0,40}(?:records|documents|receipts)/i }
 ];
+
+export type ClaimDutyDescription = {
+  family: string;
+  trigger: string;
+  summary: string;
+  declarationsItem?: string;
+};
+
+export function dutyFamily(clause: string): string {
+  const t = clause.toLowerCase();
+  if (/\bransom\b/.test(t)) return "ransom";
+  if (/examination under oath/.test(t)) return "examination_under_oath";
+  if (/proof of loss/.test(t)) return "proof_of_loss";
+  if (/produce/.test(t) && /records|documents|receipts/.test(t)) return "records";
+  if (/(?:police|law.?enforcement)/.test(t) && /recommend/.test(t)) return "follow_law_enforcement";
+  if (/(?:police|law.?enforcement)/.test(t)) return "police";
+  if (/postmortem|necropsy/.test(t)) return "necropsy";
+  if (/qualified professional|professional (?:assistance|treatment)|veterinar/.test(t)) return "professional_treatment";
+  if (/(?:theft|disappearance)/.test(t) && /notice|notify|report/.test(t)) return "theft_notice";
+  if (/notify|notice|report/.test(t)) return "notice";
+  if (/cooperat/.test(t)) return "cooperation";
+  return "claim_duty";
+}
+
+export function describeClaimDuty(clause: string): ClaimDutyDescription {
+  const summary = String(clause || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[-•]\s*/, "");
+  const family = dutyFamily(summary);
+  const trigger = CLAIM_DUTY_RULES.find((rule) => rule.pattern.test(summary))?.trigger || family.replace(/_/g, " ");
+  const item = summary.match(/\bitem\s+([a-z0-9]+)\s+of\s+(?:the\s+)?declarations\b/i)?.[1];
+  return {
+    family,
+    trigger,
+    summary,
+    declarationsItem: item ? item.toUpperCase() : undefined
+  };
+}
 
 export function extractPolicyFormValue(text: string): string | undefined {
   const match =
