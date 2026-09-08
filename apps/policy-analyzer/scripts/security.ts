@@ -406,6 +406,35 @@ async function assertHostedPostUploadRedirectIsRelative(): Promise<void> {
   assert.equal(matching.length, 1, "successful redirect upload creates the policy exactly once");
 }
 
+async function assertDisabledUploadsFailClosed() {
+  const previousEnv = process.env.POLICY_ANALYZER_ENV;
+  const previousUploads = process.env.POLICY_ANALYZER_UPLOADS_ENABLED;
+  process.env.POLICY_ANALYZER_ENV = "staging";
+  process.env.POLICY_ANALYZER_UPLOADS_ENABLED = "false";
+  try {
+    const makeReq = () => {
+      const form = new FormData();
+      form.append("files", new File([tinyPdf("pre-upload")], "pre-upload.pdf", { type: "application/pdf" }));
+      return new Request("http://127.0.0.1:43147/api/upload", {
+        method: "POST",
+        headers: { origin: "http://127.0.0.1:43147", "sec-fetch-site": "same-origin" },
+        body: form
+      });
+    };
+    const anon = await uploadPost(makeReq());
+    assert.equal(anon.status, 404, "unauthenticated upload is not-found while uploads are disabled");
+    assert.equal(((await anon.json()) as { error?: string }).error, "Not found");
+    const authed = await runWithActor(TEST_ACTOR_A, () => uploadPost(makeReq()));
+    assert.equal(authed.status, 404, "authenticated upload is not-found while uploads are disabled");
+    assert.equal(((await authed.json()) as { code?: string }).code, undefined);
+  } finally {
+    if (previousEnv === undefined) delete process.env.POLICY_ANALYZER_ENV;
+    else process.env.POLICY_ANALYZER_ENV = previousEnv;
+    if (previousUploads === undefined) delete process.env.POLICY_ANALYZER_UPLOADS_ENABLED;
+    else process.env.POLICY_ANALYZER_UPLOADS_ENABLED = previousUploads;
+  }
+}
+
 async function main() {
   process.env.POLICY_ANALYZER_STORE = "memory";
   const store = new MemoryPolicyStore();
@@ -489,6 +518,7 @@ async function main() {
   const clientHits = scanClientFiles();
   assert.deepEqual(clientHits, [], "20: no service-role key or admin client in client components");
 
+  await assertDisabledUploadsFailClosed();
   await assertUploadStatusIdentifierContract();
   await assertHostedPostUploadRedirectIsRelative();
   assertDemoAnonymousAuthFlag();

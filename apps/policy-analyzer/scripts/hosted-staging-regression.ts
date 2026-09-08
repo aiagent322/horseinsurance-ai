@@ -334,6 +334,10 @@ function main(): void {
   assert.match(hostedE2E, /create_user_a/);
   assert.match(hostedE2E, /signin_user_a/);
   assert.match(hostedE2E, /setStage\("upload"\)/);
+  assert.match(hostedE2E, /HOSTED E2E PRE-UPLOAD: PASS/);
+  assert.match(hostedE2E, /unauthenticated/);
+  assert.match(hostedE2E, /authenticated_disabled/);
+  assert.doesNotMatch(hostedE2E, /fail\("uploads"/);
   assert.match(hostedE2E, /\/api\/policies\/\$\{queued\.policy_id\}\/status/);
   assert.match(hostedE2E, /User B enumerated/);
   assert.doesNotMatch(hostedE2E, /new AnalysisWorker/);
@@ -346,6 +350,8 @@ function main(): void {
   assert.doesNotMatch(uploadRoute, /NextResponse\.redirect/);
   assert.doesNotMatch(uploadRoute, /0\.0\.0\.0/);
   assert.doesNotMatch(uploadRoute, /web-production-839ec/);
+  assert.doesNotMatch(uploadRoute, /Uploads are not enabled/);
+  assert.doesNotMatch(uploadRoute, /code: "uploads_disabled"/);
   const statusRoute = readFileSync(path.join(APP_ROOT, "app/api/policies/[id]/status/route.ts"), "utf8");
   assert.match(statusRoute, /store\.getStatus\(actor,\s*id\)/);
   const supabaseStore = readFileSync(path.join(APP_ROOT, "lib/persistence/supabase-store.ts"), "utf8");

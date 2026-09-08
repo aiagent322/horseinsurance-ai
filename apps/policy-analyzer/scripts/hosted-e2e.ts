@@ -265,7 +265,7 @@ function assertCitations(report: PolicyRecord): number {
   return cited.length;
 }
 
-async function assertReadiness(target: Target): Promise<void> {
+async function assertReadiness(target: Target): Promise<{ uploadsEnabled: boolean }> {
   setStage("readiness");
   const token = (process.env.POLICY_ANALYZER_OPS_TOKEN || "").trim();
   if (!token) fail("readiness", "POLICY_ANALYZER_OPS_TOKEN is required for hosted readiness.");
@@ -284,9 +284,34 @@ async function assertReadiness(target: Target): Promise<void> {
   if (response.statusCode !== 200 || json.ready !== true) {
     fail("readiness", "Hosted readiness is not healthy.");
   }
-  if (json.uploads_enabled !== true) {
-    setStage("uploads");
-    fail("uploads", "Hosted staging uploads are disabled.");
+  return { uploadsEnabled: json.uploads_enabled === true };
+}
+
+async function assertClosedSurface(
+  target: Target,
+  cookie: string,
+  stage: "unauthenticated" | "authenticated_disabled"
+): Promise<void> {
+  setStage(stage);
+  const unknownId = randomUUID();
+  const status = await api(target, cookie, `/api/policies/${unknownId}/status`);
+  const report = await api(target, cookie, `/api/policies/${unknownId}`);
+  const original = await api(target, cookie, `/api/policies/${unknownId}/original`);
+  const cancel = await api(target, cookie, `/api/policies/${unknownId}/cancel`, { method: "POST" });
+  if ([status.status, report.status, original.status, cancel.status].some((code) => code !== 404)) {
+    fail(
+      stage,
+      stage === "unauthenticated"
+        ? "Unauthenticated policy routes did not return not-found."
+        : "Signed-in callers enumerated a policy that does not exist."
+    );
+  }
+  const uploaded = await uploadPdf(target, cookie, "hosted-e2e-pre-upload.pdf", Buffer.from("%PDF-1.4\n%%EOF\n"));
+  if (uploaded.status === 202) {
+    fail(stage, "Upload enqueued a job while hosted staging uploads are disabled.");
+  }
+  if (uploaded.status !== 404) {
+    fail(stage, "Disabled upload must fail closed as not-found.");
   }
 }
 
@@ -340,10 +365,22 @@ async function runLive(): Promise<void> {
   const target = loadLiveTarget();
   if (!target) return;
 
-  await assertReadiness(target);
+  const { uploadsEnabled } = await assertReadiness(target);
   const admin = client(target.url, target.serviceRoleKey);
   const users: UserSession[] = [];
   try {
+    if (!uploadsEnabled) {
+      await assertClosedSurface(target, "", "unauthenticated");
+      const userA = await createUser(target, admin, "A");
+      const userB = await createUser(target, admin, "B");
+      users.push(userA, userB);
+      await assertClosedSurface(target, userA.cookie, "authenticated_disabled");
+      originalLog("HOSTED E2E PRE-UPLOAD: PASS");
+      originalLog("uploads=disabled");
+      originalLog("isolation=SKIPPED");
+      return;
+    }
+
     const userA = await createUser(target, admin, "A");
     const userB = await createUser(target, admin, "B");
     users.push(userA, userB);

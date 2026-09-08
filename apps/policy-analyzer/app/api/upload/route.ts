@@ -65,10 +65,7 @@ export async function POST(req: Request) {
 
   if (!analyzerUploadsEnabled()) {
     if (redirect) return redirectTo("/");
-    return NextResponse.json(
-      { error: "Uploads are not enabled.", code: "uploads_disabled" },
-      { status: 503, headers: PRIVATE_HEADERS }
-    );
+    return NextResponse.json({ error: "Not found" }, { status: 404, headers: PRIVATE_HEADERS });
   }
 
   if (!form) {
