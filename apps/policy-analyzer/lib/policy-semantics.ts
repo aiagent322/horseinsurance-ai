@@ -473,7 +473,7 @@ export function additionalCoverageHeadingName(clause: string): string | null {
     return titledAdditionalCoverageName(mixedHeading[1]);
   }
   const mixedGrant = text.match(
-    /^[A-Z]\.\s+([A-Z][A-Za-z0-9 ,/'()&-]{3,}?)(?:\s+Coverage)?(?=\s+(?:A diagnosis of|We shall|We will)\b)/i
+    /^[A-Z]\.\s+([A-Z][A-Za-z0-9 ,/'()&-]{3,}?)(?:\s+Coverage)?(?=\s+(?:A diagnosis|We shall|We will)\b)/i
   );
   if (mixedGrant?.[1]) return titledAdditionalCoverageName(mixedGrant[1]);
   return null;
