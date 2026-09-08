@@ -54,8 +54,17 @@ async function main() {
   assert.ok(!medicalAmounts.includes("$45,000"), "must not treat mortality value as a medical limit");
   assert.ok(!medicalAmounts.includes("$500"), "must not treat deductible as a medical limit");
 
-  assert.ok(report.exclusions.some((e) => /this endorsement excludes coverage for the left front fetlock/i.test(e.description)));
-  assert.ok(report.exclusions.some((e) => /pre-existing condition/i.test(e.description)));
+  assert.ok(
+    report.exclusions.some((e) =>
+      /left front fetlock/i.test(`${e.description} ${e.condition || ""} ${e.exact_source_excerpt || ""}`)
+    ),
+    "named fetlock exclusion must be present"
+  );
+  assert.ok(
+    report.exclusions.some((e) =>
+      /pre-existing condition/i.test(`${e.description} ${e.condition || ""} ${e.exact_source_excerpt || ""}`)
+    )
+  );
   assert.ok(report.exclusions.length <= 4, "must not duplicate the same exclusion for every line");
   assert.ok(report.exclusions.every((e) => e.source_page > 0 && e.exact_source_excerpt));
 
