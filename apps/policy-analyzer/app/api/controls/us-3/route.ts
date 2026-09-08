@@ -9,8 +9,27 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const filePath = path.join(process.cwd(), "public", "controls", FILE_NAME);
-  const bytes = await readFile(filePath);
+  let bytes: Buffer;
+  try {
+    bytes = await readFile(filePath);
+  } catch {
+    return new NextResponse(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, no-store"
+      }
+    });
+  }
   return new NextResponse(bytes, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${DOWNLOAD_NAME}"`,
+      "Content-Length": String(bytes.byteLength),
+      "Cache-Control": "public, max-age=3600"
+    }
+  });
+}
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${DOWNLOAD_NAME}"`,

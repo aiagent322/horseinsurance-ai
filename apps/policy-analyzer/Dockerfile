@@ -43,6 +43,7 @@ COPY --from=build --chown=analyzer:analyzer /app/worker ./worker
 COPY --from=build --chown=analyzer:analyzer /app/app ./app
 COPY --from=build --chown=analyzer:analyzer /app/components ./components
 COPY --from=build --chown=analyzer:analyzer /app/deploy ./deploy
+COPY --from=build --chown=analyzer:analyzer /app/public ./public
 COPY --from=build --chown=analyzer:analyzer /app/tessdata ./tessdata
 COPY --from=build --chown=analyzer:analyzer /app/proxy.ts ./proxy.ts
 COPY --from=build --chown=analyzer:analyzer /app/scripts/hosted-e2e.ts ./scripts/hosted-e2e.ts

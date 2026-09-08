@@ -130,6 +130,8 @@ function main(): void {
   assert.equal(isLocalDisposableAuthUrl("https://example.com"), false);
   assert.equal(isLocalDisposableAuthUrl("not-a-url"), false);
 
+  const dockerfile = readFileSync(path.join(APP_ROOT, "Dockerfile"), "utf8");
+  assert.match(dockerfile, /COPY --from=build[^\n]*\/app\/public \.\/public/);
   const entrypoint = readFileSync(path.join(APP_ROOT, "deploy/entrypoint.mjs"), "utf8");
   assert.match(
     entrypoint,
