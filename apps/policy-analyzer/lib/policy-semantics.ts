@@ -2122,6 +2122,9 @@ export type SourceEvidenceLink = {
   finding_key: string;
   source_text: string;
   section?: PolicySection | null;
+  source_form?: string;
+  form_role?: string;
+  applicability?: "established" | "unestablished";
 };
 
 export type CustomerSourceReference = {
@@ -2289,16 +2292,25 @@ function declarationsScheduleTextFromRecord(record: PolicyRecord): string {
   return chunks.join("\n");
 }
 
-function unresolvedOptionalTerritoryPage(record: PolicyRecord, documentId: string, page: number): boolean {
-  const doc = record.documents.find((item) => item.document_id === documentId);
-  if (!doc) return false;
-  const pageRec = doc.pages.find((item) => item.page === page);
-  const pageText = pageRec?.text || "";
-  const form = record.form_inventory.find((item) => {
+function formOwningPage(record: PolicyRecord, documentId: string, page: number) {
+  return record.form_inventory.find((item) => {
     const id = item.match_document_id || item.listing_document_id;
     if (id !== documentId || typeof item.page_start !== "number") return false;
     return page >= item.page_start && page <= (item.page_end || item.page_start);
   });
+}
+
+function unresolvedOptionalFormPage(
+  record: PolicyRecord,
+  documentId: string,
+  page: number,
+  extraCoverageNames: string[] = []
+): boolean {
+  const doc = record.documents.find((item) => item.document_id === documentId);
+  if (!doc) return false;
+  const pageRec = doc.pages.find((item) => item.page === page);
+  const pageText = pageRec?.text || "";
+  const form = formOwningPage(record, documentId, page);
   const optional = form
     ? /endorsement|optional coverage/i.test(String(form.form_role || ""))
     : /\bthis endorsement\b/i.test(pageText);
@@ -2311,16 +2323,23 @@ function unresolvedOptionalTerritoryPage(record: PolicyRecord, documentId: strin
       .join("\n");
   }
   if (!textHasIssuedApplicabilityGate(formText)) return false;
+  const terms = coverageSelectionTerms(extraCoverageNames, form?.form_title);
+  const gated = formText.match(/premium charge for\s+(.+?)\s+is indicated/i);
+  if (gated?.[1]) terms.push(...coverageSelectionTerms([gated[1]]));
+  const indicated = formText.match(/for which\s+(.+?)\s+is specifically indicated/i);
+  if (indicated?.[1]) terms.push(...coverageSelectionTerms([indicated[1]]));
   const decls = declarationsScheduleTextFromRecord(record);
-  if (
-    hasIssuedCoverageSelection(
-      decls,
-      coverageSelectionTerms(["worldwide coverage", "worldwide", "territorial limits", "coverage territory"])
-    )
-  ) {
-    return false;
-  }
+  if (hasIssuedCoverageSelection(decls, terms)) return false;
   return true;
+}
+
+function unresolvedOptionalTerritoryPage(record: PolicyRecord, documentId: string, page: number): boolean {
+  return unresolvedOptionalFormPage(record, documentId, page, [
+    "worldwide coverage",
+    "worldwide",
+    "territorial limits",
+    "coverage territory"
+  ]);
 }
 
 function isTerritorialScopeLanguage(text: string): boolean {
@@ -2439,12 +2458,25 @@ function documentById(record: PolicyRecord, documentId: string): DocumentRecord 
   return record.documents.find((doc) => doc.document_id === documentId);
 }
 
-function pushEvidence(bucket: IndexBucket, evidence: SourceEvidenceLink): void {
-  const key = `${evidence.document_id}|${evidence.page}|${evidence.finding_key}|${evidence.source_text.slice(0, 80).toLowerCase()}`;
+function attachSourceOwnership(record: PolicyRecord, evidence: SourceEvidenceLink): SourceEvidenceLink {
+  const form = formOwningPage(record, evidence.document_id, evidence.page);
+  return {
+    ...evidence,
+    source_form: form?.printed_identifier,
+    form_role: form?.form_role ? String(form.form_role) : undefined,
+    applicability: unresolvedOptionalFormPage(record, evidence.document_id, evidence.page)
+      ? "unestablished"
+      : "established"
+  };
+}
+
+function pushEvidence(record: PolicyRecord, bucket: IndexBucket, evidence: SourceEvidenceLink): void {
+  const owned = attachSourceOwnership(record, evidence);
+  const key = `${owned.document_id}|${owned.page}|${owned.finding_key}|${owned.source_text.slice(0, 80).toLowerCase()}`;
   if (bucket.evidence.some((item) => `${item.document_id}|${item.page}|${item.finding_key}|${item.source_text.slice(0, 80).toLowerCase()}` === key)) {
     return;
   }
-  bucket.evidence.push(evidence);
+  bucket.evidence.push(owned);
 }
 
 function looksLikeIdentityExternalReference(text: string): boolean {
@@ -2509,7 +2541,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
       sort_rank: 10,
       document_id: item.field.source_document_id
     });
-    pushEvidence(bucket, {
+    pushEvidence(record, bucket, {
       document_id: item.field.source_document_id,
       page: item.field.source_page,
       finding_type: "identification",
@@ -2532,7 +2564,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
             sort_rank: 15,
             document_id: doc.document_id
           });
-          pushEvidence(bucket, {
+          pushEvidence(record, bucket, {
             document_id: doc.document_id,
             page: page.page,
             finding_type: "other",
@@ -2573,7 +2605,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
       sort_rank: rank,
       document_id: coverage.source_document_id
     });
-    pushEvidence(bucket, {
+    pushEvidence(record, bucket, {
       document_id: coverage.source_document_id,
       page: coverage.source_page,
       finding_type: "coverage",
@@ -2648,7 +2680,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
     });
     bucket.families.add(family);
     bucket.label = dutyGroupLabel(group, bucket.families);
-    pushEvidence(bucket, {
+    pushEvidence(record, bucket, {
       document_id: documentId,
       page,
       finding_type: "duty",
@@ -2674,6 +2706,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
   }
   for (const clause of walked) {
     if (clause.kind !== "duty" || !clause.document_id) continue;
+    if (unresolvedOptionalFormPage(record, clause.document_id, clause.page)) continue;
     const families = allDutyFamilies(clause.clause);
     const list = families.length ? families : [dutyFamily(clause.clause)];
     for (const family of list) {
@@ -2682,7 +2715,27 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
   }
 
   for (const clause of walked) {
-    if (!clause.document_id || clause.kind === "exclusion" || clause.kind === "grant") continue;
+    if (!clause.document_id || clause.kind === "exclusion") continue;
+    if (
+      isOtherInsuranceLanguage(clause.clause) &&
+      !unresolvedOptionalFormPage(record, clause.document_id, clause.page)
+    ) {
+      const bucket = ensure(`condition:other-insurance:${clause.document_id}`, {
+        label: "Other Insurance",
+        finding_type: "condition",
+        sort_rank: 110,
+        document_id: clause.document_id
+      });
+      pushEvidence(record, bucket, {
+        document_id: clause.document_id,
+        page: clause.page,
+        finding_type: "condition",
+        finding_key: "other_insurance",
+        source_text: clause.clause,
+        section: clause.section
+      });
+    }
+    if (clause.kind === "grant") continue;
     if (
       isTerritorialScopeLanguage(clause.clause) &&
       !unresolvedOptionalTerritoryPage(record, clause.document_id, clause.page)
@@ -2693,27 +2746,11 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
         sort_rank: 50,
         document_id: clause.document_id
       });
-      pushEvidence(bucket, {
+      pushEvidence(record, bucket, {
         document_id: clause.document_id,
         page: clause.page,
         finding_type: "limit",
         finding_key: "territorial",
-        source_text: clause.clause,
-        section: clause.section
-      });
-    }
-    if (isOtherInsuranceLanguage(clause.clause)) {
-      const bucket = ensure(`condition:other-insurance:${clause.document_id}`, {
-        label: "Other Insurance",
-        finding_type: "condition",
-        sort_rank: 110,
-        document_id: clause.document_id
-      });
-      pushEvidence(bucket, {
-        document_id: clause.document_id,
-        page: clause.page,
-        finding_type: "condition",
-        finding_key: "other_insurance",
         source_text: clause.clause,
         section: clause.section
       });
@@ -2742,7 +2779,7 @@ export function buildSourceReferenceIndex(record: PolicyRecord): CustomerSourceR
           (item.kind === "exclusion" || item.section === "exclusions")
       );
       for (const page of pages) {
-        pushEvidence(bucket, {
+        pushEvidence(record, bucket, {
           document_id: documentId,
           page,
           finding_type: "exclusion",
