@@ -7,6 +7,8 @@ export const EDITION_RE = new RegExp(
 const ISO_FORM_RE = /\b([A-Z]{2}(?:[ -]\d{2}){1,5})\b/g;
 const HYPHEN_FORM_RE = /\b([A-Z]{2,6}(?:-[A-Z0-9]{1,8}){1,4})\b/g;
 const SPACE_FORM_RE = /\b([A-Z]{2,6}(?:\s+[A-Z]{2,8}){1,2}\s+\d{1,4})\b/g;
+const LETTER_NUMBER_FORM_RE =
+  /\b([A-Z]{3,6}\s+\d{3,4}[A-Z]?|[A-Z]{3,6}(?:\s+\d{2}[A-Z]?){2,3})\b/g;
 
 const STOP_HEADING_RE =
   /^(limits?|deductibles?|coverages?|exclusions?|named insured|policy number|insured value|premium|notice to|schedule of hazards|full mortality|major medical limit)\b/i;
@@ -21,16 +23,39 @@ export function normalizeFormId(id: string): string {
   return id.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+export function isInsertedLetterFormDuplicate(a: string, b: string): boolean {
+  const left = normalizeFormId(a);
+  const right = normalizeFormId(b);
+  if (!left || left === right) return false;
+  const parse = (id: string) => {
+    const match = id.match(/^([A-Z]+)(\d+[A-Z]*)$/);
+    return match ? { prefix: match[1], rest: match[2] } : null;
+  };
+  const pa = parse(left);
+  const pb = parse(right);
+  if (!pa || !pb || pa.rest !== pb.rest) return false;
+  const [shortPrefix, longPrefix] =
+    pa.prefix.length <= pb.prefix.length ? [pa.prefix, pb.prefix] : [pb.prefix, pa.prefix];
+  if (longPrefix.length !== shortPrefix.length + 1) return false;
+  for (let i = 0; i < longPrefix.length; i++) {
+    if (longPrefix.slice(0, i) + longPrefix.slice(i + 1) === shortPrefix) return true;
+  }
+  return false;
+}
+
 export function normalizeEdition(ed: string): string {
   return ed.toUpperCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function isFormsScheduleHeading(line: string): boolean {
   const t = line.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (/\b(?:are listed on|listed on the attached|see(?:\s+the)?\s+attached)\b/i.test(t)) return false;
   return (
     /^(forms|forms attached|forms and endorsements|schedule of forms|endorsements attached)\b/i.test(t) ||
     /\bforms\s*:/i.test(t) ||
-    /\bschedule of forms\b/i.test(t)
+    /\bschedule of forms\b/i.test(t) ||
+    /\bforms and endorsements schedule\b/i.test(t)
   );
 }
 
@@ -42,18 +67,29 @@ export function isLikelyFormIdentifier(raw: string): boolean {
   if (/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(printed)) return false;
   if (/^\d{1,2}[/-]\d{4}$/.test(printed)) return false;
 
+  if (/[a-z]/.test(printed) && /\s/.test(printed)) return false;
+
   const parts = printed.split(/[-\s]+/).filter(Boolean);
   if (parts.length < 2) return false;
   if (!/^[A-Z]{1,6}$/i.test(parts[0])) return false;
+  if (parts.some((part) => /^(?:from|to|of|and|the|for|named|insured|address|policy|page|part|form|item|schedule|amount|rate|premium|ed)$/i.test(part))) {
+    return false;
+  }
 
   const compact = normalizeFormId(printed);
   if (/^[A-Z]{1,4}(19|20)\d{2}\d{4,}$/.test(compact)) return false;
-  if (/^(19|20)\d{2}$/.test(parts[1]) && parts.slice(2).every((p) => /^\d{3,}$/.test(p))) return false;
+  if (/^(19|20)\d{2}$/.test(parts[1]) && parts.length > 2 && parts.slice(2).every((p) => /^\d{3,}$/.test(p))) return false;
 
   if (/^[A-Z]{2}(?:[ -]\d{2}){1,5}$/i.test(printed)) return true;
 
   const hasDigit = /\d/.test(compact);
   const letterSegments = parts.filter((p) => /[A-Z]/i.test(p) && !/^\d+$/.test(p));
+  if (parts[0].length === 2 && parts.length === 2 && /^\d{4,5}$/.test(parts[1])) return false;
+  if (parts[0].length >= 3) {
+    const nums = parts.filter((p) => /^\d+[A-Z]?$/i.test(p));
+    const hasLongNum = nums.some((n) => n.replace(/[A-Za-z]/g, "").length >= 3);
+    if (!hasLongNum && nums.length < 2) return false;
+  }
   if (!hasDigit && letterSegments.length < 3) return false;
   return true;
 }
@@ -62,7 +98,7 @@ export function extractFormIdsFromText(text: string): ListedForm[] {
   const out: ListedForm[] = [];
   const seen = new Set<string>();
   const matches: Array<{ printed: string; index: number; length: number }> = [];
-  for (const re of [ISO_FORM_RE, HYPHEN_FORM_RE, SPACE_FORM_RE]) {
+  for (const re of [ISO_FORM_RE, HYPHEN_FORM_RE, SPACE_FORM_RE, LETTER_NUMBER_FORM_RE]) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     const copy = new RegExp(re.source, "gi");
@@ -178,9 +214,11 @@ export function isIndependentFormEvidence(line: string, printedId: string, pageT
   if (isFormsScheduleHeading(line)) return false;
   if (lineIsInScheduleBlock(pageText, line)) return false;
   if (!lineHasFormId(line, printedId)) return false;
-  return /\b(base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\b/i.test(
-    line
-  );
+  if (/\b(base policy form|policy form|exclusion endorsement|major medical endorsement|endorsement|form)\b/i.test(line)) {
+    return true;
+  }
+  if (EDITION_RE.test(line) || /\bpage\s+\d+\s+of\s+\d+\b/i.test(line)) return true;
+  return false;
 }
 
 export function extractEdition(text: string): string | undefined {

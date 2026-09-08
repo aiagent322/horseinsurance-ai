@@ -76,7 +76,16 @@ function main() {
     "Named Syndrome"
   );
   assert.equal(additionalCoverageHeadingName("C. NAMED SYNDROME COVERAGE"), "Named Syndrome");
+  assert.equal(additionalCoverageHeadingName("C. Named Syndrome"), "Named Syndrome");
+  assert.equal(
+    additionalCoverageHeadingName(
+      "C. Named Syndrome A diagnosis that a horse which is twelve (12) years old or younger has Named Syndrome."
+    ),
+    "Named Syndrome"
+  );
   assert.equal(additionalCoverageHeadingName("A. DEATH OR HUMANE DESTRUCTION"), null);
+  assert.equal(additionalCoverageHeadingName("A. Trainer / Instructor Liability"), null);
+  assert.equal(additionalCoverageHeadingName("A. Death or Humane Destruction"), null);
 
   const specimen = analyzePages(
     [

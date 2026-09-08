@@ -230,6 +230,29 @@ EQUINE MORTALITY INSURANCE POLICY`
   assert.equal(declsDoc.classification, "Declarations", "L: declarations-only PDF stays Declarations");
   assert.ok(declsReport.form_inventory.every((form) => form.inventory_source !== "DISCOVERED_IN_DOCUMENT"));
 
+  const ocrLetterInsert = segmentLogicalForms([
+    {
+      page: 1,
+      text: `CRQ 2044 (Ed. 07 09)
+EQUINE MORTALITY - BROAD FORM
+Page 1 of 2
+We will provide the insurance coverage described in this policy.`
+    },
+    {
+      page: 2,
+      text: `CRFQ 2044 (Ed. 07 09)
+Page 2 of 2
+EXCLUSIONS
+This insurance does not cover mysterious disappearance.`
+    }
+  ]);
+  assert.ok(ocrLetterInsert.some((seg) => seg.normalized_identifier === "CRQ2044"));
+  assert.equal(
+    ocrLetterInsert.filter((seg) => seg.normalized_identifier === "CRFQ2044").length,
+    0,
+    "one extra OCR letter in a form prefix is not a second form"
+  );
+
   console.log("FORM SEGMENTATION REGRESSION OK", {
     physical_documents: controlReport.documents.length,
     logical_forms: controlReport.form_inventory.length,

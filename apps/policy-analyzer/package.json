@@ -14,6 +14,7 @@
     "test:form-segmentation": "POLICY_ANALYZER_STORE=memory tsx scripts/form-segmentation-regression.ts",
     "test:optional-endorsement-applicability": "POLICY_ANALYZER_STORE=memory tsx scripts/optional-endorsement-applicability-regression.ts",
     "test:identification": "POLICY_ANALYZER_STORE=memory tsx scripts/identification-regression.ts",
+    "test:control3": "POLICY_ANALYZER_STORE=memory tsx scripts/control3-issued-package-regression.ts",
     "test:taxonomy": "POLICY_ANALYZER_STORE=memory tsx scripts/taxonomy-regression.ts",
     "test:emergency-requirements": "POLICY_ANALYZER_STORE=memory tsx scripts/emergency-requirements-regression.ts",
     "test:duty-presentation": "POLICY_ANALYZER_STORE=memory tsx scripts/duty-presentation-regression.ts",

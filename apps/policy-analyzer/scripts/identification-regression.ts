@@ -54,7 +54,7 @@ function main() {
   ].join("\n");
   assert.doesNotMatch(
     productionSources,
-    /Chartis|\bAIG\b|American Home Assurance Company|Insurance Company of the State of Pennsylvania|77660|78150/
+    /Chartis|\bAIG\b|American Home Assurance Company|Insurance Company of the State of Pennsylvania|77660|78150|Great American|AMP E269955|EQU 1012/
   );
 
   assert.equal(isPolicyProductTitle("EQUINE MORTALITY INSURANCE POLICY"), true);
@@ -248,6 +248,144 @@ ITEM 3. SCHEDULE OF COVERED HORSES`
   assert.equal(coverage(control, "Surgical").coverage_status, "NEEDS CLARIFICATION");
   assert.equal(control.exclusions.length, 13);
   assert.equal(control.requirements.length, 11);
+
+  const issuedOcrPackage = analyzePages(
+    [
+      {
+        page: 1,
+        text: `*D/B* 111222333 444555
+Page 24 of 54 PageID # 90
+IMPORTANT NOTICE
+This notice is for information only and does not become a part or condition of the attached document.
+SDM-811 (Ed. 11/08)`
+      },
+      {
+        page: 2,
+        text: `*D/B* 111222333 444555
+Page 27 of 54 PageID # 96
+CRQ 2012 (Ed. 07 09)
+Policy No. CR 440018 00 00
+Renewal Of
+EQUINE MORTALITY BROAD FORM
+DECLARATIONS PART B
+NAMED INSURED AND ADDRESS POLICY PERIOD:
+Morgan Hale
+12 River Road 12:01 A.M. Standard Time
+From 01/15/2024 To 01/15/2025
+Amount $ 80,000 AGENT'S NAME AND ADDRESS:
+Rate % 2.50 Cedar Ridge Agency
+Premium $ 2,000.00
+Insurance is afforded by the Company named below, a Capital Stock Corporation:
+Cedar Ridge Assurance Company
+SCHEDULE
+Limit of Liability and Description of Horse
+Item Specified Amount of
+No. Name Breed Age Sex Use Rate Insurance
+001 SILVER CURRENT TB 2018 G SH 2.50% 80,000
+Major Medical $400.00 10,000
+Free Colic Surgery - Specified Animal
+FORMS AND ENDORSEMENTS applicable to all Coverage Parts are listed on the attached Forms and Endorsements Schedule CRQ 88 01 (07/09).
+CRQ 2012 (Ed. 07/09) (Page 1 of 1)`
+      },
+      {
+        page: 3,
+        text: `CRQ 2013 (Ed. 07 09)
+EQUINE MORTALITY - BROAD FORM
+I. INSURING AGREEMENT
+We will provide the insurance coverage described in this policy.
+II. COVERED CAUSES OF LOSS
+Subject to all of the terms of this policy, we will insure your "ownership interest" in each "horse" specified in the Declarations against the following Covered Causes of Loss:
+A. Mortality
+The death or "authorized humane destruction" of a "horse" occurring during the "policy period."
+B. Theft
+The "theft" of a "horse" during the "policy period" or the death of a "horse" resulting directly from the "theft" of that "horse."
+C. Named Syndrome
+A diagnosis that a "horse" which is twelve (12) years old or younger has "Named Syndrome," such diagnosis having first been made during the "policy period."
+IV. EXCLUSIONS
+A. Regardless of any other cause, this insurance does not cover any loss of a "horse" that is caused by any of the following:
+1. Any accident, injury, or disease that occurred to the "horse" before the beginning of the "policy period."
+2. Any dishonest, fraudulent, criminal, intentional, or malicious act.
+3. The intentional destruction, slaughter, or killing of a "horse."
+4. Mysterious disappearance or escape.
+F. Your Duties In The Event Of Accident, Injury, Illness, Or Physical Disability
+It is a condition precedent of any liability by us under this policy that you do each of the following:
+1. Immediately employ a "qualified veterinarian" to provide medical care to the "horse."
+2. Give immediate notice to us of the accident, injury, illness, or physical disability.
+3. Arrange for a "qualified veterinarian" to conduct a "necropsy" at no expense to the Company.
+CRQ 2013 (Ed. 07/09) (Page 3 of 12)`
+      },
+      {
+        page: 4,
+        text: `THIS ENDORSEMENT CHANGES THE POLICY. PLEASE READ IT CAREFULLY.
+CRQ 1138 (Ed. 10 12)
+FREE COLIC SURGERY ENDORSEMENT
+This endorsement modifies the insurance provided under your EQUINE MORTALITY - BROAD FORM policy.
+ADDITIONAL COVERAGE - FREE COLIC SURGERY
+we will pay you "reasonable and customary veterinary fees" incurred for "colic surgery" provided to your "horse" by a "qualified veterinarian."
+The maximum we will pay under this endorsement is $3,500 in the aggregate.
+CRQ 1138 (Ed. 10/12) (Page 1 of 3)`
+      },
+      {
+        page: 5,
+        text: `THIS ENDORSEMENT CHANGES THE POLICY. PLEASE READ IT CAREFULLY.
+CRQ 1034 (Ed. 05 14)
+$10,000 MAJOR MEDICAL ENDORSEMENT
+This endorsement modifies the insurance provided under your EQUINE MORTALITY - BROAD FORM policy.
+ADDITIONAL COVERAGE - MAJOR MEDICAL
+we will pay you "reasonable and customary veterinary fees" incurred for "surgical or medical treatment" provided to your "horse."
+The maximum we will pay under this endorsement is $10,000 in the aggregate.
+Each payment we make pursuant to this endorsement is also subject to a deductible of $500.
+This coverage is also subject to a co-payment (20) percent.
+CRQ 1034 (Ed. 05/14) (Page 1 of 4)`
+      },
+      {
+        page: 6,
+        text: `CRQ 88 01 (Ed. 07 09)
+FORMS AND ENDORSEMENTS SCHEDULE
+It is hereby understood and agreed the following forms and endorsements are attached to and are a part of this policy:
+1. CRQ 2012 07-09 Equine Mortality Broad Form Declarations Part B
+2. CRQ 2013 07-09 Equine Mortality - Broad Form
+3. CRQ 1138 10-12 Free Colic Surgery Endorsement
+4. CRQ 1034 05-14 $10,000 Major Medical Endorsement
+CRQ 88 01 (Ed. 07/09) (Page 1 of 1)`
+      }
+    ],
+    "issued-ocr-decls.pdf"
+  );
+  assert.equal(issuedOcrPackage.identification.policy_number?.value, "CR 440018 00 00");
+  assert.equal(issuedOcrPackage.identification.named_insured?.value, "Morgan Hale");
+  assert.equal(issuedOcrPackage.identification.insured_horse_name?.value, "SILVER CURRENT");
+  assert.equal(issuedOcrPackage.identification.policy_effective_date?.value, "01/15/2024");
+  assert.equal(issuedOcrPackage.identification.policy_expiration_date?.value, "01/15/2025");
+  assert.match(issuedOcrPackage.identification.carrier_name?.value || "", /cedar ridge assurance company/i);
+  assert.match(issuedOcrPackage.identification.insured_value?.value || "", /80,000/);
+  assert.notEqual(issuedOcrPackage.identification.age?.value, "HE");
+  assert.equal(coverage(issuedOcrPackage, "Full Mortality").coverage_status, "COVERED");
+  assert.equal(coverage(issuedOcrPackage, "Theft").coverage_status, "COVERED");
+  assert.equal(coverage(issuedOcrPackage, "Major Medical").coverage_status, "COVERED");
+  assert.equal(coverage(issuedOcrPackage, "Colic Surgery").coverage_status, "COVERED");
+  assert.equal(coverage(issuedOcrPackage, "Surgical").coverage_status, "NOT FOUND");
+  assert.equal(coverage(issuedOcrPackage, "Loss of Use").coverage_status, "NOT FOUND");
+  assert.equal(coverage(issuedOcrPackage, "Stallion Infertility").coverage_status, "NOT FOUND");
+  const issuedSyndrome = issuedOcrPackage.coverages.find((row) => /syndrome/i.test(row.coverage_type));
+  assert.ok(issuedSyndrome);
+  assert.equal(issuedSyndrome.coverage_status, "COVERED");
+  assert.equal(
+    issuedOcrPackage.completeness.status,
+    "APPEARS COMPLETE",
+    `${issuedOcrPackage.completeness.warnings.join(" | ")} :: ${issuedOcrPackage.form_inventory
+      .map((form) => `${form.printed_identifier}:${form.status}:${form.inventory_source}`)
+      .join(", ")}`
+  );
+  assert.notEqual(issuedOcrPackage.completeness.status, "COMPLETE CONTRACTUAL SPECIMEN FORM SET");
+  assert.ok(
+    issuedOcrPackage.form_inventory.some((form) =>
+      /CRQ2012/i.test(`${form.printed_identifier}${form.normalized_identifier}`)
+    ),
+    issuedOcrPackage.form_inventory.map((form) => form.printed_identifier).join(", ")
+  );
+  assert.ok(issuedOcrPackage.exclusions.length >= 1);
+  assert.ok(issuedOcrPackage.requirements.length >= 1);
 
   const diamond = analyzePages(NATIVE_POLICY_REPORT_PAGES, "native-policy.pdf");
   assert.equal(diamond.identification.carrier_name?.value, "Diamond State Insurance Company");

@@ -1,6 +1,7 @@
 import {
   collectFormsScheduleText,
   extractFormIdsFromText,
+  isInsertedLetterFormDuplicate,
   normalizeEdition,
   normalizeFormId,
   type ListedForm
@@ -30,7 +31,7 @@ type PageIdentity = {
 };
 
 const NUMERIC_EDITION_RE =
-  /\b(\d{4,6})\s*[\(\[]\s*(?:ed(?:ition)?\.?\s*)?(\d{1,2}\s*[\/.-]\s*\d{2,4})\s*[\)\]]/gi;
+  /\b(\d{5,6})\s*[\(\[]\s*(?:ed(?:ition)?\.?\s*)?(\d{1,2}\s*[\/.-]\s*\d{2,4})\s*[\)\]]/gi;
 
 const PAGE_OF_RE = /\bpage\s+(\d+)\s+of\s+(\d+)\b/i;
 
@@ -153,6 +154,14 @@ function pageIndexHint(text: string): { page: number; of: number } | undefined {
   return { page, of };
 }
 
+function isInformationOnlyNotice(text: string): boolean {
+  const hay = String(text || "").replace(/\s+/g, " ");
+  if (/\bthis notice is for information only\b/i.test(hay)) return true;
+  if (/\bdoes not become a part or condition of the attached document\b/i.test(hay)) return true;
+  if (/\battach this notice to your policy\b/i.test(hay) && /\bfor information only\b/i.test(hay)) return true;
+  return false;
+}
+
 function looksLikeNewFormTitlePage(text: string): boolean {
   const head = String(text || "").slice(0, 900);
   if (/this endorsement (?:changes|modifies|amends|alters) the policy/i.test(head)) return true;
@@ -178,7 +187,9 @@ function extractLogicalFormTitle(text: string): string | undefined {
 
   const titled = lines.find((line) => {
     if (skip(line)) return false;
-    return /\b(endorsement|declarations page|insurance policy|schedule of covered horses)\b/i.test(line);
+    return /\b(endorsement|declarations page|declarations part|insurance policy|schedule of covered horses|forms and endorsements schedule)\b/i.test(
+      line
+    );
   });
   if (titled) return titled.slice(0, 140);
   const fallback = lines.find((line) => !skip(line) && line.length >= 8 && line.length <= 90);
@@ -189,6 +200,7 @@ export function classifyLogicalFormRole(startText: string): LogicalFormRole {
   const text = String(startText || "");
   const head = text.slice(0, 1200);
   const title = extractLogicalFormTitle(text) || "";
+  if (isInformationOnlyNotice(text)) return "Other Form";
   if (
     /this endorsement (?:changes|modifies|amends|alters) the policy/i.test(head) ||
     /(?:^|\n)\s*endorsement\s*$/im.test(head) ||
@@ -264,7 +276,7 @@ export function segmentLogicalForms(pages: PageText[]): LogicalFormSegment[] {
   }
   if (current) closed.push(current);
 
-  return closed.map((seg) => ({
+  const mapped = closed.map((seg) => ({
     printed_identifier: seg.identity.printed,
     normalized_identifier: seg.identity.normalized,
     edition: seg.identity.edition,
@@ -274,6 +286,15 @@ export function segmentLogicalForms(pages: PageText[]): LogicalFormSegment[] {
     page_end: seg.page_end,
     start_text: seg.start_text
   }));
+  return mapped.filter((seg) => {
+    const shorter = mapped.find(
+      (other) =>
+        other.normalized_identifier !== seg.normalized_identifier &&
+        other.normalized_identifier.length < seg.normalized_identifier.length &&
+        isInsertedLetterFormDuplicate(other.normalized_identifier, seg.normalized_identifier)
+    );
+    return !shorter;
+  });
 }
 
 export function distinctLogicalFormCount(pages: PageText[]): number {

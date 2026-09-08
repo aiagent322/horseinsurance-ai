@@ -7,6 +7,7 @@ import {
 import {
   coverageSelectionTerms,
   hasIssuedCoverageSelection,
+  looksLikeDeclarationsPage,
   textHasIssuedApplicabilityGate
 } from "./policy-semantics";
 import type { PageText } from "./types";
@@ -78,7 +79,9 @@ export function collectDeclarationsScheduleText(pages: ApplicabilityPage[]): str
       const head = page.text.slice(0, 600);
       if (/\bdeclarations page\b/i.test(head) || /(?:^|\n)\s*declarations\s*$/im.test(head)) {
         chunks.push(page.text);
+        continue;
       }
+      if (looksLikeDeclarationsPage(page.text)) chunks.push(page.text);
     }
   }
   return chunks.join("\n");

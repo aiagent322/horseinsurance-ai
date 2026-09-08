@@ -34,7 +34,7 @@ export function stripLegalAliasSuffix(value: string): string {
 }
 
 const IDENTITY_FIELD_LABEL =
-  /^(?:item\s*\d+\.?\s*)?(?:policy\s+(?:number|no\.?|#)|renewal\s+(?:of\s+)?(?:number|no\.?|#)|named insured(?:\s*&\s*mailing address)?|mailing address|policy period|(?:policy\s+)?effective date|(?:policy\s+)?expiration date|from|to|premium|deductible|insured horse(?: name)?|name of horse(?:\/breed)?|insured value|full mortality|limit of insurance|coverage description|horse no\.?|municipal tax|issued to)\s*$/i;
+  /^(?:item\s*\d+\.?\s*)?(?:policy\s+(?:number|no\.?|#)|renewal\s+(?:of\s+)?(?:number|no\.?|#)|named insured(?:\s+(?:and|&)\s+(?:address|mailing address))?|mailing address|policy period|(?:policy\s+)?effective date|(?:policy\s+)?expiration date|from|to|premium|deductible|insured horse(?: name)?|name of horse(?:\/breed)?|insured value|full mortality|limit of insurance|coverage description|horse no\.?|municipal tax|issued to|agent'?s name(?:\s+and\s+address)?|amount|rate(?:\s*%)?)\s*$/i;
 
 export function isIdentityFieldLabel(value: string): boolean {
   const v = String(value || "")
@@ -147,20 +147,32 @@ export function normalizeIdentificationValue(value: string): string | undefined 
   return cleaned;
 }
 
+function isCourtOrStampChrome(line: string): boolean {
+  const t = String(line || "").replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (/^\*D\/B\*/i.test(t)) return true;
+  if (/\bpageid\b/i.test(t)) return true;
+  if (/\bcase\s+\d+:\d+-cv\b/i.test(t)) return true;
+  if (/^page\s*[<>]?\s*\d+\s+of\s+\d+$/i.test(t)) return true;
+  if (/filed\s+\d{1,2}\/\d{1,2}\/\d{2,4}/i.test(t) && t.length < 80) return true;
+  return false;
+}
+
 function firstContentLines(text: string, count = 8): string {
   return String(text || "")
     .split(/\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line && !isCourtOrStampChrome(line))
     .slice(0, count)
     .join("\n");
 }
 
 export function isDeclarationsHeading(text: string): boolean {
-  const head = firstContentLines(text, 8);
+  const head = firstContentLines(text, 24);
   for (const line of head.split("\n")) {
     if (/^declarations\s*:/i.test(line)) continue;
     if (/^declarations\b/i.test(line)) return true;
+    if (/\bdeclarations\s+part\s+[a-z]\b/i.test(line)) return true;
     if (/^(?:equine\s+)?(?:mortality\s+)?policy\s+declarations\b/i.test(line) && !/\bform\b/i.test(line)) return true;
     if (/^renewal declarations\b/i.test(line)) return true;
   }
@@ -179,26 +191,35 @@ export function isFilledPolicySpecificValue(value: string): boolean {
 }
 
 const DECLARATIONS_FIELD_PATTERNS: RegExp[] = [
-  /policy\s+(?:number|no\.?|#)\s*[:.–—]\s*([^\n]+)/i,
+  /policy\s+(?:number|no\.?|#)\s*[:.–—]?[ \t]+([A-Z0-9][A-Z0-9][-A-Z0-9 ]*\d[-A-Z0-9 ]*)/i,
   /named insured\s*[:.–—]\s*([^\n]+)/i,
   /(?:mailing\s+)?address\s*[:.–—]\s*([^\n]+)/i,
   /(?:policy\s+)?effective date\s*[:.–—]\s*([^\n]+)/i,
   /(?:policy\s+)?expiration date\s*[:.–—]\s*([^\n]+)/i,
-  /premium\s*[:.–—]\s*([^\n]+)/i,
+  /premium\s*[:.–—]?\s*(\$[\d,]+(?:\.\d{2})?)/i,
   /deductible\s*[:.–—]\s*([^\n]+)/i,
   /insured horse(?: name)?\s*[:.–—]\s*([^\n]+)/i,
   /insured value[^\n]{0,40}[:.–—]\s*([^\n]+)/i,
   /(?:agent|producer)\s*[:.–—]\s*([^\n]+)/i,
-  /(?:issued|underwritten)\s+by\s*[:.–—]\s*([^\n]+)/i
+  /(?:issued|underwritten)\s+by\s*[:.–—]\s*([^\n]+)/i,
+  /\bfrom\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+  /\bamount\s*\$?\s*([\d,]+(?:\.\d{2})?)/i
 ];
 
 export function filledDeclarationsFieldCount(text: string): number {
   let n = 0;
   for (const pattern of DECLARATIONS_FIELD_PATTERNS) {
     const match = text.match(pattern);
-    if (match?.[1] && isFilledPolicySpecificValue(match[1])) n += 1;
+    const value = (match?.[1] || "").replace(/\s+/g, " ").trim();
+    if (value && isFilledPolicySpecificValue(value)) n += 1;
   }
   if (/(?:^|\n)\s*forms\s*:\s*\n?\s*[A-Z0-9]/i.test(text)) n += 1;
+  if (
+    /\b(?:limit of liability and description of horse|schedule of covered horses)\b/i.test(text) &&
+    /\$?\s*\d{1,3}(?:,\d{3})+/.test(text)
+  ) {
+    n += 1;
+  }
   return n;
 }
 
@@ -243,29 +264,40 @@ export function isCoverageConditionNotGrant(clause: string): boolean {
   if (/\bwe shall be released from any obligation to indemnify\b/i.test(text)) return true;
   if (/\bindemnification to you shall be limited to the fair market value\b/i.test(text)) return true;
   if (/\bcoverage [a-z]\.?\s+.{0,80}shall apply provided\b/i.test(text)) return true;
+  if (/\bis not a covered cause of loss\b/i.test(text)) return true;
   return false;
 }
 
 export function isCoverageGrantLanguage(clause: string): boolean {
   if (isCoverageConditionNotGrant(clause)) return false;
+  const text = String(clause || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  if (/\bis not a covered cause of loss\b/i.test(text)) return false;
+  if (/\b(?:does not|do not|shall not|will not)\s+(?:cover|insure|indemnify|pay|provide)\b/i.test(text)) {
+    return false;
+  }
   return (
-    /\bprovides\b/i.test(clause) ||
-    /\bis provided\b/i.test(clause) ||
-    /\bis added\b/i.test(clause) ||
-    /\bis covered\b/i.test(clause) ||
-    /coverage with a limit/i.test(clause) ||
-    /limit of\s*\$/i.test(clause) ||
-    /amended to\s*\$/i.test(clause) ||
-    /\bwill indemnify\b/i.test(clause) ||
-    /\bagrees to indemnify\b/i.test(clause) ||
-    /\bshall indemnify\b/i.test(clause) ||
-    /\bindemnify(?:\s+the\s+insured)?\b/i.test(clause) ||
-    /\bwill pay\b/i.test(clause) ||
-    /\b(?:we |the company )?(?:agree|agrees) to reimburse\b/i.test(clause) ||
-    /\bwill reimburse\b/i.test(clause) ||
-    /\bthis insurance covers\b/i.test(clause) ||
-    /\bcoverage is afforded\b/i.test(clause) ||
-    /\bcoverage is provided\b/i.test(clause)
+    /\bprovides\b/i.test(text) ||
+    /\bis provided\b/i.test(text) ||
+    /\bis added\b/i.test(text) ||
+    /\bis covered\b/i.test(text) ||
+    /coverage with a limit/i.test(text) ||
+    /limit of\s*\$/i.test(text) ||
+    /amended to\s*\$/i.test(text) ||
+    /\bwill indemnify\b/i.test(text) ||
+    /\bagrees to indemnify\b/i.test(text) ||
+    /\bshall indemnify\b/i.test(text) ||
+    /\bindemnify(?:\s+the\s+insured)?\b/i.test(text) ||
+    /\bwill pay\b/i.test(text) ||
+    /\b(?:we |the company )?(?:agree|agrees) to reimburse\b/i.test(text) ||
+    /\bwill reimburse\b/i.test(text) ||
+    /\bthis insurance covers\b/i.test(text) ||
+    /\bcoverage is afforded\b/i.test(text) ||
+    /\bcoverage is provided\b/i.test(text) ||
+    /\b(?:will|shall) insure\b/i.test(text) ||
+    /\bwe will provide the insurance coverage\b/i.test(text) ||
+    /\bdeath or ["“]?authorized humane destruction["”]?\b/i.test(text) ||
+    /\bthe ["“]?theft["”]? of (?:a |any )?["“]?horse/i.test(text)
   );
 }
 
@@ -347,7 +379,7 @@ export function hasIssuedCoverageSelection(declarationsText: string, terms: stri
       if (idx < 0) break;
       const window = hay.slice(Math.max(0, idx - 48), Math.min(hay.length, idx + needle.length + 140));
       if (/\$[\d,]+(?:\.\d{2})?/.test(window)) return true;
-      if (/\b(?:yes|included|selected|elected)\b/i.test(window)) return true;
+      if (/\b(?:yes|included|selected|elected|specified animal)\b/i.test(window)) return true;
       if (/\bpremium\b.{0,32}\$?\d/i.test(window)) return true;
       if (/\b(?:limit|amount)\b.{0,24}\$?\d/i.test(window)) return true;
       if (/[\[(]\s*[xX✓✔]\s*[\])]/.test(window)) return true;
@@ -373,8 +405,9 @@ export function personalizedFactsMissing(identification: PolicyIdentification): 
 
 export function isUnfilledDeclarationsTemplate(text: string): boolean {
   const raw = String(text || "");
-  if (!/\bdeclarations(?:\s+page)?\b/i.test(raw)) return false;
-  if (!/\b(?:policy\s+number|named insured|schedule of covered horses|item\s*3)\b/i.test(raw)) return false;
+  if (!/\bdeclarations(?:\s+page|\s+part\s+[a-z])?\b/i.test(raw)) return false;
+  if (!/\b(?:policy\s+(?:number|no)|named insured|schedule of covered horses|item\s*3)\b/i.test(raw)) return false;
+  if (filledDeclarationsFieldCount(raw) >= 2) return false;
   for (const line of raw.split(/\n/)) {
     const compact = line.replace(/\s+/g, " ").trim();
     if (!compact) continue;
@@ -430,8 +463,20 @@ function titledAdditionalCoverageName(raw: string): string | null {
 
 export function additionalCoverageHeadingName(clause: string): string | null {
   const text = String(clause || "").replace(/\s+/g, " ").trim();
-  const heading = text.match(/^[A-Z]\.\s+([A-Z][A-Z0-9 ,/'()&-]{3,}?)\s+COVERAGE\s*$/);
-  return heading?.[1] ? titledAdditionalCoverageName(heading[1]) : null;
+  if (!text) return null;
+  const allCaps = text.match(
+    /^[A-Z]\.\s+([A-Z][A-Z0-9 ,/'()&-]{3,}?)\s+COVERAGE(?:\s*$|(?=\s+(?:\d+\.|A diagnosis|We shall|We will)\b))/
+  );
+  if (allCaps?.[1]) return titledAdditionalCoverageName(allCaps[1]);
+  const mixedHeading = text.match(/^[A-Z]\.\s+([A-Z][A-Za-z][A-Za-z0-9 ,/'()&-]{2,}?)(?:\s+Coverage)?\s*$/);
+  if (mixedHeading?.[1] && /\b(?:coverage|syndrome)\b/i.test(text)) {
+    return titledAdditionalCoverageName(mixedHeading[1]);
+  }
+  const mixedGrant = text.match(
+    /^[A-Z]\.\s+([A-Z][A-Za-z0-9 ,/'()&-]{3,}?)(?:\s+Coverage)?(?=\s+(?:A diagnosis of|We shall|We will)\b)/i
+  );
+  if (mixedGrant?.[1]) return titledAdditionalCoverageName(mixedGrant[1]);
+  return null;
 }
 
 export function additionalCoverageTitleFromClause(clause: string): string | null {
@@ -446,7 +491,10 @@ export function additionalCoverageTitleFromClause(clause: string): string | null
 
 export function clauseConcernsMortality(clause: string): boolean {
   const lower = clause.toLowerCase();
-  if (/\bfull mortality\b/.test(lower) || /\bmortality coverage\b/.test(lower) || /\bequine mortality\b/.test(lower)) {
+  if (/\bfull mortality\b/.test(lower) || /\bmortality coverage\b/.test(lower)) {
+    return true;
+  }
+  if (/\bequine mortality\b/.test(lower) && isCoverageGrantLanguage(clause) && !/\bdeclarations\b/i.test(lower)) {
     return true;
   }
   const death = /\b(death|die|dies|died|deceased|mortality)\b/i.test(clause);
@@ -499,7 +547,7 @@ const SECTION_ORDINAL =
   "(?:(?:part|article|section)\\s+[ivxlcdm0-9]+|(?:xiv|xiii|xii|xi|viii|vii|vi|iv|ix|iii|ii|xv|x|v|i))\\.?\\s+";
 
 const STRONG_HEADING_PATTERN = new RegExp(
-  `^(?:${SECTION_ORDINAL})?[—–-]?\\s*(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|emergency requirements|claim requirements|general conditions|conditions|limitations|insuring agreement|arbitration(?: clause)?)\\s*[:.]?\\s*(.*)$`,
+  `^(?:${SECTION_ORDINAL})?[—–-]?\\s*(what we do not cover|losses not insured|exclusions|duties after (?:a )?loss|claim conditions|duties of the insured|emergency requirements|claim requirements|general conditions|conditions|limitations|insuring agreement|covered causes of loss|covered causes|arbitration(?: clause)?)\\s*[:.]?\\s*(.*)$`,
   "i"
 );
 
@@ -517,7 +565,16 @@ function sectionFromHeadingName(name: string): PolicySection | null {
   if (n === "emergency requirements" || n === "claim requirements") return "duties";
   if (n === "general conditions" || n === "conditions") return "conditions";
   if (n === "limitations") return "limitations";
-  if (n === "insuring agreement" || n === "coverage" || n === "coverages" || n === "agreement") return "coverage";
+  if (
+    n === "insuring agreement" ||
+    n === "coverage" ||
+    n === "coverages" ||
+    n === "agreement" ||
+    n === "covered causes of loss" ||
+    n === "covered causes"
+  ) {
+    return "coverage";
+  }
   if (n === "definition" || n === "definitions") return "definitions";
   if (n === "arbitration" || n === "arbitration clause") return "arbitration";
   return null;
@@ -540,9 +597,12 @@ export function parseSectionHeadingLine(
     if (section) return { section, rest: "" };
   }
   const dutyHeading = raw.match(
-    /^(?:[A-Z]\.\s+)?(duties(?:\s+after(?:\s+a)?\s+loss)?(?:\s+in the event of\b.*)?|what you must do|loss conditions)\s*[:.]?\s*$/i
+    /^(?:[A-Z]\.\s+)?(?:your\s+)?(duties(?:\s+after(?:\s+a)?\s+loss)?(?:\s+in the event of\b.*)?|what you must do|loss conditions)\s*[:.]?\s*$/i
   );
   if (dutyHeading) return { section: "duties", rest: "" };
+  if (/^(?:[A-Z]\.\s+)?(?:your\s+)?duties\s+in\s+the\s+event\s+of\b/i.test(raw)) {
+    return { section: "duties", rest: "" };
+  }
   const titled = raw.match(/^[A-Z]\.\s+([A-Z][A-Z0-9 ,/'()&-]{3,})\s*$/);
   if (titled?.[1]) {
     if (/\bduties\b|what you must do|claim conditions|loss conditions|emergency requirements/i.test(titled[1])) {
@@ -623,7 +683,7 @@ function hasDutyAction(clause: string): boolean {
       clause
     ) ||
     /\bsend us\b/i.test(clause) ||
-    /\ballow us to inspect\b/i.test(clause) ||
+    /\ballow us to (?:inspect|examine|assume)\b/i.test(clause) ||
     /\bexaminations?\s+under\s+oath\b/i.test(clause) ||
     /\bproof of loss\b/i.test(clause) ||
     /\bransom\b/i.test(clause) ||

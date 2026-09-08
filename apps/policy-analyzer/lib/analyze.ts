@@ -5,6 +5,7 @@ import {
   extractEdition,
   isFormsScheduleHeading,
   isIndependentFormEvidence,
+  isInsertedLetterFormDuplicate,
   lineHasFormId,
   normalizeEdition,
   normalizeFormId,
@@ -49,6 +50,7 @@ import {
   isUnfilledDeclarationsTemplate,
   KNOWN_EXCLUSION_TITLES,
   looksLikeDeclarationsPage,
+  looksLikeInsuranceCompanyName,
   normalizeIdentificationValue,
   packageHasUnfilledIssuedFacts,
   personalizedFactsMissing,
@@ -192,10 +194,74 @@ function sourcedFromHit(h: Hit, value: string, confidence: "HIGH" | "MEDIUM" = "
 }
 
 function parseLabeledIdentityValue(h: Hit, label: string): string | undefined {
-  const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*(.*)`, "i");
-  const lineMatch = h.line.match(textRe);
+  const textRe = new RegExp(`^(?:item\\s*\\d+\\.\\s*)?${escapeRe(label)}\\s*[:–—]\\s*(.*)`, "i");
+  const lineMatch = h.line.replace(/\s+/g, " ").trim().match(textRe);
   if (!lineMatch) return undefined;
   return takePopulatedIdentityValue(lineMatch[1] || "");
+}
+
+function looksLikePolicyNumber(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (v.length < 4 || v.length > 48) return false;
+  if (!/\d/.test(v)) return false;
+  if (/^(?:item|renewal|from|to|issued|by|page|form)\b/i.test(v)) return false;
+  if (/^item\s*\d+\b/i.test(v)) return false;
+  return /[A-Z]/i.test(v);
+}
+
+function parsePolicyNumberLine(line: string): string | undefined {
+  const compact = line.replace(/\s+/g, " ").trim();
+  const populated = compact.match(
+    /^(?:item\s*\d+\.\s*)?policy\s*(?:number|no\.?|#)\s*[:.–—]?\s+([A-Z0-9][-A-Z0-9 ]*\d[-A-Z0-9 ]*)/i
+  );
+  if (populated?.[1]) {
+    const taken = takePopulatedIdentityValue(populated[1]);
+    if (taken && looksLikePolicyNumber(taken)) return taken;
+  }
+  const labeled = compact.match(/^(?:item\s*\d+\.\s*)?policy\s*(?:number|no\.?|#)\s*[:–—]\s*(.*)$/i);
+  if (labeled?.[1]) {
+    const taken = takePopulatedIdentityValue(labeled[1]);
+    if (taken && looksLikePolicyNumber(taken)) return taken;
+  }
+  return undefined;
+}
+
+function policyNumberIdentification(hits: Hit[]): Sourced<string> | undefined {
+  const candidates: Array<{ sourced: Sourced<string>; pageText: string }> = [];
+  for (const h of hits) {
+    const value = parsePolicyNumberLine(h.line);
+    if (!value) continue;
+    const normalized = normalizeIdentificationValue(value);
+    if (!normalized || !looksLikePolicyNumber(normalized)) continue;
+    candidates.push({ sourced: sourcedFromHit(h, normalized), pageText: h.text });
+  }
+  if (!candidates.length) return undefined;
+  const fromDeclarations = candidates.filter((item) => looksLikeDeclarationsPage(item.pageText));
+  return (fromDeclarations[0] || candidates[0]).sourced;
+}
+
+function remainderAfterIdentityLabel(line: string, label: string): string {
+  const compact = line.replace(/\s+/g, " ").trim();
+  const stripped = compact.replace(new RegExp(`^.*\\b${escapeRe(label)}\\b[:.–—]?\\s*`, "i"), "").trim();
+  return stripped
+    .replace(/^(?:and\s+address|&\s*mailing address)\s*[:.–—]?\s*/i, "")
+    .replace(/^(?:policy period)\s*[:.–—]?\s*/i, "")
+    .replace(/[:.–—]+$/g, "")
+    .trim();
+}
+
+function identityValueAfterLabel(hits: Hit[], index: number, label: string): string | undefined {
+  const h = hits[index];
+  const labeled = parseLabeledIdentityValue(h, label);
+  if (labeled) return labeled;
+  const compact = h.line.replace(/\s+/g, " ").trim();
+  const fieldStart = new RegExp(`^(?:item\\s*\\d+\\.\\s*)?${escapeRe(label)}\\b`, "i");
+  if (!fieldStart.test(compact)) return undefined;
+  const rest = remainderAfterIdentityLabel(h.line, label);
+  if (rest && !isIdentityFieldLabel(rest) && !/^item\s*\d+\b/i.test(rest) && !isPolicyProductTitle(rest)) {
+    return takePopulatedIdentityValue(rest);
+  }
+  return followingLineIdentityValue(hits, index);
 }
 
 function followingLineIdentityValue(hits: Hit[], index: number): string | undefined {
@@ -216,11 +282,7 @@ function labeledIdentification(hits: Hit[], labels: string[]): Sourced<string> |
   for (let i = 0; i < hits.length; i++) {
     const h = hits[i];
     for (const label of labels) {
-      let value = parseLabeledIdentityValue(h, label);
-      if (!value) {
-        const textRe = new RegExp(`${escapeRe(label)}\\s*[:–—]\\s*$`, "i");
-        if (textRe.test(h.line)) value = followingLineIdentityValue(hits, i);
-      }
+      const value = identityValueAfterLabel(hits, i, label);
       if (!value) continue;
       const normalized = normalizeIdentificationValue(value);
       if (!normalized) continue;
@@ -294,6 +356,9 @@ function resolveCarrierName(candidates: IssuingCompanyCandidate[]): Sourced<stri
   if (explicit.length === 1) return explicit[0].sourced;
   const issued = candidates.filter((item) => !isUnfilledDeclarationsTemplate(item.pageText));
   if (issued.length === 1) return issued[0].sourced;
+  const decls = candidates.filter((item) => looksLikeDeclarationsPage(item.pageText));
+  const declNames = new Set(decls.map((item) => companyIdentityKey(item.name)));
+  if (declNames.size === 1 && decls[0]) return decls[0].sourced;
   return undefined;
 }
 
@@ -700,6 +765,81 @@ function coverageNarrative(
   });
 }
 
+function looksLikeDateValue(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(v)) return true;
+  if (/\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(v) && /\d{4}/.test(v)) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeAgeValue(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  return /^(?:\d{1,2}|foaled\s+\d{4})$/i.test(v);
+}
+
+function looksLikeSexValue(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  return /^(?:m|f|g|s|c|male|female|gelding|stallion|mare|colt|filly)$/i.test(v);
+}
+
+function looksLikePersonName(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (!v || isIdentityFieldLabel(v) || isPolicyProductTitle(v)) return false;
+  if (looksLikeInsuranceCompanyName(v)) return false;
+  if (/^(?:item|schedule|limit|amount|premium|named|insured|address|policy|renewal|from|to|agent)\b/i.test(v)) {
+    return false;
+  }
+  return /^[A-Z][A-Za-z.'\-]+(?:\s+[A-Z][A-Za-z.'\-]+){1,4}$/.test(v);
+}
+
+function looksLikeHorseName(value: string): boolean {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (v.length < 3 || v.length > 48) return false;
+  if (isIdentityFieldLabel(v) || isPolicyProductTitle(v)) return false;
+  if (/^(?:item|schedule|limit|amount|premium|major|free|forms)\b/i.test(v)) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9 '.-]{2,}$/.test(v);
+}
+
+function applyDeclarationsScheduleFacts(identification: PolicyIdentification, hits: Hit[]): void {
+  const declHits = uniquePages(hits).filter((h) => looksLikeDeclarationsPage(h.text));
+  for (const h of declHits) {
+    if (!identification.policy_effective_date || !identification.policy_expiration_date) {
+      const span = h.text.match(/\bfrom\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+      if (span) {
+        identification.policy_effective_date ||= sourcedFromHit(h, span[1]);
+        identification.policy_expiration_date ||= sourcedFromHit(h, span[2]);
+      }
+    }
+    if (!identification.insured_value) {
+      const amount = h.text.match(/\bamount\s*\$?\s*([\d,]+(?:\.\d{2})?)/i);
+      if (amount?.[1]) identification.insured_value = sourcedFromHit(h, `$${amount[1].replace(/^\$/, "")}`);
+    }
+    if (!identification.named_insured) {
+      const named = h.text.match(
+        /named insured(?:\s+and\s+address)?[^\n]*\n\s*([A-Z][A-Za-z.'\-]+(?:\s+[A-Z][A-Za-z.'\-]+){0,4})/i
+      );
+      if (named?.[1] && looksLikePersonName(named[1])) {
+        identification.named_insured = sourcedFromHit(h, named[1].replace(/\s+/g, " ").trim());
+      }
+    }
+    if (!identification.insured_horse_name) {
+      const row = h.text.match(
+        /(?:^|\n)\s*\d{1,3}\s+([A-Z][A-Z0-9 '.-]{3,40})\s+[A-Z]{2}\s*[| ]*\s*(?:19|20)\d{2}\b/
+      );
+      if (row?.[1] && looksLikeHorseName(row[1])) {
+        identification.insured_horse_name = sourcedFromHit(h, row[1].replace(/\s+/g, " ").trim());
+      }
+    }
+    if (!identification.agent_name) {
+      const agent = h.text.match(/agent'?s name and address:\s*\n\s*([^\n]+)/i);
+      const taken = agent?.[1] ? takePopulatedIdentityValue(agent[1]) : undefined;
+      if (taken) identification.agent_name = sourcedFromHit(h, taken);
+    }
+  }
+}
+
 export function analyzeDocuments(policyId: string, sessionId: string, documents: DocumentRecord[]): PolicyRecord {
   const now = new Date().toISOString();
   const hits = pagesOf(documents);
@@ -711,8 +851,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     carrier_name: resolveCarrierName(collectCarrierCandidates(hits)),
     agency_name: labeledIdentification(hits, ["Agency"]),
     agent_name: labeledIdentification(hits, ["Agent"]),
-    policy_number: labeledIdentification(hits, ["Policy Number", "Policy No", "Policy #"]) ||
-      firstMatchIdentification(hits, /policy\s*(?:number|no\.?|#)\s*[:.]?\s*([A-Z0-9][-A-Z0-9]*\d[-A-Z0-9]*)/i),
+    policy_number: policyNumberIdentification(hits),
     named_insured: labeledIdentification(hits, ["Named Insured"]),
     policy_effective_date: labeledIdentification(hits, ["Policy Effective Date", "Effective Date"]),
     policy_expiration_date: labeledIdentification(hits, ["Policy Expiration Date", "Expiration Date"]),
@@ -729,6 +868,26 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     insured_value: labeledIdentification(hits, ["Insured Value", "Full Mortality"]),
     currency: labeledIdentification(hits, ["Currency"])
   };
+
+  if (identification.named_insured && !looksLikePersonName(identification.named_insured.value)) {
+    identification.named_insured = undefined;
+  }
+  if (identification.policy_effective_date && !looksLikeDateValue(identification.policy_effective_date.value)) {
+    identification.policy_effective_date = undefined;
+  }
+  if (identification.policy_expiration_date && !looksLikeDateValue(identification.policy_expiration_date.value)) {
+    identification.policy_expiration_date = undefined;
+  }
+  if (identification.age && !looksLikeAgeValue(identification.age.value)) {
+    identification.age = undefined;
+  }
+  if (identification.sex && !looksLikeSexValue(identification.sex.value)) {
+    identification.sex = undefined;
+  }
+  if (identification.insured_horse_name && !looksLikeHorseName(identification.insured_horse_name.value)) {
+    identification.insured_horse_name = undefined;
+  }
+  applyDeclarationsScheduleFacts(identification, hits);
 
   for (const h of uniquePages(hits)) {
     const formId = extractPolicyFormValue(h.text);
@@ -868,8 +1027,23 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const medicalLimits = [
     ...moneyHits(hits, /major medical limit/i, "Major Medical limit"),
     ...moneyHits(hits, /major medical coverage with a limit of/i, "Major Medical limit"),
-    ...moneyHits(hits, /medical limit is amended to/i, "Major Medical limit")
+    ...moneyHits(hits, /medical limit is amended to/i, "Major Medical limit"),
+    ...moneyHits(hits, /\$[\d,]+\s+major medical endorsement/i, "Major Medical limit")
   ];
+  const medicalAggregate = firstMatch(
+    hits,
+    /major medical[\s\S]{0,1200}?is\s+(\$[\d,]+)\s+in the aggregate/i
+  );
+  if (medicalAggregate && !medicalLimits.some((item) => item.amount === medicalAggregate.value)) {
+    medicalLimits.push({
+      id: newId(),
+      label: "Major Medical limit",
+      amount: medicalAggregate.value,
+      source_document_id: medicalAggregate.source_document_id,
+      source_page: medicalAggregate.source_page,
+      source_text: medicalAggregate.source_text
+    });
+  }
   const uniqueMedical = uniqueLimitAmounts(medicalLimits);
   const medicalController = controllingLimit(uniqueMedical, hits, pageControlsMedical);
   const medicalEv = classifyCoverageEvidence(hits, { names: ["major medical coverage", "major medical"] });
@@ -890,7 +1064,10 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     medicalStatus === "COVERED WITH LIMITATIONS" ||
     medicalStatus === "LIMITED";
   const medicalDeductible = medicalIssued ? labeled(hits, ["Major Medical Deductible", "deductible of"]) : undefined;
-  const reimbursement = medicalIssued ? firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i) : undefined;
+  const reimbursement = medicalIssued
+    ? firstMatch(hits, /reimbursement is\s+(\d+\s*percent|\d+\s*%)/i) ||
+      firstMatch(hits, /co-payment\s*\(?\s*(\d+)\s*\)?\s*percent/i)
+    : undefined;
   const diagnostic = medicalIssued ? firstMatch(hits, /diagnostic[^\n$]{0,40}(\$[\d,]+)/i) : undefined;
   const medicalLimit =
     !medicalIssued || medicalStatus === "EXCLUDED" || medicalStatus === "POSSIBLE CONFLICT"
@@ -1002,7 +1179,14 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   if (colicStatus === "COVERED" && hasPhrase(allText, ["subject to the surgical"])) {
     colicStatus = "COVERED WITH LIMITATIONS";
   }
+  const colicIssued =
+    colicStatus === "COVERED" || colicStatus === "COVERED WITH LIMITATIONS" || colicStatus === "LIMITED";
+  const colicLimit = colicIssued
+    ? firstMatch(hits, /colic surgery[\s\S]{0,400}(\$[\d,]+)\s+in the aggregate/i) ||
+      firstMatch(hits, /(\$[\d,]+)\s+in the aggregate/i)
+    : undefined;
   addCoverage("Colic Surgery", colicStatus !== "NOT FOUND", colicStatus, {
+    coverage_limit: colicLimit,
     conditions: colicStatus === "COVERED WITH LIMITATIONS" ? "Stated as subject to the surgical limit." : undefined,
     description: coverageNarrative("Colic Surgery", colicStatus, colicEv),
     source_document_id: colicEv?.document_id,
@@ -1083,9 +1267,18 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     if (headingOnly && walked.kind !== "grant") {
       pendingAdditionalHeading = headingOnly;
       pendingAdditionalHeadingText = walked.clause.replace(/\s+/g, " ").trim();
-      continue;
+      if (/\bdiagnos(?:is|ed)\b/i.test(walked.clause) && walked.clause.length > headingOnly.length + 12) {
+        // heading and grant body arrived in the same clause
+      } else {
+        continue;
+      }
     }
-    if (walked.kind !== "grant") {
+    const pendingName = pendingAdditionalHeading || "";
+    const diagnosisGrant =
+      Boolean(pendingName) &&
+      /\bdiagnos(?:is|ed)\b/i.test(walked.clause) &&
+      walked.clause.toLowerCase().includes(pendingName.toLowerCase().split(/\s+/)[0] || "\0");
+    if (walked.kind !== "grant" && !diagnosisGrant) {
       pendingAdditionalHeading = null;
       pendingAdditionalHeadingText = null;
       continue;
@@ -1626,7 +1819,9 @@ function buildFormInventory(
 ): PolicyFormRecord[] {
   const listed: PolicyFormRecord[] = [];
   const seen = new Set<string>();
-  for (const h of declarationPages) {
+  const schedulePages = uniquePages(hits).filter((h) => Boolean(collectFormsScheduleText(h.text)));
+  const listingPages = schedulePages.length ? schedulePages : declarationPages;
+  for (const h of listingPages) {
     const schedule = collectFormsScheduleText(h.text);
     if (!schedule) continue;
     for (const item of parseListedForms(schedule)) {
@@ -1691,8 +1886,37 @@ function buildFormInventory(
       form.status = "PRESENT";
     }
   }
-  if (listed.length) return listed;
-  return discoverEmbeddedFormInventory(documents);
+  const discovered = discoverEmbeddedFormInventory(documents);
+  if (!listed.length) return dropInsertedLetterFormDuplicates(discovered);
+  const listedPresent = listed.filter((form) => form.status === "PRESENT").length;
+  if (listedPresent === 0 && discovered.length >= 2) return dropInsertedLetterFormDuplicates(discovered);
+  for (const form of discovered) {
+    if (seen.has(form.normalized_identifier)) continue;
+    if (
+      [...seen].some(
+        (id) =>
+          id.length < form.normalized_identifier.length &&
+          isInsertedLetterFormDuplicate(id, form.normalized_identifier)
+      )
+    ) {
+      continue;
+    }
+    seen.add(form.normalized_identifier);
+    listed.push(form);
+  }
+  return dropInsertedLetterFormDuplicates(listed);
+}
+
+function dropInsertedLetterFormDuplicates(forms: PolicyFormRecord[]): PolicyFormRecord[] {
+  return forms.filter((form) => {
+    const shorter = forms.find(
+      (other) =>
+        other.normalized_identifier !== form.normalized_identifier &&
+        other.normalized_identifier.length < form.normalized_identifier.length &&
+        isInsertedLetterFormDuplicate(other.normalized_identifier, form.normalized_identifier)
+    );
+    return !shorter;
+  });
 }
 
 function dedupeLimits(items: FinancialLimit[]): FinancialLimit[] {
