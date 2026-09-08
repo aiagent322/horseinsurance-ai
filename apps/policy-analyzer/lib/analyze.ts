@@ -1125,11 +1125,25 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   }
 
   const exclusions: ExclusionRecord[] = [];
+  const unresolvedFormExclusions: ExclusionRecord[] = [];
   const seenExclusion = new Set<string>();
   const exclusionsByClauseBody = new Map<string, ExclusionRecord[]>();
 
   function clauseBodyKey(documentId: string, clause: string): string {
     return `${documentId}|${clause.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 120)}`;
+  }
+
+  function formIdentityKey(documentId: string | undefined, page: number): string {
+    if (!documentId) return "";
+    return formRoleForPage(documentId, page)?.normalized_identifier || "";
+  }
+
+  function exclusionFormUnresolved(h: Hit): boolean {
+    return optionalFormApplicabilityUnresolved(
+      { page: h.page, text: h.text, document_id: h.document_id },
+      coverageApplicabilityPages,
+      []
+    );
   }
 
   function refreshExclusionExplanation(record: ExclusionRecord): void {
@@ -1176,15 +1190,26 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     const known = KNOWN_EXCLUSION_TITLES.has(type);
     if (trimmed.length < 5) return null;
     if (trimmed.length < 12 && !known) return null;
-    const existingByType = exclusions.find((row) => row.source_document_id === h.document_id && row.exclusion_type === type);
+    const segment = formRoleForPage(h.document_id, h.page);
+    const formKey = segment?.normalized_identifier || "";
+    const formStamp = segment?.printed_identifier || segment?.normalized_identifier;
+    const unresolved = exclusionFormUnresolved(h);
+    const target = unresolved ? unresolvedFormExclusions : exclusions;
+    const sameForm = (row: ExclusionRecord) =>
+      !formStamp ||
+      row.source_form_identifier === segment?.printed_identifier ||
+      row.source_form_identifier === segment?.normalized_identifier;
+    const existingByType = target.find(
+      (row) => row.source_document_id === h.document_id && row.exclusion_type === type && sameForm(row)
+    );
     if (existingByType && known) {
       mergeExclusionPage(existingByType, h.page);
       return existingByType;
     }
-    const bodyKey = clauseBodyKey(h.document_id, trimmed);
+    const bodyKey = `${formKey}|${clauseBodyKey(h.document_id, trimmed)}`;
     const sameBody = exclusionsByClauseBody.get(bodyKey) || [];
     if (!known && sameBody.length) return sameBody[0];
-    const typeKey = `${h.document_id}|${type}|${known ? "known" : bodyKey}`;
+    const typeKey = `${h.document_id}|${formKey}|${unresolved ? "unresolved" : "primary"}|${type}|${known ? "known" : bodyKey}`;
     if (seenExclusion.has(typeKey)) return existingByType || sameBody[0] || null;
     seenExclusion.add(typeKey);
     const record: ExclusionRecord = {
@@ -1198,9 +1223,11 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       source_pages: [h.page],
       exact_source_excerpt: excerpt(h.text, trimmed.slice(0, 80)),
       attachments: [],
-      confidence_status: "HIGH"
+      confidence_status: "HIGH",
+      source_form_identifier: formStamp,
+      source_form_role: segment?.role
     };
-    exclusions.push(record);
+    target.push(record);
     exclusionsByClauseBody.set(bodyKey, [...sameBody, record]);
     return record;
   }
@@ -1226,14 +1253,17 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   let parentLettered: string | null = null;
   let parentDoc: string | undefined;
   let parentSection: (typeof walkedClauses)[number]["section"] | undefined;
+  let parentFormKey = "";
 
   for (const walked of walkedClauses) {
-    if (walked.document_id !== parentDoc || walked.section !== parentSection) {
+    const formKey = formIdentityKey(walked.document_id, walked.page);
+    if (walked.document_id !== parentDoc || walked.section !== parentSection || formKey !== parentFormKey) {
       parentGroup = [];
       parentNumbered = null;
       parentLettered = null;
       parentDoc = walked.document_id;
       parentSection = walked.section;
+      parentFormKey = formKey;
     }
     if (walked.kind !== "exclusion") continue;
     const productDenial = clauseIsDenial(walked.clause, [
@@ -1529,6 +1559,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     documents,
     coverages,
     exclusions,
+    unresolved_form_exclusions: unresolvedFormExclusions,
     financial_limits: dedupeLimits(financial_limits),
     requirements,
     endorsements,

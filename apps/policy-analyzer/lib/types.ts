@@ -115,6 +115,8 @@ export type ExclusionRecord = {
   exact_source_excerpt: string;
   attachments?: ExclusionAttachment[];
   confidence_status: Confidence;
+  source_form_identifier?: string;
+  source_form_role?: LogicalFormRole | string;
 };
 
 export type FinancialLimit = {
@@ -224,6 +226,7 @@ export type PolicyRecord = {
   documents: DocumentRecord[];
   coverages: CoverageRecord[];
   exclusions: ExclusionRecord[];
+  unresolved_form_exclusions?: ExclusionRecord[];
   financial_limits: FinancialLimit[];
   requirements: RequirementRecord[];
   endorsements: EndorsementEffect[];

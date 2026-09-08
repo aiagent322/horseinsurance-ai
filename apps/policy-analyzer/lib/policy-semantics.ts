@@ -1111,6 +1111,23 @@ export function isUmbrellaExclusionOpener(clause: string): boolean {
   ) {
     return false;
   }
+  if (
+    /in addition to (?:the )?(?:exclusions|exclusions stated)/i.test(stripped) &&
+    /(?:this endorsement|this coverage|this form|the endorsement).{0,80}(?:shall not apply|does not apply)/i.test(
+      stripped
+    )
+  ) {
+    const afterApply = stripped
+      .replace(/^.*(?:shall not apply|does not apply)\s*/i, "")
+      .replace(/[:.;,\s]+$/g, "")
+      .trim();
+    if (
+      !afterApply ||
+      /^(?:to\s+)?(?:any\s+)?(?:horse|animal|insured)s?(?:\s+that has had)?$/i.test(afterApply)
+    ) {
+      return true;
+    }
+  }
   const remainder = stripped
     .replace(
       /^(?:this insurance|this policy|this endorsement|we|the company|the insurer|the policy)\s+/i,

@@ -4,8 +4,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeDocuments } from "../lib/analyze";
 import { classifyPackage } from "../lib/classify";
-import { segmentLogicalForms } from "../lib/form-segmentation";
+import { isEndorsementOrOptionalRole, segmentLogicalForms } from "../lib/form-segmentation";
 import {
+  buildSourceReferenceIndex,
   genericExclusionTitle,
   isUmbrellaExclusionOpener,
   parseSectionHeadingLine
@@ -67,6 +68,15 @@ function blob(row: ExclusionRecord, kind?: string): string {
   ].join("\n");
 }
 
+function optionalFormExclusionBlob(row: ExclusionRecord): string {
+  return `${row.exclusion_type} ${row.description} ${row.condition || ""} ${row.exact_source_excerpt || ""}`;
+}
+
+function isOptionalFormChildExclusion(row: ExclusionRecord): boolean {
+  const blob = optionalFormExclusionBlob(row);
+  return /colic, impaction, or torsion|digestive tract resection|prior colic surgery|prior digestive surgery/i.test(blob);
+}
+
 function matching(report: PolicyRecord, needle: RegExp): ExclusionRecord[] {
   return report.exclusions.filter((row) => needle.test(`${row.exclusion_type} ${row.description} ${row.condition || ""}`));
 }
@@ -82,7 +92,7 @@ function main() {
     readFileSync(join(here, "../lib/policy-semantics.ts"), "utf8"),
     readFileSync(join(here, "../lib/analyze.ts"), "utf8")
   ].join("\n");
-  assert.doesNotMatch(productionSources, /Chartis|\bAIG\b|77659/);
+  assert.doesNotMatch(productionSources, /Chartis|\bAIG\b|77659|97006|Digestive Tract Resection/);
 
   assert.equal(parseSectionHeadingLine("II EXCLUSIONS")?.section, "exclusions");
   assert.equal(parseSectionHeadingLine("SECTION II — EXCLUSIONS")?.section, "exclusions");
@@ -104,6 +114,11 @@ function main() {
     "(3) This insurance does not cover any loss directly or indirectly caused by, happening through, or in consequence of:";
   assert.equal(isUmbrellaExclusionOpener(diamondLead), true);
   assert.equal(genericExclusionTitle(diamondLead), null);
+
+  const optionalLead =
+    "In addition to the exclusions stated in the policy, this endorsement shall not apply to any horse that has had:";
+  assert.equal(isUmbrellaExclusionOpener(optionalLead), true);
+  assert.equal(genericExclusionTitle(optionalLead), null);
 
   const generic = analyzePages(
     [
@@ -228,6 +243,145 @@ M. West Nile Virus, unless you provide written proof of current vaccination.`
 
   const controlMedical = control.coverages.find((row) => row.coverage_type === "Major Medical");
   assert.equal(controlMedical?.coverage_status, "NEEDS CLARIFICATION", "optional endorsement applicability remains unresolved");
+  assert.equal(control.coverages.find((row) => row.coverage_type === "Full Mortality")?.coverage_status, "LIMITED");
+  assert.equal(control.coverages.find((row) => row.coverage_type === "Theft")?.coverage_status, "LIMITED");
+  const controlWobbler = control.coverages.find((row) => /syndrome/i.test(row.coverage_type));
+  assert.equal(controlWobbler?.coverage_status, "LIMITED");
+  assert.equal(control.requirements.length, 11, `Control #2 duties expected 11, got ${control.requirements.length}`);
+  assert.equal(control.identification.named_insured, undefined);
+  assert.equal(control.identification.policy_number, undefined);
+  assert.equal(control.completeness.status, "COMPLETE CONTRACTUAL SPECIMEN FORM SET");
+
+  assert.equal(control.exclusions.filter(isOptionalFormChildExclusion).length, 0, "unresolved optional-form exclusions must not enter the primary set");
+  assert.ok(
+    control.exclusions.every((row) => !(row.source_pages || [row.source_page]).includes(14)),
+    "page 14 must not source the primary exclusion set while the optional form is unresolved"
+  );
+  const controlExclusionIndex = buildSourceReferenceIndex(control).find((item) => item.finding_type === "exclusion");
+  assert.ok(controlExclusionIndex, "primary exclusion source index must exist");
+  assert.deepEqual(
+    [...controlExclusionIndex.pages].sort((a, b) => a - b),
+    [6, 7],
+    `primary exclusion source pages ${controlExclusionIndex.pages.join(",")}`
+  );
+  assert.equal(controlExclusionIndex.pages.includes(14), false);
+
+  const unresolvedOptional = control.unresolved_form_exclusions || [];
+  const optionalSourceForm = control.form_inventory.find(
+    (form) => /97006/.test(form.printed_identifier) || /colic/i.test(form.form_title || "")
+  );
+  assert.ok(optionalSourceForm, "optional colic form remains in inventory");
+  const unresolvedFromOptionalForm = unresolvedOptional.filter(
+    (row) =>
+      row.source_form_identifier === optionalSourceForm.printed_identifier ||
+      row.source_form_identifier === optionalSourceForm.normalized_identifier
+  );
+  assert.equal(
+    unresolvedFromOptionalForm.filter((row) => /^stated exclusion$/i.test(row.exclusion_type)).length,
+    0,
+    "optional-form umbrella lead-in must not become a standalone exclusion"
+  );
+  const unresolvedChildren = unresolvedOptional.filter(isOptionalFormChildExclusion);
+  assert.ok(
+    unresolvedChildren.length >= 2,
+    `optional-form exclusions must remain associated internally, got ${unresolvedOptional.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  for (const row of unresolvedChildren) {
+    assert.ok(
+      row.source_form_identifier === optionalSourceForm.printed_identifier ||
+        row.source_form_identifier === optionalSourceForm.normalized_identifier,
+      `optional exclusion ${row.exclusion_type} must keep source-form ownership`
+    );
+    assert.ok(isEndorsementOrOptionalRole(row.source_form_role), `${row.exclusion_type} must keep endorsement/optional role`);
+  }
+
+  const optionalEndorsementBody = `ENDORSEMENT
+THIS ENDORSEMENT CHANGES THE POLICY. PLEASE READ IT CAREFULLY.
+Form 88991 (1/08) Page 1 of 1
+OPTIONAL SURGICAL EXTENSION ENDORSEMENT
+This coverage ONLY applies to those horses for which a specific premium charge for Emergency Colic Surgery is indicated in the Declarations, Item 3. Schedule Of Covered Horses.
+I. COVERAGE
+We will pay reasonable and customary fees for emergency surgery.
+III. EXCLUSIONS
+In addition to the exclusions stated in the policy, this endorsement shall not apply to any horse that has had:
+A. Prior colic surgery in the twelve (12) months prior to the effective date of this policy, or
+B. Prior digestive surgery at any time.`;
+
+  const issuedOptional = analyzePages(
+    [
+      {
+        page: 1,
+        text: `DECLARATIONS PAGE
+POLICY NUMBER: EQ-ISSUE-1
+NAMED INSURED: Test Owner
+ITEM 3. SCHEDULE OF COVERED HORSES
+Name: Test Horse
+Emergency Colic Surgery: Yes selected
+Limit of Insurance $10,000 Premium $250`
+      },
+      { page: 2, text: optionalEndorsementBody }
+    ],
+    "issued-optional-exclusions.pdf"
+  );
+  const issuedOptionalChildren = issuedOptional.exclusions.filter(isOptionalFormChildExclusion);
+  assert.ok(
+    issuedOptionalChildren.length >= 2,
+    `issued optional endorsement exclusions must enter the primary set, got ${issuedOptional.exclusions.map((row) => row.exclusion_type).join(" | ")}`
+  );
+  assert.equal(issuedOptional.exclusions.filter((row) => /^stated exclusion$/i.test(row.exclusion_type)).length, 0);
+  for (const row of issuedOptionalChildren) {
+    assert.ok(isEndorsementOrOptionalRole(row.source_form_role));
+  }
+
+  const unresolvedGated = analyzePages(
+    [
+      {
+        page: 1,
+        text: `DECLARATIONS PAGE
+POLICY NUMBER:
+NAMED INSURED:
+ITEM 3. SCHEDULE OF COVERED HORSES
+Name of Horse
+Coverage Description Limit of Insurance Rate Premium /`
+      },
+      { page: 2, text: optionalEndorsementBody }
+    ],
+    "unresolved-optional-exclusions.pdf"
+  );
+  assert.equal(
+    unresolvedGated.exclusions.filter(isOptionalFormChildExclusion).length,
+    0,
+    "gated optional endorsement exclusions stay out of the primary set until issued"
+  );
+  assert.ok(
+    (unresolvedGated.unresolved_form_exclusions || []).filter(isOptionalFormChildExclusion).length >= 2,
+    "gated optional endorsement exclusions remain associated with the unresolved form"
+  );
+
+  const issuedUngated = analyzePages(
+    [
+      {
+        page: 1,
+        text: `Declarations
+Policy Number: EQ-UNGATED-1
+Named Insured: Ada Cole
+Forms: EQ-A-1, EQ-B-1`
+      },
+      {
+        page: 2,
+        text: "Base Policy Form EQ-A-1\nThis policy provides Full Mortality coverage for the insured horse."
+      },
+      {
+        page: 3,
+        text: "Exclusion Endorsement EQ-B-1\nThis endorsement excludes coverage for the left front fetlock."
+      }
+    ],
+    "issued-ungated-exclusion.pdf"
+  );
+  assert.ok(
+    issuedUngated.exclusions.some((row) => /fetlock/i.test(optionalFormExclusionBlob(row))),
+    "ungated issued endorsement exclusions must not be globally suppressed"
+  );
 
   const diamond = analyzePages(LIVE_NATIVE_EXCLUSION_PAGES, "diamond-state-exclusions.pdf");
   assert.equal(diamond.exclusions.length, 12, `Diamond State expected 12, got ${diamond.exclusions.map((row) => row.exclusion_type).join(" | ")}`);
