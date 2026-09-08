@@ -30,6 +30,19 @@ export default async function HomePage({
           coverage that is not in the file.
         </p>
       </section>
+      <section className="rounded-xl border border-[#0b3c5d]/15 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-[#0b3c5d]">U.S. Control Policy #3</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4a5568]">
+          Download the 28-page Great American issued package, then start the analyzer and upload that file. This is
+          not the 54-page court complaint.
+        </p>
+        <a
+          className="mt-4 inline-flex h-9 items-center rounded-lg bg-[#0b3c5d] px-3 text-sm font-medium text-white hover:bg-[#144e78]"
+          href="/api/controls/us-3"
+        >
+          Download Control #3 PDF
+        </a>
+      </section>
       {!configured ? (
         <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 text-sm text-[#4a5568]">
           Analyzer persistence is not configured. Set the Supabase URL and publishable key. Missing configuration
