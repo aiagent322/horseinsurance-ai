@@ -398,6 +398,20 @@ export function packageHasUnfilledIssuedFacts(
   return pages.some((page) => isUnfilledDeclarationsTemplate(page.text));
 }
 
+export type DeclarationsScheduleEvidence = "absent" | "present_blank" | "present_populated";
+
+export function resolveDeclarationsScheduleEvidence(
+  pages: Array<{ text: string }>,
+  identification: PolicyIdentification
+): DeclarationsScheduleEvidence {
+  const present = pages.some((page) => looksLikeDeclarationsPage(page.text));
+  if (!present) return "absent";
+  if (personalizedFactsMissing(identification) || packageHasUnfilledIssuedFacts(pages, identification)) {
+    return "present_blank";
+  }
+  return "present_populated";
+}
+
 const STANDARD_COVERAGE_TITLE =
   /^(?:death|humane destruction|death or humane destruction|theft|theft or unlawful removal|unlawful removal|full mortality|mortality|major medical|surgical|colic surgery|loss of use|stallion infertility|territory|coverage territory|definitions?|exclusions?|conditions?|coverages?)$/i;
 
@@ -1984,6 +1998,7 @@ export type CoverageExplanationFacts = {
   optionalMention?: boolean;
   applicabilityUnresolved?: boolean;
   missingDeclarationsOrSchedule?: boolean;
+  declarationsScheduleEvidence?: DeclarationsScheduleEvidence;
   hasRelatedCoverageLimitation?: boolean;
 };
 
@@ -2019,6 +2034,19 @@ function missingDeclarationsAnalysis(): string {
   return "The uploaded package does not include the Declarations/Schedule needed to identify the insured horse, policy period, liability limit, or deductible.";
 }
 
+function blankSpecimenDeclarationsAnalysis(): string {
+  return "The uploaded Declarations/Schedule are specimen forms with blank issued-policy fields, so the insured horse, policy period, applicable limit, and issued policy facts cannot be confirmed.";
+}
+
+function declarationsScheduleGapAnalysis(facts: CoverageExplanationFacts): string | undefined {
+  if (facts.declarationsScheduleEvidence === "present_populated") return undefined;
+  if (facts.declarationsScheduleEvidence === "present_blank") return blankSpecimenDeclarationsAnalysis();
+  if (facts.declarationsScheduleEvidence === "absent" || facts.missingDeclarationsOrSchedule) {
+    return missingDeclarationsAnalysis();
+  }
+  return undefined;
+}
+
 export function explainCoverage(facts: CoverageExplanationFacts): string {
   const type = facts.coverageType;
   const status = facts.status;
@@ -2046,8 +2074,9 @@ export function explainCoverage(facts: CoverageExplanationFacts): string {
   }
   if (status === "LIMITED" || status === "COVERED WITH LIMITATIONS") {
     const parts = [grantAnalysis(type, facts.grantClause)];
-    if (facts.missingDeclarationsOrSchedule) {
-      parts.push(missingDeclarationsAnalysis());
+    const declarationsGap = declarationsScheduleGapAnalysis(facts);
+    if (declarationsGap) {
+      parts.push(declarationsGap);
     } else if (status === "COVERED WITH LIMITATIONS") {
       parts.push("The coverage is stated subject to a limit or modifying endorsement in the uploaded documents.");
     }
@@ -2057,7 +2086,8 @@ export function explainCoverage(facts: CoverageExplanationFacts): string {
     return parts.join(" ");
   }
   const parts = [grantAnalysis(type, facts.grantClause)];
-  if (facts.missingDeclarationsOrSchedule) parts.push(missingDeclarationsAnalysis());
+  const declarationsGap = declarationsScheduleGapAnalysis(facts);
+  if (declarationsGap) parts.push(declarationsGap);
   return parts.join(" ");
 }
 

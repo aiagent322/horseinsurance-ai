@@ -52,6 +52,7 @@ import {
   normalizeIdentificationValue,
   packageHasUnfilledIssuedFacts,
   personalizedFactsMissing,
+  resolveDeclarationsScheduleEvidence,
   takePopulatedIdentityValue,
   splitExclusionSatellites,
   summarizeExclusionSatellite,
@@ -678,7 +679,11 @@ function coverageNarrative(
   type: string,
   status: AnalysisStatus,
   evidence: CoverageEvidence | null,
-  extras: { missingDeclarationsOrSchedule?: boolean; hasRelatedCoverageLimitation?: boolean } = {}
+  extras: {
+    missingDeclarationsOrSchedule?: boolean;
+    declarationsScheduleEvidence?: ReturnType<typeof resolveDeclarationsScheduleEvidence>;
+    hasRelatedCoverageLimitation?: boolean;
+  } = {}
 ): string {
   const grantLike =
     status === "COVERED" || status === "LIMITED" || status === "COVERED WITH LIMITATIONS";
@@ -690,6 +695,7 @@ function coverageNarrative(
     optionalMention: Boolean(evidence?.optional && !evidence?.applicabilityUnresolved),
     applicabilityUnresolved: Boolean(evidence?.applicabilityUnresolved),
     missingDeclarationsOrSchedule: extras.missingDeclarationsOrSchedule,
+    declarationsScheduleEvidence: extras.declarationsScheduleEvidence,
     hasRelatedCoverageLimitation: extras.hasRelatedCoverageLimitation
   });
 }
@@ -740,6 +746,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   const factsMissing = personalizedFactsMissing(identification);
   const pageHits = uniquePages(hits);
   const issuedFactsUnresolved = packageHasUnfilledIssuedFacts(pageHits, identification);
+  const declarationsScheduleEvidence = resolveDeclarationsScheduleEvidence(pageHits, identification);
   const walkedClauses = walkPolicyClauses(
     pageHits.map((h) => ({ page: h.page, text: h.text, document_id: h.document_id }))
   );
@@ -848,7 +855,8 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     {
       coverage_limit: mortalityLimit,
       description: coverageNarrative("Full Mortality", mortalityStatus, mortalityEv, {
-        missingDeclarationsOrSchedule: factsMissing
+        missingDeclarationsOrSchedule: factsMissing,
+        declarationsScheduleEvidence
       }),
       source_document_id: mortalityController?.source_document_id || mortalityEv?.document_id,
       source_page: mortalityController?.source_page || mortalityEv?.page,
@@ -901,7 +909,8 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
       ? "An endorsement modifies the medical limit."
       : undefined,
     description: coverageNarrative("Major Medical", medicalStatus, medicalEv, {
-      missingDeclarationsOrSchedule: factsMissing && medicalStatus === "LIMITED"
+      missingDeclarationsOrSchedule: factsMissing && medicalStatus === "LIMITED",
+      declarationsScheduleEvidence
     }),
     source_document_id: medicalController?.source_document_id || medicalEv?.document_id,
     source_page: medicalController?.source_page || medicalEv?.page,
@@ -979,7 +988,8 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
     occurrence_limit: surgical,
     coverage_limit: surgical,
     description: coverageNarrative("Surgical", surgicalStatus, surgicalEv, {
-      missingDeclarationsOrSchedule: factsMissing && surgicalStatus === "LIMITED"
+      missingDeclarationsOrSchedule: factsMissing && surgicalStatus === "LIMITED",
+      declarationsScheduleEvidence
     }),
     source_document_id: surgicalController?.source_document_id || surgicalEv?.document_id,
     source_page: surgicalController?.source_page || surgicalEv?.page,
@@ -1035,6 +1045,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
   addCoverage("Theft", theftStatus !== "NOT FOUND", theftStatus, {
     description: coverageNarrative("Theft", theftStatus, theftEv, {
       missingDeclarationsOrSchedule: factsMissing,
+      declarationsScheduleEvidence,
       hasRelatedCoverageLimitation: hasTheftCoverageLimitation
     }),
     source_document_id: theftEv?.document_id,
@@ -1116,7 +1127,7 @@ export function analyzeDocuments(policyId: string, sessionId: string, documents:
           clause: grantSource,
           pageText: h.text
         },
-        { missingDeclarationsOrSchedule: factsMissing }
+        { missingDeclarationsOrSchedule: factsMissing, declarationsScheduleEvidence }
       ),
       source_document_id: h.document_id,
       source_page: h.page,
