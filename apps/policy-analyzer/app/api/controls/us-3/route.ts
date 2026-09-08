@@ -21,15 +21,7 @@ export async function GET() {
       }
     });
   }
-  return new NextResponse(bytes, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${DOWNLOAD_NAME}"`,
-      "Content-Length": String(bytes.byteLength),
-      "Cache-Control": "public, max-age=3600"
-    }
-  });
-}
+  return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${DOWNLOAD_NAME}"`,
