@@ -176,12 +176,37 @@ img { max-width:100%; height:auto; display:block; }
 }
 
 /* ── HORSE TABLE ── */
-.est-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
-.est-table {
-  width:100%;
-  border-collapse:collapse;
-  font-size:0.875rem;
-  min-width:340px;
+/* Keep one set of inputs for both layouts. */
+.est-table-wrap { container-type:inline-size; }
+.est-table { display:block; width:100%; font-size:0.875rem; }
+.est-table thead {
+  position:absolute;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
+.est-table tbody { display:grid; gap:10px; }
+.est-table tbody tr {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  padding:12px;
+  border:1px solid var(--border-light);
+  border-radius:var(--radius);
+}
+.est-table td:last-child { grid-area:1 / 2; justify-self:end; }
+.est-field-label { display:block; margin-bottom:4px; font-size:0.8rem; }
+.est-table td:has(.est-field-label) { display:flex; flex-direction:column; justify-content:space-between; }
+
+@container(min-width:340px) {
+  .est-table { display:table; border-collapse:collapse; }
+  .est-table thead { position:static; width:auto; height:auto; clip-path:none; }
+  .est-table tbody { display:table-row-group; }
+  .est-table tbody tr { display:table-row; padding:0; border:0; }
+  .est-table td:has(.est-field-label) { display:table-cell; }
+  .est-field-label { display:none; }
 }
 .est-table th {
   text-align:left;
@@ -195,18 +220,21 @@ img { max-width:100%; height:auto; display:block; }
   white-space:nowrap;
 }
 .est-table td {
-  padding:8px 6px;
-  border-bottom:1px solid var(--border-light);
+  min-width:0;
   vertical-align:middle;
 }
-.est-table tr:last-child td { border-bottom:none; }
+@container(min-width:340px) {
+  .est-table td { padding:8px 6px; border-bottom:1px solid var(--border-light); }
+  .est-table tr:last-child td { border-bottom:none; }
+}
 .est-table input[type="number"] {
   width:100%;
-  min-width:70px;
+  min-width:0;
+  min-height:44px;
   padding:7px 8px;
   border:1px solid var(--border);
   border-radius:4px;
-  font-size:0.875rem;
+  font-size:1rem;
   color:var(--text);
   background:#fff;
   -moz-appearance:textfield;
@@ -382,6 +410,7 @@ img { max-width:100%; height:auto; display:block; }
 }
 .est-breakdown-table tr td:last-child { text-align:right; font-weight:600; color:var(--primary); }
 .est-breakdown-table td {
+  overflow-wrap:anywhere;
   padding:6px 0;
   border-bottom:1px solid var(--border-light);
   color:var(--text-mid);

@@ -112,45 +112,45 @@
         <p class="est-card-intro">Enter the number of horses and average value per discipline. Leave unused rows at zero.</p>
 
         <div class="est-table-wrap">
-          <table class="est-table">
-            <thead>
-              <tr>
-                <th>Discipline</th>
-                <th># Horses</th>
-                <th>Avg Value ($)</th>
-                <th>Risk</th>
+          <table role="table" class="est-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader">Discipline</th>
+                <th role="columnheader"># Horses</th>
+                <th role="columnheader">Avg Value ($)</th>
+                <th role="columnheader">Risk</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td><span class="disc-label rope">🤠 Rope</span></td>
-                <td><input id="ropeCount" type="number" min="0" max="99" value="0" aria-label="Rope horse count"></td>
-                <td><input id="ropeValue" type="number" min="0" step="500" value="0" aria-label="Rope average value"></td>
-                <td><span class="risk-badge risk-mod">Moderate</span></td>
+            <tbody role="rowgroup">
+              <tr role="row">
+                <td role="cell"><span class="disc-label rope">🤠 Rope</span></td>
+                <td role="cell"><label class="est-field-label" for="ropeCount">Number of horses</label><input id="ropeCount" type="number" min="0" max="99" value="0" aria-label="Rope horse count"></td>
+                <td role="cell"><label class="est-field-label" for="ropeValue">Average value per horse ($)</label><input id="ropeValue" type="number" min="0" step="500" value="0" aria-label="Rope average value"></td>
+                <td role="cell"><span class="risk-badge risk-mod">Moderate</span></td>
               </tr>
-              <tr>
-                <td><span class="disc-label barrel">🛢 Barrel</span></td>
-                <td><input id="barrelCount" type="number" min="0" max="99" value="0" aria-label="Barrel horse count"></td>
-                <td><input id="barrelValue" type="number" min="0" step="500" value="0" aria-label="Barrel average value"></td>
-                <td><span class="risk-badge risk-mod">Moderate</span></td>
+              <tr role="row">
+                <td role="cell"><span class="disc-label barrel">🛢 Barrel</span></td>
+                <td role="cell"><label class="est-field-label" for="barrelCount">Number of horses</label><input id="barrelCount" type="number" min="0" max="99" value="0" aria-label="Barrel horse count"></td>
+                <td role="cell"><label class="est-field-label" for="barrelValue">Average value per horse ($)</label><input id="barrelValue" type="number" min="0" step="500" value="0" aria-label="Barrel average value"></td>
+                <td role="cell"><span class="risk-badge risk-mod">Moderate</span></td>
               </tr>
-              <tr>
-                <td><span class="disc-label cutting">✂️ Cutting</span></td>
-                <td><input id="cuttingCount" type="number" min="0" max="99" value="0" aria-label="Cutting horse count"></td>
-                <td><input id="cuttingValue" type="number" min="0" step="500" value="0" aria-label="Cutting average value"></td>
-                <td><span class="risk-badge risk-high">Higher</span></td>
+              <tr role="row">
+                <td role="cell"><span class="disc-label cutting">✂️ Cutting</span></td>
+                <td role="cell"><label class="est-field-label" for="cuttingCount">Number of horses</label><input id="cuttingCount" type="number" min="0" max="99" value="0" aria-label="Cutting horse count"></td>
+                <td role="cell"><label class="est-field-label" for="cuttingValue">Average value per horse ($)</label><input id="cuttingValue" type="number" min="0" step="500" value="0" aria-label="Cutting average value"></td>
+                <td role="cell"><span class="risk-badge risk-high">Higher</span></td>
               </tr>
-              <tr>
-                <td><span class="disc-label reining">🏆 Reining</span></td>
-                <td><input id="reiningCount" type="number" min="0" max="99" value="0" aria-label="Reining horse count"></td>
-                <td><input id="reiningValue" type="number" min="0" step="500" value="0" aria-label="Reining average value"></td>
-                <td><span class="risk-badge risk-high">Higher</span></td>
+              <tr role="row">
+                <td role="cell"><span class="disc-label reining">🏆 Reining</span></td>
+                <td role="cell"><label class="est-field-label" for="reiningCount">Number of horses</label><input id="reiningCount" type="number" min="0" max="99" value="0" aria-label="Reining horse count"></td>
+                <td role="cell"><label class="est-field-label" for="reiningValue">Average value per horse ($)</label><input id="reiningValue" type="number" min="0" step="500" value="0" aria-label="Reining average value"></td>
+                <td role="cell"><span class="risk-badge risk-high">Higher</span></td>
               </tr>
-              <tr>
-                <td><span class="disc-label pleasure">🐎 Pleasure</span></td>
-                <td><input id="pleasureCount" type="number" min="0" max="99" value="0" aria-label="Pleasure horse count"></td>
-                <td><input id="pleasureValue" type="number" min="0" step="500" value="0" aria-label="Pleasure average value"></td>
-                <td><span class="risk-badge risk-low">Lower</span></td>
+              <tr role="row">
+                <td role="cell"><span class="disc-label pleasure">🐎 Pleasure</span></td>
+                <td role="cell"><label class="est-field-label" for="pleasureCount">Number of horses</label><input id="pleasureCount" type="number" min="0" max="99" value="0" aria-label="Pleasure horse count"></td>
+                <td role="cell"><label class="est-field-label" for="pleasureValue">Average value per horse ($)</label><input id="pleasureValue" type="number" min="0" step="500" value="0" aria-label="Pleasure average value"></td>
+                <td role="cell"><span class="risk-badge risk-low">Lower</span></td>
               </tr>
             </tbody>
           </table>
